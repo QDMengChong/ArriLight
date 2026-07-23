@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.StorePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Shell.NavBarIsVisible="False"
+    BackgroundColor="{StaticResource PageBackground}">
+
+    <Grid Padding="24">
+        <VerticalStackLayout
+            HorizontalOptions="Center"
+            Spacing="12"
+            VerticalOptions="Center">
+            <Image HeightRequest="64" Source="tab_store.svg" WidthRequest="64" />
+            <Label
+                FontFamily="OpenSansSemibold"
+                FontSize="22"
+                HorizontalTextAlignment="Center"
+                Text="商城"
+                TextColor="{StaticResource TextPrimary}" />
+            <Label
+                FontSize="14"
+                HorizontalTextAlignment="Center"
+                Text="页面内容将在后续设计"
+                TextColor="{StaticResource TextSecondary}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>
