@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.MessageCenterPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight"
+    x:DataType="local:MessageCenterPage"
+    Title="消息中心"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <CollectionView
+        ItemsSource="{Binding Messages}"
+        SelectionMode="None"
+        VerticalScrollBarVisibility="Never">
+        <CollectionView.Header>
+            <Label
+                Margin="20,22,20,14"
+                FontSize="13"
+                Text="最近消息"
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+        </CollectionView.Header>
+        <CollectionView.ItemsLayout>
+            <LinearItemsLayout Orientation="Vertical" ItemSpacing="12" />
+        </CollectionView.ItemsLayout>
+        <CollectionView.ItemTemplate>
+            <DataTemplate x:DataType="local:AppMessage">
+                <Border
+                    Margin="20,0"
+                    Padding="17"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                    Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                    StrokeShape="RoundRectangle 20"
+                    StrokeThickness="1">
+                    <Grid ColumnDefinitions="44,*" ColumnSpacing="13">
+                        <Border
+                            HeightRequest="44"
+                            WidthRequest="44"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 14">
+                            <Image Margin="11" Source="profile_messages.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="7">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label
+                                    FontFamily="OpenSansSemibold"
+                                    FontSize="16"
+                                    Text="{Binding Title}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="11"
+                                    Text="{Binding Time}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            </Grid>
+                            <Label
+                                FontSize="13"
+                                LineHeight="1.35"
+                                Text="{Binding Content}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+            </DataTemplate>
+        </CollectionView.ItemTemplate>
+    </CollectionView>
+</ContentPage>

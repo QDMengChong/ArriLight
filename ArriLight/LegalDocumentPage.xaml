@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.LegalDocumentPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight"
+    x:DataType="local:LegalDocumentPage"
+    Title="{Binding DocumentTitle}"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <ScrollView>
+        <Border Margin="20,24" Style="{StaticResource MenuCardStyle}">
+            <VerticalStackLayout Spacing="15">
+                <Label
+                    FontFamily="OpenSansSemibold"
+                    FontSize="21"
+                    Text="{Binding DocumentTitle}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                <Label
+                    FontSize="12"
+                    Text="更新日期：2026 年 7 月 23 日"
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                <Label
+                    FontSize="14"
+                    LineHeight="1.55"
+                    Text="{Binding DocumentContent}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+            </VerticalStackLayout>
+        </Border>
+    </ScrollView>
+</ContentPage>

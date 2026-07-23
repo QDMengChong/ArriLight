@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.AboutUsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="关于我们"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <VerticalStackLayout Padding="20,24" Spacing="12">
+        <Border Style="{StaticResource MenuCardStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnUserAgreementTapped" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                <Border Style="{StaticResource MenuIconContainerStyle}">
+                    <Image Margin="12" Source="about_agreement.svg" />
+                </Border>
+                <Label Grid.Column="1" Style="{StaticResource MenuTitleStyle}" Text="用户协议" VerticalTextAlignment="Center" />
+                <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+            </Grid>
+        </Border>
+
+        <Border Style="{StaticResource MenuCardStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnPrivacyPolicyTapped" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                <Border Style="{StaticResource MenuIconContainerStyle}">
+                    <Image Margin="12" Source="about_privacy.svg" />
+                </Border>
+                <Label Grid.Column="1" Style="{StaticResource MenuTitleStyle}" Text="隐私政策" VerticalTextAlignment="Center" />
+                <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+            </Grid>
+        </Border>
+
+        <Border Style="{StaticResource MenuCardStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnWeChatTapped" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                <Border Style="{StaticResource MenuIconContainerStyle}">
+                    <Image Margin="11" Source="about_wechat.svg" />
+                </Border>
+                <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="微信公众号" />
+                    <Label Style="{StaticResource MenuDescriptionStyle}" Text="打开微信后搜索并关注" />
+                </VerticalStackLayout>
+                <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+            </Grid>
+        </Border>
+
+        <Border Style="{StaticResource MenuCardStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnContactUsTapped" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                <Border Style="{StaticResource MenuIconContainerStyle}">
+                    <Image Margin="12" Source="about_phone.svg" />
+                </Border>
+                <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="联系我们" />
+                    <Label Style="{StaticResource MenuDescriptionStyle}" Text="400-000-0000（示例）" />
+                </VerticalStackLayout>
+                <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+            </Grid>
+        </Border>
+    </VerticalStackLayout>
+</ContentPage>

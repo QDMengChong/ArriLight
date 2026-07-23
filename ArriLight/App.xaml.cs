@@ -7,6 +7,7 @@ namespace ArriLight
         public App()
         {
             InitializeComponent();
+            UserAppTheme = ThemePreference.Load();
         }
 
         protected override Window CreateWindow(IActivationState? activationState)

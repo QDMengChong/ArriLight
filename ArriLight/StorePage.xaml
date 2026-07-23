@@ -4,7 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     Shell.NavBarIsVisible="False"
-    BackgroundColor="{StaticResource PageBackground}">
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <Grid Padding="24">
         <VerticalStackLayout
@@ -17,12 +17,12 @@
                 FontSize="22"
                 HorizontalTextAlignment="Center"
                 Text="商城"
-                TextColor="{StaticResource TextPrimary}" />
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
             <Label
                 FontSize="14"
                 HorizontalTextAlignment="Center"
                 Text="页面内容将在后续设计"
-                TextColor="{StaticResource TextSecondary}" />
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         </VerticalStackLayout>
     </Grid>
 </ContentPage>

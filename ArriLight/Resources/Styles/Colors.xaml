@@ -18,6 +18,12 @@
     <Color x:Key="TextSecondary">#7C879D</Color>
     <Color x:Key="CardStroke">#E8ECF4</Color>
     <Color x:Key="DeviceIconBackground">#EDF3FF</Color>
+    <Color x:Key="DarkPageBackground">#111827</Color>
+    <Color x:Key="DarkCardBackground">#1B2535</Color>
+    <Color x:Key="DarkTextPrimary">#F3F6FC</Color>
+    <Color x:Key="DarkTextSecondary">#A6B0C2</Color>
+    <Color x:Key="DarkCardStroke">#2B374A</Color>
+    <Color x:Key="DarkIconBackground">#263652</Color>
 
     <Color x:Key="White">White</Color>
     <Color x:Key="Black">Black</Color>

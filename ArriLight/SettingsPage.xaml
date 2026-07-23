@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.SettingsPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    Title="设置"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <VerticalStackLayout Padding="20,24" Spacing="12">
+        <Label
+            Margin="4,0,0,4"
+            FontSize="13"
+            Text="外观"
+            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+
+        <Border Style="{StaticResource MenuCardStyle}">
+            <VerticalStackLayout Spacing="0">
+                <Grid ColumnDefinitions="*,Auto" Padding="0,2,0,12">
+                    <VerticalStackLayout Spacing="3">
+                        <Label Style="{StaticResource MenuTitleStyle}" Text="跟随系统" />
+                        <Label Style="{StaticResource MenuDescriptionStyle}" Text="自动使用系统的外观设置" />
+                    </VerticalStackLayout>
+                    <RadioButton
+                        x:Name="SystemThemeRadio"
+                        Grid.Column="1"
+                        GroupName="AppTheme"
+                        CheckedChanged="OnSystemThemeChecked"
+                        VerticalOptions="Center" />
+                </Grid>
+                <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                <Grid ColumnDefinitions="*,Auto" Padding="0,12">
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="浅色主题" VerticalTextAlignment="Center" />
+                    <RadioButton
+                        x:Name="LightThemeRadio"
+                        Grid.Column="1"
+                        GroupName="AppTheme"
+                        CheckedChanged="OnLightThemeChecked"
+                        VerticalOptions="Center" />
+                </Grid>
+                <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                <Grid ColumnDefinitions="*,Auto" Padding="0,12,0,2">
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="深色主题" VerticalTextAlignment="Center" />
+                    <RadioButton
+                        x:Name="DarkThemeRadio"
+                        Grid.Column="1"
+                        GroupName="AppTheme"
+                        CheckedChanged="OnDarkThemeChecked"
+                        VerticalOptions="Center" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+        <Label
+            Margin="4,8,0,0"
+            FontSize="12"
+            Text="主题选择会保存在本机，并在下次启动时自动应用。"
+            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+    </VerticalStackLayout>
+</ContentPage>

@@ -4,25 +4,99 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     Shell.NavBarIsVisible="False"
-    BackgroundColor="{StaticResource PageBackground}">
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
-    <Grid Padding="24">
-        <VerticalStackLayout
-            HorizontalOptions="Center"
-            Spacing="12"
-            VerticalOptions="Center">
-            <Image HeightRequest="64" Source="tab_profile.svg" WidthRequest="64" />
-            <Label
-                FontFamily="OpenSansSemibold"
-                FontSize="22"
-                HorizontalTextAlignment="Center"
-                Text="我的"
-                TextColor="{StaticResource TextPrimary}" />
-            <Label
-                FontSize="14"
-                HorizontalTextAlignment="Center"
-                Text="页面内容将在后续设计"
-                TextColor="{StaticResource TextSecondary}" />
+    <ScrollView>
+        <VerticalStackLayout Spacing="0">
+            <Border
+                Padding="24,34,24,30"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 0,0,30,30">
+                <Border.Background>
+                    <LinearGradientBrush EndPoint="1,1">
+                        <GradientStop Offset="0" Color="{StaticResource Primary}" />
+                        <GradientStop Offset="1" Color="{StaticResource PrimaryLight}" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <VerticalStackLayout Spacing="5">
+                    <Label
+                        FontFamily="OpenSansSemibold"
+                        FontSize="28"
+                        Text="我的"
+                        TextColor="White" />
+                    <Label
+                        FontSize="13"
+                        Opacity="0.8"
+                        Text="服务、信息与应用设置"
+                        TextColor="White" />
+                </VerticalStackLayout>
+            </Border>
+
+            <VerticalStackLayout Padding="20,24" Spacing="12">
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnMessageCenterTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                        <Border Style="{StaticResource MenuIconContainerStyle}">
+                            <Image Margin="12" Source="profile_messages.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="消息中心" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="查看通知与服务消息" />
+                        </VerticalStackLayout>
+                        <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnAppVersionTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                        <Border Style="{StaticResource MenuIconContainerStyle}">
+                            <Image Margin="12" Source="profile_version.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="应用版本" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="版本信息与更新内容" />
+                        </VerticalStackLayout>
+                        <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnAboutUsTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                        <Border Style="{StaticResource MenuIconContainerStyle}">
+                            <Image Margin="12" Source="profile_about.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="关于我们" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="协议、隐私与联系方式" />
+                        </VerticalStackLayout>
+                        <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnSettingsTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                        <Border Style="{StaticResource MenuIconContainerStyle}">
+                            <Image Margin="12" Source="profile_settings.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="设置" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="主题与应用偏好" />
+                        </VerticalStackLayout>
+                        <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
         </VerticalStackLayout>
-    </Grid>
+    </ScrollView>
 </ContentPage>

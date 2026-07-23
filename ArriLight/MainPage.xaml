@@ -6,7 +6,7 @@
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:MainPage"
     Shell.NavBarIsVisible="False"
-    BackgroundColor="{StaticResource PageBackground}">
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <Grid RowDefinitions="Auto,*">
         <Border
@@ -104,12 +104,12 @@
                     FontFamily="OpenSansSemibold"
                     FontSize="20"
                     Text="我的设备"
-                    TextColor="{StaticResource TextPrimary}" />
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                 <Label
                     Grid.Column="1"
                     FontSize="13"
                     Text="点击设备进行控制"
-                    TextColor="{StaticResource TextSecondary}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                     VerticalTextAlignment="Center" />
             </Grid>
 
@@ -133,12 +133,12 @@
                             FontSize="17"
                             HorizontalTextAlignment="Center"
                             Text="还没有添加设备"
-                            TextColor="{StaticResource TextPrimary}" />
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Label
                             FontSize="13"
                             HorizontalTextAlignment="Center"
                             Text="点击右上角的 + 添加你的第一盏灯"
-                            TextColor="{StaticResource TextSecondary}" />
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     </VerticalStackLayout>
                 </CollectionView.EmptyView>
 
@@ -147,8 +147,8 @@
                         <Border
                             Margin="0,0,0,12"
                             Padding="16"
-                            BackgroundColor="White"
-                            Stroke="{StaticResource CardStroke}"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                            Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
                             StrokeShape="RoundRectangle 20"
                             StrokeThickness="1">
                             <Border.Shadow>
@@ -163,7 +163,7 @@
                                 <Border
                                     HeightRequest="64"
                                     WidthRequest="64"
-                                    BackgroundColor="{StaticResource DeviceIconBackground}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
                                     StrokeThickness="0"
                                     StrokeShape="RoundRectangle 18">
                                     <Image
@@ -181,7 +181,7 @@
                                         FontSize="17"
                                         LineBreakMode="TailTruncation"
                                         Text="{Binding Name}"
-                                        TextColor="{StaticResource TextPrimary}" />
+                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                                     <HorizontalStackLayout Spacing="7">
                                         <Ellipse
                                             HeightRequest="7"
@@ -190,7 +190,7 @@
                                         <Label
                                             FontSize="13"
                                             Text="{Binding Status}"
-                                            TextColor="{StaticResource TextSecondary}"
+                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                                             VerticalTextAlignment="Center" />
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>
