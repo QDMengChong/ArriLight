@@ -6,28 +6,51 @@ namespace ArriLight;
 
 public partial class MainPage : ContentPage
 {
-    public ObservableCollection<LightDeviceItem> Devices { get; } =
-    [
-        new("客厅主灯", "在线 · 可以控制", Color.FromArgb("#38C793"), true),
-        new("书房氛围灯", "离线", Color.FromArgb("#A9B2C3"))
-    ];
+    private readonly DeviceRepository _repository;
+
+    public ObservableCollection<LightDeviceItem> Devices { get; } = [];
 
     public string DeviceCountText => $"{Devices.Count} 台设备";
 
     public MainPage()
     {
         InitializeComponent();
+        _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _repository.DevicesChanged += OnDevicesChanged;
         BindingContext = this;
+        ReloadDevices();
     }
 
-    private async void OnScanQrCodeClicked(object? sender, EventArgs e)
+    protected override void OnAppearing()
     {
-        await DisplayAlertAsync("扫描二维码", "扫码添加功能将在设备接入阶段启用。", "知道了");
+        base.OnAppearing();
+        ReloadDevices();
     }
 
-    private async void OnAddDeviceClicked(object? sender, EventArgs e)
+    private async void OnScanQrCodeClicked(object? sender, EventArgs e) =>
+        await Shell.Current.GoToAsync(nameof(QrCodeScanPage));
+
+    private async void OnAddDeviceClicked(object? sender, EventArgs e) =>
+        await Shell.Current.GoToAsync(nameof(BluetoothScanPage));
+
+    private void OnDevicesChanged(object? sender, EventArgs e) =>
+        MainThread.BeginInvokeOnMainThread(ReloadDevices);
+
+    private void ReloadDevices()
     {
-        await DisplayAlertAsync("添加设备", "设备搜索与蓝牙配对功能将在下一阶段接入。", "知道了");
+        var savedDevices = _repository.GetAll();
+        Devices.Clear();
+
+        foreach (var savedDevice in savedDevices)
+        {
+            Devices.Add(new LightDeviceItem(
+                savedDevice.Name,
+                savedDevice.Address,
+                "已保存 · 等待连接",
+                Color.FromArgb("#A9B2C3")));
+        }
+
+        OnPropertyChanged(nameof(DeviceCountText));
     }
 
     private void OnDevicePowerClicked(object? sender, EventArgs e)
@@ -36,8 +59,9 @@ public partial class MainPage : ContentPage
             return;
 
         device.IsOn = !device.IsOn;
-        // TODO: 在蓝牙服务接入后，从这里发送设备开关指令。
-        System.Diagnostics.Debug.WriteLine($"Device power command: {device.Name} = {device.IsOn}");
+        // TODO: 接入灯具通信协议后，在这里发送设备开关指令。
+        System.Diagnostics.Debug.WriteLine(
+            $"Device power command: {device.Address} = {device.IsOn}");
     }
 
     private async void OnDeviceManageClicked(object? sender, EventArgs e)
@@ -54,17 +78,25 @@ public sealed class LightDeviceItem : INotifyPropertyChanged
 {
     private bool _isOn;
 
-    public LightDeviceItem(string name, string status, Color statusColor, bool isOn = false)
+    public LightDeviceItem(
+        string name,
+        string address,
+        string status,
+        Color statusColor,
+        bool isOn = false)
     {
         Name = name;
+        Address = address;
         Status = status;
         StatusColor = statusColor;
         _isOn = isOn;
     }
 
     public string Name { get; }
+    public string Address { get; }
     public string Status { get; }
     public Color StatusColor { get; }
+
     public bool IsOn
     {
         get => _isOn;
@@ -82,13 +114,16 @@ public sealed class LightDeviceItem : INotifyPropertyChanged
     }
 
     public string PowerIcon => IsOn ? "power_on.svg" : "power_off.svg";
+
     public Color PowerBackgroundColor =>
         IsOn ? Color.FromArgb("#FFF2C7") : Colors.Transparent;
+
     public Color PowerBorderColor =>
         IsOn ? Color.FromArgb("#FFD66B") : Color.FromArgb("#56657A");
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private void OnPropertyChanged([CallerMemberName] string? propertyName = null) =>
+    private void OnPropertyChanged(
+        [CallerMemberName] string? propertyName = null) =>
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
 }

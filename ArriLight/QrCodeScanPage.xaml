@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.QrCodeScanPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
+    Title="扫码添加"
+    BackgroundColor="Black">
+
+    <Grid>
+        <zxing:CameraBarcodeReaderView
+            x:Name="BarcodeReader"
+            BarcodesDetected="OnBarcodesDetected"
+            HorizontalOptions="Fill"
+            VerticalOptions="Fill" />
+
+        <BoxView BackgroundColor="#52000000" />
+
+        <Grid
+            Margin="38"
+            RowDefinitions="*,240,*">
+            <Border
+                Grid.Row="1"
+                BackgroundColor="Transparent"
+                Stroke="White"
+                StrokeShape="RoundRectangle 24"
+                StrokeThickness="3" />
+        </Grid>
+
+        <VerticalStackLayout
+            Margin="26,36"
+            Spacing="8"
+            VerticalOptions="End">
+            <Label
+                FontFamily="OpenSansSemibold"
+                FontSize="18"
+                HorizontalTextAlignment="Center"
+                Text="将蓝牙地址二维码放入框内"
+                TextColor="White" />
+            <Label
+                FontSize="13"
+                HorizontalTextAlignment="Center"
+                Text="也可以从相册选择已经保存的二维码"
+                TextColor="#CFFFFFFF" />
+            <Grid
+                Margin="18,10,18,0"
+                ColumnDefinitions="*,*"
+                ColumnSpacing="10">
+                <Button
+                    Grid.Column="0"
+                    Clicked="OnSelectPhotoClicked"
+                    Text="从相册选择" />
+                <Button
+                    x:Name="TorchButton"
+                    Grid.Column="1"
+                    Clicked="OnTorchClicked"
+                    Text="打开手电筒" />
+            </Grid>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

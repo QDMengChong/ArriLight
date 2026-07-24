@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.BluetoothScanPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight"
+    x:DataType="local:BluetoothScanPage"
+    Title="添加设备"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <Grid Padding="20,18" RowDefinitions="Auto,Auto,*" RowSpacing="14">
+        <Border
+            Padding="18"
+            BackgroundColor="{StaticResource Primary}"
+            StrokeThickness="0"
+            StrokeShape="RoundRectangle 20">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <VerticalStackLayout Spacing="4">
+                    <Label
+                        FontFamily="OpenSansSemibold"
+                        FontSize="19"
+                        Text="搜索附近的灯光设备"
+                        TextColor="White" />
+                    <Label
+                        FontSize="12"
+                        Opacity="0.78"
+                        Text="{Binding ScanStatusText}"
+                        TextColor="White" />
+                </VerticalStackLayout>
+                <ActivityIndicator
+                    Grid.Column="1"
+                    Color="White"
+                    IsRunning="{Binding IsScanning}"
+                    IsVisible="{Binding IsScanning}"
+                    VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
+            <Label
+                FontSize="13"
+                Text="选择设备后，为它设置一个名称"
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                VerticalTextAlignment="Center" />
+            <Button
+                Grid.Column="1"
+                Padding="16,8"
+                Clicked="OnRefreshClicked"
+                FontSize="13"
+                Text="重新搜索" />
+        </Grid>
+
+        <CollectionView
+            x:Name="DeviceCollection"
+            Grid.Row="2"
+            ItemsSource="{Binding Devices}"
+            SelectionChanged="OnDeviceSelected"
+            SelectionMode="Single"
+            VerticalScrollBarVisibility="Never">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout
+                    Padding="24,70"
+                    HorizontalOptions="Center"
+                    Spacing="10">
+                    <Label
+                        FontSize="36"
+                        HorizontalTextAlignment="Center"
+                        Text="⌁"
+                        TextColor="{StaticResource Primary}" />
+                    <Label
+                        FontFamily="OpenSansSemibold"
+                        FontSize="16"
+                        HorizontalTextAlignment="Center"
+                        Text="{Binding EmptyText, Source={RelativeSource AncestorType={x:Type local:BluetoothScanPage}}}"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:DiscoveredBluetoothDevice">
+                    <Border
+                        Margin="0,0,0,10"
+                        Padding="16"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                        Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                        StrokeShape="RoundRectangle 18"
+                        StrokeThickness="1">
+                        <Grid ColumnDefinitions="52,*,Auto" ColumnSpacing="13">
+                            <Border
+                                HeightRequest="52"
+                                WidthRequest="52"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 16">
+                                <Image Margin="13" Source="device_light.svg" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                <Label
+                                    FontFamily="OpenSansSemibold"
+                                    FontSize="16"
+                                    Text="{Binding Name}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                <Label
+                                    FontSize="12"
+                                    LineBreakMode="TailTruncation"
+                                    Text="{Binding Address}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            </VerticalStackLayout>
+                            <Label
+                                Grid.Column="2"
+                                FontSize="12"
+                                Text="{Binding Rssi, StringFormat='{0} dBm'}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                                VerticalTextAlignment="Center" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>

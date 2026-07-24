@@ -12,6 +12,8 @@
             Routing.RegisterRoute(nameof(LegalDocumentPage), typeof(LegalDocumentPage));
             Routing.RegisterRoute(nameof(DeviceControlPage), typeof(DeviceControlPage));
             Routing.RegisterRoute(nameof(SchedulePage), typeof(SchedulePage));
+            Routing.RegisterRoute(nameof(BluetoothScanPage), typeof(BluetoothScanPage));
+            Routing.RegisterRoute(nameof(QrCodeScanPage), typeof(QrCodeScanPage));
         }
     }
 }
