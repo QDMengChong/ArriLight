@@ -159,7 +159,7 @@
                                     Radius="12" />
                             </Border.Shadow>
 
-                            <Grid ColumnDefinitions="64,*,Auto" ColumnSpacing="14">
+                            <Grid ColumnDefinitions="64,*,Auto,Auto" ColumnSpacing="12">
                                 <Border
                                     HeightRequest="64"
                                     WidthRequest="64"
@@ -195,13 +195,34 @@
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>
 
-                                <Image
+                                <Border
                                     Grid.Column="2"
-                                    HeightRequest="18"
+                                    HeightRequest="44"
+                                    WidthRequest="44"
+                                    BackgroundColor="{Binding PowerBackgroundColor}"
+                                    Stroke="{Binding PowerBorderColor}"
+                                    StrokeShape="RoundRectangle 22"
+                                    StrokeThickness="1"
+                                    VerticalOptions="Center">
+                                    <ImageButton
+                                        Padding="9"
+                                        BackgroundColor="Transparent"
+                                        Clicked="OnDevicePowerClicked"
+                                        Source="{Binding PowerIcon}"
+                                        SemanticProperties.Description="快速开关灯光" />
+                                </Border>
+
+                                <ImageButton
+                                    Grid.Column="3"
+                                    Padding="13"
+                                    BackgroundColor="Transparent"
+                                    Clicked="OnDeviceManageClicked"
+                                    HeightRequest="44"
                                     Opacity="0.55"
                                     Source="chevron_right.svg"
                                     VerticalOptions="Center"
-                                    WidthRequest="18" />
+                                    WidthRequest="44"
+                                    SemanticProperties.Description="进入设备管理" />
                             </Grid>
                         </Border>
                     </DataTemplate>

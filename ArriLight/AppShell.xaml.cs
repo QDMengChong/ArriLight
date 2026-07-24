@@ -10,6 +10,8 @@
             Routing.RegisterRoute(nameof(AboutUsPage), typeof(AboutUsPage));
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
             Routing.RegisterRoute(nameof(LegalDocumentPage), typeof(LegalDocumentPage));
+            Routing.RegisterRoute(nameof(DeviceControlPage), typeof(DeviceControlPage));
+            Routing.RegisterRoute(nameof(SchedulePage), typeof(SchedulePage));
         }
     }
 }

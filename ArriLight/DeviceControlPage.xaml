@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.DeviceControlPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:controls="clr-namespace:ArriLight.Controls"
+    xmlns:local="clr-namespace:ArriLight"
+    x:DataType="local:DeviceControlPage"
+    Title="{Binding DeviceName}"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView Grid.Row="0" VerticalScrollBarVisibility="Never">
+            <VerticalStackLayout Padding="20,20,20,24" Spacing="18">
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <VerticalStackLayout Spacing="14">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout Spacing="3">
+                                <Label
+                                    FontFamily="OpenSansSemibold"
+                                    FontSize="18"
+                                    Text="灯光调节"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                <Label
+                                    FontSize="12"
+                                    Text="点击内圈选颜色，点击外环调色温"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            </VerticalStackLayout>
+                            <Button
+                                Grid.Column="1"
+                                Padding="12,8"
+                                Clicked="OnSavePresetClicked"
+                                FontSize="12"
+                                Text="保存配置" />
+                        </Grid>
+
+                        <controls:ColorTemperaturePicker
+                            x:Name="ColorPicker"
+                            HeightRequest="260"
+                            HorizontalOptions="Center"
+                            SelectionChanged="OnColorPickerSelectionChanged"
+                            WidthRequest="260" />
+
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label
+                                FontSize="11"
+                                Text="暖光"
+                                TextColor="#E19A56" />
+                            <Label
+                                Grid.Column="1"
+                                FontSize="11"
+                                HorizontalTextAlignment="Center"
+                                Text="色温"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            <Label
+                                Grid.Column="2"
+                                FontSize="11"
+                                Text="冷光"
+                                TextColor="#77AEEA" />
+                        </Grid>
+
+                        <BoxView
+                            HeightRequest="1"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <Image HeightRequest="20" Source="control_brightness.svg" WidthRequest="20" />
+                            <Slider
+                                x:Name="BrightnessSlider"
+                                Grid.Column="1"
+                                Maximum="100"
+                                Minimum="1"
+                                Value="75"
+                                ValueChanged="OnBrightnessChanged" />
+                            <Label
+                                Grid.Column="2"
+                                FontFamily="OpenSansSemibold"
+                                FontSize="13"
+                                Text="{Binding Source={x:Reference BrightnessSlider}, Path=Value, StringFormat='{0:0}%'}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                VerticalTextAlignment="Center"
+                                WidthRequest="42" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <VerticalStackLayout Spacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label
+                            FontFamily="OpenSansSemibold"
+                            FontSize="18"
+                            Text="自定义配置"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <HorizontalStackLayout
+                            Grid.Column="1"
+                            Spacing="6"
+                            VerticalOptions="Center">
+                            <Label
+                                x:Name="PresetModeLabel"
+                                FontSize="12"
+                                Text="最多 6 个"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                                VerticalTextAlignment="Center" />
+                            <Button
+                                x:Name="FinishReorderButton"
+                                Padding="10,5"
+                                Clicked="OnFinishReorderClicked"
+                                FontSize="11"
+                                IsVisible="False"
+                                Text="完成" />
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <CollectionView
+                        HeightRequest="236"
+                        ItemsSource="{Binding Presets}"
+                        SelectionMode="None"
+                        VerticalScrollBarVisibility="Never">
+                        <CollectionView.ItemsLayout>
+                            <GridItemsLayout
+                                HorizontalItemSpacing="10"
+                                Orientation="Vertical"
+                                Span="3"
+                                VerticalItemSpacing="10" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="local:ControlPreset">
+                                <Border
+                                    Padding="10"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                                    Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                                    StrokeShape="RoundRectangle 16"
+                                    StrokeThickness="1">
+                                    <Border.GestureRecognizers>
+                                        <DragGestureRecognizer DragStarting="OnPresetDragStarting" />
+                                        <DropGestureRecognizer AllowDrop="True" Drop="OnPresetDrop" />
+                                    </Border.GestureRecognizers>
+                                    <Grid>
+                                        <VerticalStackLayout Spacing="7">
+                                            <Border
+                                                HeightRequest="26"
+                                                WidthRequest="26"
+                                                HorizontalOptions="Center"
+                                                BackgroundColor="{Binding PreviewColor}"
+                                                Stroke="#55FFFFFF"
+                                                StrokeShape="RoundRectangle 13"
+                                                StrokeThickness="2" />
+                                            <Label
+                                                FontFamily="OpenSansSemibold"
+                                                FontSize="12"
+                                                HorizontalTextAlignment="Center"
+                                                LineBreakMode="TailTruncation"
+                                                MaxLines="1"
+                                                Text="{Binding DisplayName}"
+                                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                            <Label
+                                                FontSize="10"
+                                                HorizontalTextAlignment="Center"
+                                                Text="{Binding DetailText}"
+                                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                                        </VerticalStackLayout>
+                                        <Button
+                                            ZIndex="10"
+                                            BackgroundColor="Transparent"
+                                            InputTransparent="{Binding IsReorderMode}"
+                                            Opacity="0.01"
+                                            Pressed="OnPresetPressed"
+                                            Released="OnPresetReleased"
+                                            SemanticProperties.Description="{Binding DisplayName}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <Grid ColumnDefinitions="112,*,44" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                            <Picker
+                                x:Name="TimerModePicker"
+                                FontFamily="OpenSansSemibold"
+                                FontSize="14"
+                                HorizontalOptions="Fill"
+                                SelectedIndex="0"
+                                SelectedIndexChanged="OnTimerModeChanged"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                Title="计时模式">
+                                <Picker.Items>
+                                    <x:String>计时关灯</x:String>
+                                    <x:String>计时开灯</x:String>
+                                </Picker.Items>
+                            </Picker>
+                            <Label
+                                x:Name="TimerModeDescription"
+                                Style="{StaticResource MenuDescriptionStyle}"
+                                LineBreakMode="TailTruncation"
+                                MaxLines="1"
+                                Text="立即开灯，计时结束后关闭" />
+                        </VerticalStackLayout>
+                        <Border
+                            Grid.Column="1"
+                            Padding="10,0"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Entry
+                                    x:Name="DelaySecondsEntry"
+                                    FontSize="14"
+                                    Focused="OnDelaySecondsFocused"
+                                    HorizontalTextAlignment="Center"
+                                    Keyboard="Numeric"
+                                    MaxLength="5"
+                                    Text="60"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                    VerticalTextAlignment="Center" />
+                                <Label
+                                    Grid.Column="1"
+                                    FontSize="12"
+                                    Text="秒"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                                    VerticalTextAlignment="Center" />
+                            </Grid>
+                        </Border>
+                        <Border
+                            x:Name="TimerSendContainer"
+                            Grid.Column="2"
+                            HeightRequest="44"
+                            WidthRequest="44"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                            Stroke="{StaticResource Primary}"
+                            StrokeShape="RoundRectangle 22"
+                            StrokeThickness="1"
+                            VerticalOptions="Center">
+                            <ImageButton
+                                Padding="9"
+                                BackgroundColor="Transparent"
+                                Clicked="OnTimerSendClicked"
+                                Source="action_send.svg"
+                                SemanticProperties.Description="发送计时指令" />
+                        </Border>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnScheduleTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                        <Border Style="{StaticResource MenuIconContainerStyle}">
+                            <Image Margin="12" Source="control_schedule.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="定时设置" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="管理自动开关灯计划" />
+                        </VerticalStackLayout>
+                        <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+                    </Grid>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Border
+            Grid.Row="1"
+            Padding="20,12"
+            BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+            Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+            StrokeThickness="1">
+            <Border
+                x:Name="MasterPowerPill"
+                HeightRequest="52"
+                HorizontalOptions="Fill"
+                MaximumWidthRequest="320"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 26">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnMasterPowerTapped" />
+                </Border.GestureRecognizers>
+                <Border.Background>
+                    <LinearGradientBrush EndPoint="1,0">
+                        <GradientStop Offset="0" Color="#35C9EE" />
+                        <GradientStop Offset="1" Color="#3945FF" />
+                    </LinearGradientBrush>
+                </Border.Background>
+                <HorizontalStackLayout
+                    HorizontalOptions="Center"
+                    Spacing="8"
+                    VerticalOptions="Center">
+                    <Image
+                        x:Name="MasterPowerIcon"
+                        HeightRequest="23"
+                        Source="power_white.svg"
+                        WidthRequest="23" />
+                    <Label
+                        x:Name="MasterPowerLabel"
+                        FontFamily="OpenSansSemibold"
+                        FontSize="15"
+                        Text="关闭"
+                        TextColor="White"
+                        VerticalTextAlignment="Center" />
+                </HorizontalStackLayout>
+            </Border>
+        </Border>
+    </Grid>
+</ContentPage>
