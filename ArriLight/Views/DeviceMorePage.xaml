@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.DeviceMorePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight"
+    x:DataType="local:DeviceMorePage"
+    Title="设备信息"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <Grid RowDefinitions="*,Auto">
+        <ScrollView Grid.Row="0" VerticalScrollBarVisibility="Never">
+            <VerticalStackLayout Padding="20,20,20,28" Spacing="16">
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <Grid ColumnDefinitions="64,*" ColumnSpacing="16">
+                        <Border
+                            HeightRequest="64"
+                            WidthRequest="64"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 18">
+                            <Image Margin="16" Source="device_light.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                            <Label
+                                FontFamily="OpenSansSemibold"
+                                FontSize="20"
+                                Text="{Binding DeviceName}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                            <Label
+                                FontSize="13"
+                                Text="{Binding AddedAtText}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                </Border>
+
+                <Border Style="{StaticResource MenuCardStyle}" Padding="0">
+                    <VerticalStackLayout Spacing="0">
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnRenameTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="设备名称" VerticalTextAlignment="Center" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                <Label
+                                    FontSize="14"
+                                    Text="{Binding DeviceName}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                                    VerticalTextAlignment="Center" />
+                                <Image Style="{StaticResource MenuChevronStyle}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="加入时间" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" FontSize="14" Text="{Binding AddedAtText}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
+                        </Grid>
+                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="设备 ID" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" FontSize="13" Text="{Binding DeviceId}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource MenuCardStyle}" Padding="0">
+                    <VerticalStackLayout Spacing="0">
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnManualTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="使用说明" VerticalTextAlignment="Center" />
+                            <Image Grid.Column="1" Style="{StaticResource MenuChevronStyle}" />
+                        </Grid>
+                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnFirmwareTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="固件升级" VerticalTextAlignment="Center" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                <Label FontSize="14" Text="{Binding FirmwareVersion}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
+                                <Image Style="{StaticResource MenuChevronStyle}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnShareTapped" />
+                            </Grid.GestureRecognizers>
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="分享设备" VerticalTextAlignment="Center" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                <Label FontSize="13" Text="二维码" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
+                                <Image Style="{StaticResource MenuChevronStyle}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                            <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                <Label Style="{StaticResource MenuTitleStyle}" Text="置顶显示" />
+                                <Label Style="{StaticResource MenuDescriptionStyle}" Text="在首页设备列表中优先显示" />
+                            </VerticalStackLayout>
+                            <Switch
+                                x:Name="PinnedSwitch"
+                                Grid.Column="1"
+                                IsToggled="{Binding IsPinned}"
+                                Toggled="OnPinnedToggled"
+                                VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Border
+            Grid.Row="1"
+            Padding="20,12"
+            BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+            Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+            StrokeThickness="1">
+            <Button
+                BackgroundColor="Transparent"
+                BorderColor="#E65B65"
+                BorderWidth="1"
+                Clicked="OnUnbindClicked"
+                CornerRadius="24"
+                HeightRequest="50"
+                Text="解除绑定"
+                TextColor="#E65B65" />
+        </Border>
+    </Grid>
+</ContentPage>

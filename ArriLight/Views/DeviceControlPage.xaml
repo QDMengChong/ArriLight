@@ -9,6 +9,15 @@
     Title="{Binding DeviceName}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
+    <ContentPage.ToolbarItems>
+        <ToolbarItem
+            Clicked="OnMoreClicked"
+            IconImageSource="profile_settings.svg"
+            Order="Primary"
+            Priority="0"
+            Text="更多" />
+    </ContentPage.ToolbarItems>
+
     <Grid RowDefinitions="*,Auto">
         <ScrollView Grid.Row="0" VerticalScrollBarVisibility="Never">
             <VerticalStackLayout Padding="20,20,20,24" Spacing="18">

@@ -8,20 +8,6 @@ public partial class MainPage : ContentPage
 {
     private readonly DeviceRepository _repository;
 
-    private static readonly LightDeviceItem[] DefaultDevices =
-    [
-        new(
-            "客厅主灯",
-            "02:00:00:00:00:01",
-            "在线",
-            Color.FromArgb("#35C987"),
-            isOn: true),
-        new(
-            "卧室氛围灯",
-            "02:00:00:00:00:02",
-            "离线",
-            Color.FromArgb("#A9B2C3"))
-    ];
 
     public ObservableCollection<LightDeviceItem> Devices { get; } = [];
 
@@ -56,23 +42,23 @@ public partial class MainPage : ContentPage
         var savedDevices = _repository.GetAll();
         Devices.Clear();
 
-        foreach (var defaultDevice in DefaultDevices)
-            Devices.Add(defaultDevice);
-
-        foreach (var savedDevice in savedDevices)
+        foreach (var savedDevice in savedDevices
+                     .OrderByDescending(device => device.IsPinned)
+                     .ThenBy(device => device.AddedAt))
         {
-            if (DefaultDevices.Any(device =>
-                    string.Equals(device.Address, savedDevice.Address,
-                        StringComparison.OrdinalIgnoreCase)))
-            {
-                continue;
-            }
+            var isOnlineDemo = savedDevice.IsDemo &&
+                savedDevice.Address.EndsWith("01", StringComparison.Ordinal);
 
             Devices.Add(new LightDeviceItem(
                 savedDevice.Name,
                 savedDevice.Address,
-                "已保存 · 等待连接",
-                Color.FromArgb("#A9B2C3")));
+                isOnlineDemo ? "在线" : savedDevice.IsDemo
+                    ? "离线"
+                    : "已保存 · 等待连接",
+                isOnlineDemo
+                    ? Color.FromArgb("#35C987")
+                    : Color.FromArgb("#A9B2C3"),
+                isOn: isOnlineDemo));
         }
 
         OnPropertyChanged(nameof(DeviceCountText));
@@ -95,7 +81,7 @@ public partial class MainPage : ContentPage
             return;
 
         await Shell.Current.GoToAsync(
-            $"{nameof(DeviceControlPage)}?name={Uri.EscapeDataString(device.Name)}");
+            $"{nameof(DeviceControlPage)}?name={Uri.EscapeDataString(device.Name)}&address={Uri.EscapeDataString(device.Address)}");
     }
 }
 

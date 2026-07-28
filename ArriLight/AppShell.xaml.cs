@@ -1,4 +1,4 @@
-﻿namespace ArriLight
+namespace ArriLight
 {
     public partial class AppShell : Shell
     {
@@ -14,6 +14,10 @@
             Routing.RegisterRoute(nameof(SchedulePage), typeof(SchedulePage));
             Routing.RegisterRoute(nameof(BluetoothScanPage), typeof(BluetoothScanPage));
             Routing.RegisterRoute(nameof(QrCodeScanPage), typeof(QrCodeScanPage));
+            Routing.RegisterRoute(nameof(DeviceMorePage), typeof(DeviceMorePage));
+            Routing.RegisterRoute(nameof(DeviceManualPage), typeof(DeviceManualPage));
+            Routing.RegisterRoute(nameof(FirmwareUpdatePage), typeof(FirmwareUpdatePage));
+            Routing.RegisterRoute(nameof(DeviceSharePage), typeof(DeviceSharePage));
         }
     }
 }

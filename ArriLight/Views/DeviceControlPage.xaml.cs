@@ -8,7 +8,10 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 {
     private const int LongPressMilliseconds = 650;
 
+    private readonly DeviceRepository _repository;
+
     private string _deviceName = "设备管理";
+    private string _deviceAddress = string.Empty;
     private bool _isReady;
     private bool _isMasterPowerOn = true;
     private bool _longPressTriggered;
@@ -28,6 +31,12 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             OnPropertyChanged();
         }
     }
+    public string DeviceAddress
+    {
+        get => _deviceAddress;
+        private set => _deviceAddress = value;
+    }
+
 
     public ObservableCollection<ControlPreset> Presets { get; } =
     [
@@ -42,6 +51,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     public DeviceControlPage()
     {
         InitializeComponent();
+        _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
         BindingContext = this;
         if (TimerModePicker.SelectedIndex < 0)
             TimerModePicker.SelectedIndex = 0;
@@ -54,6 +64,12 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         base.OnAppearing();
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged += OnRequestedThemeChanged;
+
+        if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
+            _repository.GetByAddress(DeviceAddress) is { } device)
+        {
+            DeviceName = device.Name;
+        }
     }
 
     protected override void OnDisappearing()
@@ -69,6 +85,18 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     {
         if (query.TryGetValue("name", out var value) && value is not null)
             DeviceName = Uri.UnescapeDataString(value.ToString()!);
+
+        if (query.TryGetValue("address", out var address) && address is not null)
+            DeviceAddress = Uri.UnescapeDataString(address.ToString()!);
+    }
+
+    private async void OnMoreClicked(object? sender, EventArgs e)
+    {
+        if (string.IsNullOrWhiteSpace(DeviceAddress))
+            return;
+
+        await Shell.Current.GoToAsync(
+            $"{nameof(DeviceMorePage)}?address={Uri.EscapeDataString(DeviceAddress)}");
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.FirmwareUpdatePage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight"
+    x:DataType="local:FirmwareUpdatePage"
+    Title="固件升级"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+    <ScrollView>
+        <VerticalStackLayout Padding="20,24,20,36" Spacing="18">
+            <Border Style="{StaticResource MenuCardStyle}">
+                <VerticalStackLayout Spacing="14">
+                    <Border HeightRequest="72" WidthRequest="72" HorizontalOptions="Center" BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}" StrokeThickness="0" StrokeShape="RoundRectangle 22">
+                        <Image Margin="18" Source="device_light.svg" />
+                    </Border>
+                    <Label FontFamily="OpenSansSemibold" FontSize="20" HorizontalTextAlignment="Center" Text="设备固件" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="12">
+                        <Label Text="当前版本" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        <Label Grid.Column="1" Text="{Binding CurrentVersion}" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <Label Grid.Row="1" Text="最新版本" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding LatestVersion}" TextColor="{StaticResource Primary}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource MenuCardStyle}">
+                <VerticalStackLayout Spacing="12">
+                    <Label FontFamily="OpenSansSemibold" FontSize="16" Text="升级状态" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    <Label Text="{Binding StatusText}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    <ProgressBar x:Name="UpdateProgress" IsVisible="False" Progress="0" ProgressColor="{StaticResource Primary}" />
+                    <Button x:Name="CheckButton" Clicked="OnCheckClicked" Text="检查新版本" />
+                    <Button x:Name="UpdateButton" Clicked="OnUpdateClicked" IsVisible="False" Text="立即升级" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label FontSize="12" HorizontalTextAlignment="Center" Text="当前页面已实现 OTA 交互流程；正式传输需接入灯具的 BLE OTA 服务、分包与校验协议。" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
