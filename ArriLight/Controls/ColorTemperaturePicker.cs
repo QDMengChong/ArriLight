@@ -4,8 +4,13 @@ namespace ArriLight.Controls;
 
 public sealed class ColorTemperaturePicker : GraphicsView
 {
+    private const double DragThreshold = 8;
+
     private readonly ColorTemperatureDrawable _drawable;
     private PickerRegion _activeRegion;
+    private Point _interactionStart;
+    private Point _lastInteractionPoint;
+    private bool _hasDragged;
 
     public event EventHandler? SelectionChanged;
 
@@ -64,7 +69,9 @@ public sealed class ColorTemperaturePicker : GraphicsView
 
         var point = e.Touches[0];
         _activeRegion = ResolveRegion(point.X, point.Y);
-        UpdateSelection(point.X, point.Y);
+        _interactionStart = point;
+        _lastInteractionPoint = point;
+        _hasDragged = false;
     }
 
     private void OnDragInteraction(object? sender, TouchEventArgs e)
@@ -73,11 +80,30 @@ public sealed class ColorTemperaturePicker : GraphicsView
             return;
 
         var point = e.Touches[0];
+        _lastInteractionPoint = point;
+
+        if (!_hasDragged)
+        {
+            var deltaX = point.X - _interactionStart.X;
+            var deltaY = point.Y - _interactionStart.Y;
+            _hasDragged =
+                Math.Sqrt(deltaX * deltaX + deltaY * deltaY) >= DragThreshold;
+        }
+
+        if (!_hasDragged)
+            return;
+
         UpdateSelection(point.X, point.Y);
     }
 
-    private void OnEndInteraction(object? sender, TouchEventArgs e) =>
+    private void OnEndInteraction(object? sender, TouchEventArgs e)
+    {
+        if (_activeRegion != PickerRegion.None && !_hasDragged)
+            UpdateSelection(_lastInteractionPoint.X, _lastInteractionPoint.Y);
+
         _activeRegion = PickerRegion.None;
+        _hasDragged = false;
+    }
 
     private PickerRegion ResolveRegion(double x, double y)
     {

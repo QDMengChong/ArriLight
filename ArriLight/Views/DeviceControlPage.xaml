@@ -23,7 +23,7 @@
                                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                                 <Label
                                     FontSize="12"
-                                    Text="点击内圈选颜色，点击外环调色温"
+                                    Text="内圈选颜色，外环调色温"
                                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                             </VerticalStackLayout>
                             <Button
@@ -162,6 +162,7 @@
                                         <Button
                                             ZIndex="10"
                                             BackgroundColor="Transparent"
+                                            Clicked="OnPresetClicked"
                                             InputTransparent="{Binding IsReorderMode}"
                                             Opacity="0.01"
                                             Pressed="OnPresetPressed"
@@ -181,9 +182,8 @@
                                 x:Name="TimerModePicker"
                                 FontFamily="OpenSansSemibold"
                                 FontSize="14"
-                                HorizontalOptions="Fill"
+                                HorizontalOptions="Start"
                                 SelectedIndex="0"
-                                SelectedIndexChanged="OnTimerModeChanged"
                                 TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
                                 Title="计时模式">
                                 <Picker.Items>
@@ -191,12 +191,6 @@
                                     <x:String>计时开灯</x:String>
                                 </Picker.Items>
                             </Picker>
-                            <Label
-                                x:Name="TimerModeDescription"
-                                Style="{StaticResource MenuDescriptionStyle}"
-                                LineBreakMode="TailTruncation"
-                                MaxLines="1"
-                                Text="立即开灯，计时结束后关闭" />
                         </VerticalStackLayout>
                         <Border
                             Grid.Column="1"

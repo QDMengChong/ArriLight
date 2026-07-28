@@ -12,6 +12,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private bool _isReady;
     private bool _isMasterPowerOn = true;
     private bool _longPressTriggered;
+    private bool _suppressPresetClick;
     private CancellationTokenSource? _presetPressCancellation;
     private ControlPreset? _pressedPreset;
 
@@ -121,22 +122,24 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         CancelPresetPress();
         _pressedPreset = preset;
         _longPressTriggered = false;
+        _suppressPresetClick = false;
         _presetPressCancellation = new CancellationTokenSource();
         _ = DetectLongPressAsync(preset, _presetPressCancellation.Token);
     }
 
-    private async void OnPresetReleased(object? sender, EventArgs e)
-    {
-        var preset = _pressedPreset;
+    private void OnPresetReleased(object? sender, EventArgs e) =>
         CancelPresetPress();
 
-        if (_longPressTriggered)
+    private async void OnPresetClicked(object? sender, EventArgs e)
+    {
+        if (_longPressTriggered || _suppressPresetClick)
         {
             _longPressTriggered = false;
+            _suppressPresetClick = false;
             return;
         }
 
-        if (preset is not null)
+        if (sender is BindableObject { BindingContext: ControlPreset preset })
             await ApplyPresetAsync(preset);
     }
 
@@ -208,6 +211,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void OnPresetDragStarting(object? sender, DragStartingEventArgs e)
     {
+        _suppressPresetClick = true;
+        CancelPresetPress();
+
         if (sender is not BindableObject { BindingContext: ControlPreset preset } ||
             !preset.IsSaved ||
             !preset.IsReorderMode)
@@ -270,17 +276,6 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         });
     }
 
-    private void OnTimerModeChanged(object? sender, EventArgs e)
-    {
-        if (TimerModeDescription is null)
-            return;
-
-        var isTimedOn = TimerModePicker.SelectedIndex == 1;
-        TimerModeDescription.Text = isTimedOn
-            ? "保持关灯，计时结束后开启"
-            : "立即开灯，计时结束后关闭";
-
-    }
 
     private async void OnTimerSendClicked(object? sender, EventArgs e)
     {

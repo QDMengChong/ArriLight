@@ -8,6 +8,21 @@ public partial class MainPage : ContentPage
 {
     private readonly DeviceRepository _repository;
 
+    private static readonly LightDeviceItem[] DefaultDevices =
+    [
+        new(
+            "客厅主灯",
+            "02:00:00:00:00:01",
+            "在线",
+            Color.FromArgb("#35C987"),
+            isOn: true),
+        new(
+            "卧室氛围灯",
+            "02:00:00:00:00:02",
+            "离线",
+            Color.FromArgb("#A9B2C3"))
+    ];
+
     public ObservableCollection<LightDeviceItem> Devices { get; } = [];
 
     public string DeviceCountText => $"{Devices.Count} 台设备";
@@ -41,8 +56,18 @@ public partial class MainPage : ContentPage
         var savedDevices = _repository.GetAll();
         Devices.Clear();
 
+        foreach (var defaultDevice in DefaultDevices)
+            Devices.Add(defaultDevice);
+
         foreach (var savedDevice in savedDevices)
         {
+            if (DefaultDevices.Any(device =>
+                    string.Equals(device.Address, savedDevice.Address,
+                        StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
             Devices.Add(new LightDeviceItem(
                 savedDevice.Name,
                 savedDevice.Address,
