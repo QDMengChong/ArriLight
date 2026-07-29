@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Plugin.BLE.Abstractions.Contracts;
 using Plugin.BLE.Abstractions.EventArgs;
 
@@ -5,9 +6,12 @@ namespace ArriLight;
 
 public sealed class BluetoothDiscoveryService(
     IBluetoothLE bluetoothLE,
-    IAdapter adapter)
+    IAdapter adapter,
+    AppDiagnosticService diagnostics)
 {
     private readonly SemaphoreSlim _scanLock = new(1, 1);
+    private readonly ConcurrentDictionary<string, IDevice> _knownDevices =
+        new(StringComparer.OrdinalIgnoreCase);
 
     public event EventHandler<DiscoveredBluetoothDevice>? DeviceFound;
 
@@ -15,11 +19,7 @@ public sealed class BluetoothDiscoveryService(
 
     public async Task ScanAsync(CancellationToken cancellationToken = default)
     {
-        if (!await EnsurePermissionAsync())
-            throw new BluetoothDiscoveryException("没有蓝牙扫描权限，请在系统设置中允许后重试。");
-
-        if (bluetoothLE.State != BluetoothState.On)
-            throw new BluetoothDiscoveryException("蓝牙未开启，请先开启手机蓝牙。");
+        await EnsureReadyAsync();
 
         await _scanLock.WaitAsync(cancellationToken);
         try
@@ -29,14 +29,109 @@ public sealed class BluetoothDiscoveryService(
 
             adapter.ScanTimeout = 12_000;
             adapter.DeviceDiscovered += OnDeviceDiscovered;
+            diagnostics.Information("BLE/Scan", "开始搜索附近的蓝牙设备，超时 12 秒。");
             try
             {
                 await adapter.StartScanningForDevicesAsync(
                     cancellationToken: cancellationToken);
+                diagnostics.Information("BLE/Scan", "蓝牙设备搜索结束。");
             }
             finally
             {
                 adapter.DeviceDiscovered -= OnDeviceDiscovered;
+            }
+        }
+        finally
+        {
+            _scanLock.Release();
+        }
+    }
+
+    public IDevice? GetCachedDevice(string address) =>
+        _knownDevices.TryGetValue(address, out var device)
+            ? device
+            : null;
+
+    public void InvalidateCachedDevice(string address)
+    {
+        if (!string.IsNullOrWhiteSpace(address))
+            _knownDevices.TryRemove(address, out _);
+    }
+
+    public async Task<IDevice> FindDeviceAsync(
+        string address,
+        TimeSpan? timeout = null,
+        CancellationToken cancellationToken = default)
+    {
+        if (GetCachedDevice(address) is { } cached)
+        {
+            diagnostics.Debug(
+                "BLE/Scan",
+                $"使用扫描缓存中的设备：{address}，state={cached.State}。");
+            return cached;
+        }
+
+        await EnsureReadyAsync();
+        await _scanLock.WaitAsync(cancellationToken);
+        try
+        {
+            if (adapter.IsScanning)
+                await adapter.StopScanningForDevicesAsync();
+
+            var completion = new TaskCompletionSource<IDevice>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            void OnDiscovered(object? sender, DeviceEventArgs eventArgs)
+            {
+                CacheDevice(eventArgs.Device);
+                if (string.Equals(
+                        GetDeviceAddress(eventArgs.Device),
+                        address,
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    completion.TrySetResult(eventArgs.Device);
+                }
+            }
+
+            adapter.DeviceDiscovered += OnDiscovered;
+            using var scanCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            scanCancellation.CancelAfter(timeout ?? TimeSpan.FromSeconds(15));
+
+            diagnostics.Information(
+                "BLE/Scan",
+                $"正在重新扫描目标设备 {address}。");
+
+            try
+            {
+                var scanTask = adapter.StartScanningForDevicesAsync(
+                    cancellationToken: scanCancellation.Token);
+                var completed = await Task.WhenAny(completion.Task, scanTask);
+                if (completed == completion.Task)
+                {
+                    await adapter.StopScanningForDevicesAsync();
+                    var device = await completion.Task;
+                    diagnostics.Information(
+                        "BLE/Scan",
+                        $"已找到目标设备 {address}，name={device.Name ?? "未命名"}，RSSI={device.Rssi}。");
+                    return device;
+                }
+
+                await scanTask;
+                throw new BluetoothDiscoveryException(
+                    $"在扫描时限内没有发现设备 {address}。");
+            }
+            catch (OperationCanceledException)
+                when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new BluetoothDiscoveryException(
+                    $"扫描设备 {address} 超时，请让手机靠近灯具后重试。");
+            }
+            finally
+            {
+                adapter.DeviceDiscovered -= OnDiscovered;
+                if (adapter.IsScanning)
+                    await adapter.StopScanningForDevicesAsync();
             }
         }
         finally
@@ -56,6 +151,7 @@ public sealed class BluetoothDiscoveryService(
         DeviceEventArgs eventArgs)
     {
         var device = eventArgs.Device;
+        CacheDevice(device);
         if (!MatchesConfiguredSyncWord(device))
             return;
 
@@ -67,6 +163,9 @@ public sealed class BluetoothDiscoveryService(
                 device.Rssi));
     }
 
+    private void CacheDevice(IDevice device) =>
+        _knownDevices[GetDeviceAddress(device)] = device;
+
     private static bool MatchesConfiguredSyncWord(IDevice device)
     {
         // TODO: 获得灯具的同步字后，在这里检查广播名称、
@@ -75,7 +174,7 @@ public sealed class BluetoothDiscoveryService(
         return !string.IsNullOrWhiteSpace(device.Name);
     }
 
-    private static string GetDeviceAddress(IDevice device)
+    public static string GetDeviceAddress(IDevice device)
     {
 #if ANDROID
         if (device.NativeDevice is Android.Bluetooth.BluetoothDevice nativeDevice &&
@@ -85,6 +184,17 @@ public sealed class BluetoothDiscoveryService(
         }
 #endif
         return device.Id.ToString("D").ToUpperInvariant();
+    }
+
+    private async Task EnsureReadyAsync()
+    {
+        if (!await EnsurePermissionAsync())
+            throw new BluetoothDiscoveryException(
+                "没有蓝牙扫描权限，请在系统设置中允许后重试。");
+
+        if (bluetoothLE.State != BluetoothState.On)
+            throw new BluetoothDiscoveryException(
+                "蓝牙未开启，请先开启手机蓝牙。");
     }
 
     private static async Task<bool> EnsurePermissionAsync()

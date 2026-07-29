@@ -9,9 +9,15 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private const int LongPressMilliseconds = 650;
 
     private readonly DeviceRepository _repository;
+    private readonly BluetoothConnectionService _connectionService;
+    private readonly AppDiagnosticService _diagnostics;
 
     private string _deviceName = "设备管理";
     private string _deviceAddress = string.Empty;
+    private string _connectionStatusText = "尚未连接";
+    private string _connectionButtonText = "连接";
+    private Color _connectionStatusColor = Color.FromArgb("#A9B2C3");
+    private bool _canConnect = true;
     private bool _isReady;
     private bool _isMasterPowerOn = true;
     private bool _longPressTriggered;
@@ -37,6 +43,54 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         private set => _deviceAddress = value;
     }
 
+    public string ConnectionStatusText
+    {
+        get => _connectionStatusText;
+        private set
+        {
+            if (_connectionStatusText == value)
+                return;
+            _connectionStatusText = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public string ConnectionButtonText
+    {
+        get => _connectionButtonText;
+        private set
+        {
+            if (_connectionButtonText == value)
+                return;
+            _connectionButtonText = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public Color ConnectionStatusColor
+    {
+        get => _connectionStatusColor;
+        private set
+        {
+            if (_connectionStatusColor == value)
+                return;
+            _connectionStatusColor = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public bool CanConnect
+    {
+        get => _canConnect;
+        private set
+        {
+            if (_canConnect == value)
+                return;
+            _canConnect = value;
+            OnPropertyChanged();
+        }
+    }
+
 
     public ObservableCollection<ControlPreset> Presets { get; } =
     [
@@ -52,6 +106,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     {
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _connectionService =
+            ServiceHelper.GetRequiredService<BluetoothConnectionService>();
+        _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
         if (TimerModePicker.SelectedIndex < 0)
             TimerModePicker.SelectedIndex = 0;
@@ -64,11 +121,23 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         base.OnAppearing();
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged += OnRequestedThemeChanged;
+        _connectionService.StateChanged += OnConnectionStateChanged;
 
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
             _repository.GetByAddress(DeviceAddress) is { } device)
         {
             DeviceName = device.Name;
+            if (device.IsDemo)
+            {
+                ConnectionStatusText = "演示设备不执行真实蓝牙连接";
+                ConnectionButtonText = "演示";
+                CanConnect = false;
+            }
+            else
+            {
+                ApplyConnectionSnapshot(_connectionService.Snapshot);
+                _ = EnsureConnectedAsync(showError: false);
+            }
         }
     }
 
@@ -76,6 +145,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     {
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged -= OnRequestedThemeChanged;
+        _connectionService.StateChanged -= OnConnectionStateChanged;
 
         CancelPresetPress();
         base.OnDisappearing();
@@ -97,6 +167,74 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
         await Shell.Current.GoToAsync(
             $"{nameof(DeviceMorePage)}?address={Uri.EscapeDataString(DeviceAddress)}");
+    }
+
+    private async void OnConnectClicked(object? sender, EventArgs e) =>
+        await EnsureConnectedAsync(showError: true);
+
+    private async Task EnsureConnectedAsync(bool showError)
+    {
+        if (string.IsNullOrWhiteSpace(DeviceAddress) || !CanConnect)
+            return;
+
+        try
+        {
+            await _connectionService.ConnectAsync(DeviceAddress);
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Error(
+                "BLE/Connection",
+                $"设备控制页连接失败：{DeviceAddress}。",
+                exception);
+            if (showError)
+            {
+                await DisplayAlertAsync(
+                    "连接失败",
+                    exception.Message,
+                    "知道了");
+            }
+        }
+    }
+
+    private void OnConnectionStateChanged(
+        object? sender,
+        BluetoothSessionSnapshot snapshot) =>
+        MainThread.BeginInvokeOnMainThread(() =>
+            ApplyConnectionSnapshot(snapshot));
+
+    private void ApplyConnectionSnapshot(BluetoothSessionSnapshot snapshot)
+    {
+        if (!string.IsNullOrWhiteSpace(snapshot.Address) &&
+            !string.Equals(
+                snapshot.Address,
+                DeviceAddress,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        ConnectionStatusText = snapshot.Message;
+        ConnectionButtonText = snapshot.State switch
+        {
+            BluetoothSessionState.Scanning => "搜索中",
+            BluetoothSessionState.Connecting => "连接中",
+            BluetoothSessionState.Connected => "已连接",
+            BluetoothSessionState.Updating => "升级中",
+            BluetoothSessionState.Error => "重试",
+            _ => "连接"
+        };
+        CanConnect = snapshot.State is
+            BluetoothSessionState.Disconnected or BluetoothSessionState.Error;
+        ConnectionStatusColor = snapshot.State switch
+        {
+            BluetoothSessionState.Connected => Color.FromArgb("#35C987"),
+            BluetoothSessionState.Updating => Color.FromArgb("#3B70F2"),
+            BluetoothSessionState.Error => Color.FromArgb("#E65B65"),
+            BluetoothSessionState.Scanning or BluetoothSessionState.Connecting =>
+                Color.FromArgb("#F0A44B"),
+            _ => Color.FromArgb("#A9B2C3")
+        };
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
@@ -321,7 +459,10 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         }
         catch (Exception exception)
         {
-            System.Diagnostics.Debug.WriteLine(exception);
+            _diagnostics.Error(
+                "Light/Timer",
+                "发送计时指令失败。",
+                exception);
         }
 
         ToastService.Show(sent ? "计时指令发送成功" : "计时指令发送失败");
@@ -330,7 +471,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private Task<bool> SendTimerCommandAsync(string timerMode, int seconds)
     {
         // TODO: 蓝牙服务接入后，在此发送计时开灯或计时关灯指令，并返回真实结果。
-        System.Diagnostics.Debug.WriteLine(
+        _diagnostics.Debug(
+            "Light/Timer",
             $"Timer command: {DeviceName}, Mode={timerMode}, Delay={seconds}s");
         return Task.FromResult(true);
     }
@@ -348,7 +490,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
 
         // TODO: 在蓝牙服务接入后，发送设备总开关指令。
-        System.Diagnostics.Debug.WriteLine(
+        _diagnostics.Debug(
+            "Light/Power",
             $"Master power command: {DeviceName} = {_isMasterPowerOn}");
     }
 
@@ -386,7 +529,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
 
         // TODO: 接入蓝牙后应合并高频变化，并在短暂防抖后发送颜色、色温和亮度。
-        System.Diagnostics.Debug.WriteLine(
+        _diagnostics.Trace(
+            "Light/Settings",
             $"Light settings: H={ColorPicker.Hue:F2}, T={ColorPicker.Temperature:F2}, B={BrightnessSlider.Value:F0}");
     }
 }

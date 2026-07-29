@@ -6,6 +6,7 @@
     Title="设置"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
+    <ScrollView>
     <VerticalStackLayout Padding="20,24" Spacing="12">
         <Label
             Margin="4,0,0,4"
@@ -55,5 +56,7 @@
             FontSize="12"
             Text="主题选择会保存在本机，并在下次启动时自动应用。"
             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+
     </VerticalStackLayout>
+    </ScrollView>
 </ContentPage>

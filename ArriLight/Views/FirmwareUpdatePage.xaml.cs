@@ -1,41 +1,118 @@
+using System.Net.Http;
+using System.Runtime.CompilerServices;
+using PhyPlus.Ota.Models;
+
 namespace ArriLight;
 
 public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
 {
-    private const string AvailableVersion = "1.1.0";
     private readonly DeviceRepository _repository;
+    private readonly BluetoothConnectionService _connectionService;
+    private readonly FirmwareUpdateService _firmwareUpdateService;
+    private readonly FirmwareUpdateConfiguration _configuration;
+    private readonly AppDiagnosticService _diagnostics;
+
     private string _deviceAddress = string.Empty;
+    private string _deviceName = "灯光设备";
     private string _currentVersion = "1.0.0";
-    private string _statusText = "点击下方按钮检查固件更新";
-
-    public string CurrentVersion
-    {
-        get => _currentVersion;
-        private set
-        {
-            _currentVersion = value;
-            OnPropertyChanged();
-        }
-    }
-
-    public string LatestVersion => AvailableVersion;
-
-    public string StatusText
-    {
-        get => _statusText;
-        private set
-        {
-            _statusText = value;
-            OnPropertyChanged();
-        }
-    }
+    private string _versionSourceText = "本地记录";
+    private string _connectionText = "正在准备连接…";
+    private string _statusText = "请选择在线检查或加载本地 SLB 固件";
+    private string _progressText = string.Empty;
+    private double _progressValue;
+    private bool _isBusy;
+    private bool _canUseCandidate;
+    private FirmwareCandidate? _candidate;
+    private CancellationTokenSource? _operationCancellation;
 
     public FirmwareUpdatePage()
     {
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _connectionService =
+            ServiceHelper.GetRequiredService<BluetoothConnectionService>();
+        _firmwareUpdateService =
+            ServiceHelper.GetRequiredService<FirmwareUpdateService>();
+        _configuration =
+            ServiceHelper.GetRequiredService<FirmwareUpdateConfiguration>();
+        _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
     }
+
+    public string DeviceName
+    {
+        get => _deviceName;
+        private set => SetProperty(ref _deviceName, value);
+    }
+
+    public string CurrentVersion
+    {
+        get => _currentVersion;
+        private set => SetProperty(ref _currentVersion, value);
+    }
+
+    public string VersionSourceText
+    {
+        get => _versionSourceText;
+        private set => SetProperty(ref _versionSourceText, value);
+    }
+
+    public string ConnectionText
+    {
+        get => _connectionText;
+        private set => SetProperty(ref _connectionText, value);
+    }
+
+    public string StatusText
+    {
+        get => _statusText;
+        private set => SetProperty(ref _statusText, value);
+    }
+
+    public string ProgressText
+    {
+        get => _progressText;
+        private set => SetProperty(ref _progressText, value);
+    }
+
+    public double ProgressValue
+    {
+        get => _progressValue;
+        private set => SetProperty(ref _progressValue, value);
+    }
+
+    public bool IsOperationRunning
+    {
+        get => _isBusy;
+        private set
+        {
+            if (!SetProperty(ref _isBusy, value))
+                return;
+            OnPropertyChanged(nameof(CanOperate));
+            OnPropertyChanged(nameof(CanStartUpdate));
+            OnPropertyChanged(nameof(IsProgressVisible));
+        }
+    }
+
+    public bool CanOperate => !IsOperationRunning;
+    public bool IsFirmwareReady => _candidate is not null;
+    public bool CanStartUpdate =>
+        _candidate is not null && _canUseCandidate && !IsOperationRunning;
+    public bool IsProgressVisible => IsOperationRunning || ProgressValue > 0;
+
+    public string CandidateTitle =>
+        _candidate?.SourceKind == FirmwareSourceKind.Online
+            ? $"可用版本 {_candidate.Version}"
+            : "本地 SLB 固件";
+
+    public string CandidateSourceText => _candidate?.SourceText ?? string.Empty;
+    public string CandidateFileName => _candidate?.FileName ?? string.Empty;
+    public string ReleaseNotes => _candidate?.ReleaseNotes ?? string.Empty;
+
+    public string UpdateButtonText =>
+        _candidate?.SourceKind == FirmwareSourceKind.Online
+            ? "一键下载并升级"
+            : "使用本地固件升级";
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -46,55 +123,284 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _connectionService.StateChanged += OnConnectionStateChanged;
+
         if (_repository.GetByAddress(_deviceAddress) is { } device)
-            CurrentVersion = device.FirmwareVersion;
-    }
-
-    private async void OnCheckClicked(object? sender, EventArgs e)
-    {
-        CheckButton.IsEnabled = false;
-        StatusText = "正在检查新版本…";
-        await Task.Delay(700);
-
-        var hasUpdate = !string.Equals(
-            CurrentVersion,
-            AvailableVersion,
-            StringComparison.OrdinalIgnoreCase);
-        StatusText = hasUpdate
-            ? $"发现新版本 {AvailableVersion}，建议保持灯具通电后升级。"
-            : "当前已经是最新版本。";
-        UpdateButton.IsVisible = hasUpdate;
-        CheckButton.IsEnabled = true;
-    }
-
-    private async void OnUpdateClicked(object? sender, EventArgs e)
-    {
-        var confirmed = await DisplayAlertAsync(
-            "固件 OTA 升级",
-            "升级期间请保持灯具通电、蓝牙开启，并将手机靠近设备。是否继续？",
-            "开始升级",
-            "取消");
-        if (!confirmed)
-            return;
-
-        CheckButton.IsEnabled = false;
-        UpdateButton.IsEnabled = false;
-        UpdateProgress.IsVisible = true;
-        StatusText = "正在准备固件并建立 OTA 连接…";
-
-        for (var step = 1; step <= 20; step++)
         {
-            await Task.Delay(120);
-            UpdateProgress.Progress = step / 20d;
-            StatusText = $"正在传输固件… {step * 5}%";
+            DeviceName = device.Name;
+            CurrentVersion = device.FirmwareVersion;
         }
 
-        // TODO: 接入真实 BLE OTA 服务后，用设备确认的新版本替代演示进度。
-        _repository.SetFirmwareVersion(_deviceAddress, AvailableVersion);
-        CurrentVersion = AvailableVersion;
-        StatusText = "固件升级完成，设备已更新到最新版本。";
-        UpdateButton.IsVisible = false;
-        CheckButton.IsEnabled = true;
-        UpdateButton.IsEnabled = true;
+        _ = RefreshConnectedVersionAsync();
+    }
+
+    protected override void OnDisappearing()
+    {
+        _connectionService.StateChanged -= OnConnectionStateChanged;
+        base.OnDisappearing();
+    }
+
+    private async Task RefreshConnectedVersionAsync()
+    {
+        if (_repository.GetByAddress(_deviceAddress) is not { } device)
+            return;
+
+        if (device.IsDemo)
+        {
+            ConnectionText = "演示设备不执行真实蓝牙连接";
+            VersionSourceText = "演示数据";
+            return;
+        }
+
+        try
+        {
+            await _connectionService.ConnectAsync(_deviceAddress);
+            var hardwareVersion =
+                await _connectionService.TryReadFirmwareRevisionAsync(
+                    _deviceAddress);
+            if (!string.IsNullOrWhiteSpace(hardwareVersion))
+            {
+                CurrentVersion = hardwareVersion;
+                VersionSourceText = "设备 Firmware Revision";
+                _repository.SetFirmwareVersion(
+                    _deviceAddress,
+                    hardwareVersion);
+            }
+            else
+            {
+                VersionSourceText = "本地记录（设备未提供标准版本特征）";
+            }
+        }
+        catch (Exception exception)
+        {
+            ConnectionText = $"暂未连接：{exception.Message}";
+            VersionSourceText = "本地记录（连接失败）";
+        }
+    }
+
+    private async void OnOnlineCheckClicked(object? sender, EventArgs e)
+    {
+        var manifestUrl = _configuration.ManifestUrl;
+        if (string.IsNullOrWhiteSpace(manifestUrl))
+        {
+            manifestUrl = await DisplayPromptAsync(
+                "在线固件服务",
+                "请输入在线固件清单的 HTTPS 地址。地址会保存在本机，后续可直接检查。",
+                accept: "检查",
+                cancel: "取消",
+                placeholder: "https://example.com/firmware/manifest.json",
+                keyboard: Keyboard.Url);
+        }
+
+        if (string.IsNullOrWhiteSpace(manifestUrl))
+            return;
+
+        await RunBusyOperationAsync(
+            "正在检查在线固件…",
+            async token =>
+            {
+                var result = await _firmwareUpdateService.CheckOnlineAsync(
+                    CurrentVersion,
+                    manifestUrl,
+                    token);
+                SetCandidate(result.Candidate, result.IsUpdateAvailable);
+                if (result.IsUpdateAvailable)
+                {
+                    StatusText =
+                        $"发现新版本 {result.Candidate.Version}，可以一键下载并升级。";
+                }
+                else
+                {
+                    StatusText =
+                        $"当前版本 {CurrentVersion} 已是最新版本。";
+                }
+            });
+    }
+
+    private async void OnSelectLocalClicked(object? sender, EventArgs e)
+    {
+        var file = await FilePicker.Default.PickAsync(
+            new PickOptions
+            {
+                PickerTitle = "选择 PHY6222 SLB 固件（.bin）"
+            });
+        if (file is null)
+            return;
+
+        await RunBusyOperationAsync(
+            "正在校验本地固件…",
+            async token =>
+            {
+                var candidate =
+                    await _firmwareUpdateService.LoadLocalAsync(file, token);
+                SetCandidate(candidate, canUpgrade: true);
+                StatusText = "本地 SLB 固件已通过格式校验，可以开始升级。";
+            });
+    }
+
+    private async void OnStartUpdateClicked(object? sender, EventArgs e)
+    {
+        var candidate = _candidate;
+        if (candidate is null)
+            return;
+
+        ProgressValue = 0;
+        ProgressText = "0%";
+        await RunBusyOperationAsync(
+            candidate.SourceKind == FirmwareSourceKind.Online
+                ? "正在下载固件，完成后将自动开始升级…"
+                : "正在准备本地固件升级…",
+            async token =>
+            {
+                var progress = new Progress<FirmwareUpdateProgress>(
+                    update =>
+                    {
+                        StatusText = update.Message;
+                        ProgressValue = update.Percentage / 100d;
+                        ProgressText = $"{update.Percentage:0.0}%";
+                    });
+                await _firmwareUpdateService.UpgradeAsync(
+                    _deviceAddress,
+                    candidate,
+                    progress,
+                    token);
+
+                if (candidate.SourceKind == FirmwareSourceKind.Online)
+                {
+                    CurrentVersion = candidate.Version;
+                    VersionSourceText = "升级清单（等待设备重连复核）";
+                    _repository.SetFirmwareVersion(
+                        _deviceAddress,
+                        candidate.Version);
+                }
+
+                StatusText = "固件升级完成，设备正在重启。";
+                ProgressValue = 1;
+                ProgressText = "100%";
+            });
+    }
+
+    private void OnCancelClicked(object? sender, EventArgs e)
+    {
+        _diagnostics.Warning("OTA/UI", "用户请求取消当前 OTA 操作。");
+        _operationCancellation?.Cancel();
+        StatusText = "正在取消，请等待当前 BLE 操作结束…";
+    }
+
+    private async Task RunBusyOperationAsync(
+        string initialStatus,
+        Func<CancellationToken, Task> operation)
+    {
+        if (IsOperationRunning)
+            return;
+
+        IsOperationRunning = true;
+        StatusText = initialStatus;
+        _operationCancellation?.Dispose();
+        _operationCancellation = new CancellationTokenSource();
+        try
+        {
+            await operation(_operationCancellation.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            StatusText = "操作已取消。若固件传输已经开始，请重新扫描设备并确认其状态。";
+            _diagnostics.Warning("OTA/UI", "OTA 操作已取消。");
+        }
+        catch (OtaException exception)
+        {
+            StatusText = ToOtaErrorMessage(exception);
+            _diagnostics.Error(
+                "OTA/UI",
+                $"OTA 协议失败，state={exception.State}。",
+                exception);
+        }
+        catch (InvalidDataException exception)
+        {
+            StatusText = $"固件校验失败：{exception.Message}";
+            _diagnostics.Error("OTA/UI", "固件数据无效。", exception);
+        }
+        catch (NotSupportedException exception)
+        {
+            StatusText = exception.Message;
+            _diagnostics.Warning("OTA/UI", exception.Message);
+        }
+        catch (HttpRequestException exception)
+        {
+            StatusText = $"网络请求失败：{exception.Message}";
+            _diagnostics.Error("OTA/UI", "在线固件请求失败。", exception);
+        }
+        catch (Exception exception)
+        {
+            StatusText = $"操作失败：{exception.Message}";
+            _diagnostics.Error("OTA/UI", "未分类的 OTA 操作失败。", exception);
+        }
+        finally
+        {
+            IsOperationRunning = false;
+        }
+    }
+
+    private void SetCandidate(
+        FirmwareCandidate candidate,
+        bool canUpgrade)
+    {
+        _candidate = candidate;
+        _canUseCandidate = canUpgrade;
+        OnPropertyChanged(nameof(IsFirmwareReady));
+        OnPropertyChanged(nameof(CanStartUpdate));
+        OnPropertyChanged(nameof(CandidateTitle));
+        OnPropertyChanged(nameof(CandidateSourceText));
+        OnPropertyChanged(nameof(CandidateFileName));
+        OnPropertyChanged(nameof(ReleaseNotes));
+        OnPropertyChanged(nameof(UpdateButtonText));
+    }
+
+    private void OnConnectionStateChanged(
+        object? sender,
+        BluetoothSessionSnapshot snapshot)
+    {
+        if (!string.IsNullOrWhiteSpace(snapshot.Address) &&
+            !string.Equals(
+                snapshot.Address,
+                _deviceAddress,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+            ConnectionText = snapshot.Message);
+    }
+
+    private static string ToOtaErrorMessage(OtaException exception) =>
+        exception.State switch
+        {
+            OtaState.ErrorNoService =>
+                "设备没有提供 SLB OTA 服务，请确认固件和设备模式。",
+            OtaState.ErrorFileMismatch =>
+                "固件与设备 Product ID、Boot 版本或 OTA 模式不匹配。",
+            OtaState.ErrorMtuChange or OtaState.ErrorMtuMismatch =>
+                "BLE MTU 协商失败，请重新连接并靠近设备后重试。",
+            OtaState.ErrorCharacteristic =>
+                "设备的 SLB OTA 特征不完整或属性不正确。",
+            OtaState.ErrorCannotConnect =>
+                "无法连接 OTA 设备，请确认设备供电和蓝牙距离。",
+            OtaState.ErrorFirmwareFeedback =>
+                "设备拒绝固件、offset 异常或最终校验失败。",
+            _ => $"OTA 升级失败（{exception.State}）：{exception.Message}"
+        };
+
+    private bool SetProperty<T>(
+        ref T field,
+        T value,
+        [CallerMemberName] string? propertyName = null)
+    {
+        if (EqualityComparer<T>.Default.Equals(field, value))
+            return false;
+
+        field = value;
+        OnPropertyChanged(propertyName);
+        return true;
     }
 }

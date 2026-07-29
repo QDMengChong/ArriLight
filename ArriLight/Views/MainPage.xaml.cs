@@ -7,7 +7,7 @@ namespace ArriLight;
 public partial class MainPage : ContentPage
 {
     private readonly DeviceRepository _repository;
-
+    private readonly AppDiagnosticService _diagnostics;
 
     public ObservableCollection<LightDeviceItem> Devices { get; } = [];
 
@@ -17,6 +17,7 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         _repository.DevicesChanged += OnDevicesChanged;
         BindingContext = this;
         ReloadDevices();
@@ -71,7 +72,8 @@ public partial class MainPage : ContentPage
 
         device.IsOn = !device.IsOn;
         // TODO: 接入灯具通信协议后，在这里发送设备开关指令。
-        System.Diagnostics.Debug.WriteLine(
+        _diagnostics.Debug(
+            "Light/Power",
             $"Device power command: {device.Address} = {device.IsOn}");
     }
 

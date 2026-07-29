@@ -6,6 +6,7 @@ namespace ArriLight;
 
 public partial class SchedulePage : ContentPage, IQueryAttributable
 {
+    private readonly AppDiagnosticService _diagnostics;
     private readonly HashSet<int> _weeklySelections = [];
     private readonly HashSet<int> _monthlySelections = [];
     private string _deviceName = "灯光设备";
@@ -49,6 +50,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     public SchedulePage()
     {
         InitializeComponent();
+        _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
         Schedules.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ScheduleCountText));
 
@@ -236,7 +238,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
         schedule.IsEnabled = e.Value;
         // TODO: 在蓝牙服务接入后，同步定时计划的启用状态。
-        System.Diagnostics.Debug.WriteLine(
+        _diagnostics.Debug(
+            "Light/Schedule",
             $"Schedule enabled command: {DeviceName}, {schedule.TimeText} = {e.Value}");
     }
 

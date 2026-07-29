@@ -1,0 +1,8 @@
+{
+  "productId": "PHY6222_LIGHT",
+  "version": "1.1.0",
+  "fileName": "arrilight-phy6222-1.1.0.bin",
+  "downloadUrl": "https://firmware.example.com/arrilight/arrilight-phy6222-1.1.0.bin",
+  "sha256": "0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF0123456789ABCDEF",
+  "releaseNotes": "优化灯光控制稳定性并增加 OTA 实机诊断信息。"
+}

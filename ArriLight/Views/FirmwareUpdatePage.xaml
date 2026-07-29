@@ -7,34 +7,163 @@
     x:DataType="local:FirmwareUpdatePage"
     Title="固件升级"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
-    <ScrollView>
-        <VerticalStackLayout Padding="20,24,20,36" Spacing="18">
+
+    <ScrollView VerticalScrollBarVisibility="Never">
+        <VerticalStackLayout Padding="20,20,20,36" Spacing="16">
             <Border Style="{StaticResource MenuCardStyle}">
                 <VerticalStackLayout Spacing="14">
-                    <Border HeightRequest="72" WidthRequest="72" HorizontalOptions="Center" BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}" StrokeThickness="0" StrokeShape="RoundRectangle 22">
-                        <Image Margin="18" Source="device_light.svg" />
-                    </Border>
-                    <Label FontFamily="OpenSansSemibold" FontSize="20" HorizontalTextAlignment="Center" Text="设备固件" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="12">
-                        <Label Text="当前版本" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                        <Label Grid.Column="1" Text="{Binding CurrentVersion}" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                        <Label Grid.Row="1" Text="最新版本" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding LatestVersion}" TextColor="{StaticResource Primary}" />
+                    <Grid ColumnDefinitions="64,*" ColumnSpacing="14">
+                        <Border
+                            HeightRequest="64"
+                            WidthRequest="64"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 18">
+                            <Image Margin="16" Source="device_light.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center">
+                            <Label
+                                FontFamily="OpenSansSemibold"
+                                FontSize="18"
+                                Text="{Binding DeviceName}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                            <Label
+                                FontSize="12"
+                                Text="{Binding ConnectionText}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <BoxView
+                        HeightRequest="1"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="10">
+                        <Label
+                            Text="当前版本"
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        <Label
+                            Grid.Column="1"
+                            FontFamily="OpenSansSemibold"
+                            Text="{Binding CurrentVersion}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <Label
+                            Grid.Row="1"
+                            Text="版本来源"
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        <Label
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            FontSize="12"
+                            Text="{Binding VersionSourceText}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
 
             <Border Style="{StaticResource MenuCardStyle}">
                 <VerticalStackLayout Spacing="12">
-                    <Label FontFamily="OpenSansSemibold" FontSize="16" Text="升级状态" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    <Label Text="{Binding StatusText}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                    <ProgressBar x:Name="UpdateProgress" IsVisible="False" Progress="0" ProgressColor="{StaticResource Primary}" />
-                    <Button x:Name="CheckButton" Clicked="OnCheckClicked" Text="检查新版本" />
-                    <Button x:Name="UpdateButton" Clicked="OnUpdateClicked" IsVisible="False" Text="立即升级" />
+                    <Label
+                        FontFamily="OpenSansSemibold"
+                        FontSize="16"
+                        Text="检查固件"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    <Label
+                        FontSize="12"
+                        Text="在线检查会读取固件清单；本地模式只接受 SLB .bin 文件。"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button
+                            Clicked="OnOnlineCheckClicked"
+                            IsEnabled="{Binding CanOperate}"
+                            Text="在线检查" />
+                        <Button
+                            Grid.Column="1"
+                            Clicked="OnSelectLocalClicked"
+                            IsEnabled="{Binding CanOperate}"
+                            Text="加载本地固件" />
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
 
-            <Label FontSize="12" HorizontalTextAlignment="Center" Text="当前页面已实现 OTA 交互流程；正式传输需接入灯具的 BLE OTA 服务、分包与校验协议。" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            <Border
+                IsVisible="{Binding IsFirmwareReady}"
+                Style="{StaticResource MenuCardStyle}">
+                <VerticalStackLayout Spacing="11">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label
+                            FontFamily="OpenSansSemibold"
+                            FontSize="16"
+                            Text="{Binding CandidateTitle}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <Border
+                            Grid.Column="1"
+                            Padding="9,4"
+                            BackgroundColor="{StaticResource DeviceIconBackground}"
+                            StrokeThickness="0"
+                            StrokeShape="RoundRectangle 12">
+                            <Label
+                                FontSize="11"
+                                Text="{Binding CandidateSourceText}"
+                                TextColor="{StaticResource Primary}" />
+                        </Border>
+                    </Grid>
+                    <Label
+                        FontSize="12"
+                        Text="{Binding CandidateFileName}"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    <Label
+                        FontSize="13"
+                        LineBreakMode="WordWrap"
+                        Text="{Binding ReleaseNotes}"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource MenuCardStyle}">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label
+                            FontFamily="OpenSansSemibold"
+                            FontSize="16"
+                            Text="升级状态"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <Label
+                            Grid.Column="1"
+                            FontFamily="OpenSansSemibold"
+                            FontSize="13"
+                            Text="{Binding ProgressText}"
+                            TextColor="{StaticResource Primary}" />
+                    </Grid>
+                    <Label
+                        FontSize="13"
+                        Text="{Binding StatusText}"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    <ProgressBar
+                        IsVisible="{Binding IsProgressVisible}"
+                        Progress="{Binding ProgressValue}"
+                        ProgressColor="{StaticResource Primary}" />
+                    <Button
+                        Clicked="OnStartUpdateClicked"
+                        IsEnabled="{Binding CanStartUpdate}"
+                        IsVisible="{Binding IsFirmwareReady}"
+                        Text="{Binding UpdateButtonText}" />
+                    <Button
+                        BackgroundColor="Transparent"
+                        BorderColor="#E65B65"
+                        BorderWidth="1"
+                        Clicked="OnCancelClicked"
+                        IsVisible="{Binding IsOperationRunning}"
+                        Text="取消升级"
+                        TextColor="#E65B65" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Label
+                FontSize="11"
+                HorizontalTextAlignment="Center"
+                Text="升级期间请保持灯具通电、手机蓝牙开启，并避免离开设备附近。"
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using PhyPlus.Ota.PluginBle;
 using Plugin.BLE;
 using Plugin.BLE.Abstractions.Contracts;
 using ZXing.Net.Maui.Controls;
@@ -22,8 +23,18 @@ public static class MauiProgram
         builder.Services.AddSingleton(CrossBluetoothLE.Current);
         builder.Services.AddSingleton<IAdapter>(
             _ => CrossBluetoothLE.Current.Adapter);
+        builder.Services.AddSingleton<AppDiagnosticService>();
         builder.Services.AddSingleton<BluetoothDiscoveryService>();
+        builder.Services.AddSingleton<BluetoothConnectionService>();
         builder.Services.AddSingleton<DeviceRepository>();
+        builder.Services.AddSingleton<FirmwareUpdateConfiguration>();
+        builder.Services.AddSingleton(
+            _ => new HttpClient
+            {
+                Timeout = TimeSpan.FromMinutes(5)
+            });
+        builder.Services.AddSingleton<PluginBleOtaClient>();
+        builder.Services.AddSingleton<FirmwareUpdateService>();
 
 #if DEBUG
         builder.Logging.AddDebug();

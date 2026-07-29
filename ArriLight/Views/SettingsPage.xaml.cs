@@ -48,4 +48,5 @@ public partial class SettingsPage : ContentPage
         Application.Current.UserAppTheme = theme;
         ThemePreference.Save(theme);
     }
+
 }

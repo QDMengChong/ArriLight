@@ -28,7 +28,11 @@
                 <Label
                     FontSize="13"
                     Text="{Binding VersionText}"
-                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnVersionTapped" />
+                    </Label.GestureRecognizers>
+                </Label>
             </VerticalStackLayout>
 
             <Border Style="{StaticResource MenuCardStyle}">

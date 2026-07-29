@@ -76,4 +76,8 @@
 		<PackageReference Include="ZXing.Net.Maui.Controls" Version="0.10.3" />
 	</ItemGroup>
 
+	<ItemGroup>
+	  <ProjectReference Include="..\..\ota-csharp-sdk\src\PhyPlus.Ota.PluginBle\PhyPlus.Ota.PluginBle.csproj" />
+	</ItemGroup>
+
 </Project>
