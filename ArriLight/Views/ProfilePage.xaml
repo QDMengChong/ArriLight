@@ -31,7 +31,6 @@
                         TextColor="White" />
                 </VerticalStackLayout>
             </Border>
-
             <VerticalStackLayout Padding="20,24" Spacing="12">
                 <Border Style="{StaticResource MenuCardStyle}">
                     <Border.GestureRecognizers>
@@ -48,7 +47,21 @@
                         <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
                     </Grid>
                 </Border>
-
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Tapped="OnSettingsTapped" />
+                    </Border.GestureRecognizers>
+                    <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                        <Border Style="{StaticResource MenuIconContainerStyle}">
+                            <Image Margin="12" Source="profile_settings.svg" />
+                        </Border>
+                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="设置" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="主题与应用偏好" />
+                        </VerticalStackLayout>
+                        <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+                    </Grid>
+                </Border>
                 <Border Style="{StaticResource MenuCardStyle}">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnAppVersionTapped" />
@@ -64,7 +77,6 @@
                         <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
                     </Grid>
                 </Border>
-
                 <Border Style="{StaticResource MenuCardStyle}">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnAboutUsTapped" />
@@ -76,22 +88,6 @@
                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
                             <Label Style="{StaticResource MenuTitleStyle}" Text="关于我们" />
                             <Label Style="{StaticResource MenuDescriptionStyle}" Text="协议、隐私与联系方式" />
-                        </VerticalStackLayout>
-                        <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
-                    </Grid>
-                </Border>
-
-                <Border Style="{StaticResource MenuCardStyle}">
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnSettingsTapped" />
-                    </Border.GestureRecognizers>
-                    <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
-                        <Border Style="{StaticResource MenuIconContainerStyle}">
-                            <Image Margin="12" Source="profile_settings.svg" />
-                        </Border>
-                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="设置" />
-                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="主题与应用偏好" />
                         </VerticalStackLayout>
                         <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
                     </Grid>

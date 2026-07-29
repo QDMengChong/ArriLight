@@ -580,7 +580,7 @@ public sealed class ControlPreset : INotifyPropertyChanged
         IsReorderMode
             ? "拖动调整"
             : IsSaved
-                ? $"{Brightness:0}% 亮度"
+                ? $"{Brightness:0}%/{Temperature * 100:0}%"
                 : "点击查看";
 
     public Color PreviewColor =>
