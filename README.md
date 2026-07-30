@@ -5,7 +5,7 @@ dotnet publish -c Release -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="C:\
 
 APP 的“固件升级 → 在线检查”使用 JSON 清单判断是否存在新版本。首次测试时会提示
 输入清单 URL，并将地址保存在本机。清单格式示例见
-`ArriLight/Resources/Raw/ota-manifest.sample.json`：
+`ArriLight/Resources/Raw/ota_manifest.sample.json`：
 
 ```json
 {

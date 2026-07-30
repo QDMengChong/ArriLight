@@ -127,10 +127,26 @@ public partial class BluetoothScanPage : ContentPage
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            if (Devices.Any(item =>
-                    string.Equals(item.Address, device.Address,
-                        StringComparison.OrdinalIgnoreCase)))
+            var existingIndex = Devices
+                .Select((item, index) => (item, index))
+                .Where(entry =>
+                    string.Equals(
+                        entry.item.Address,
+                        device.Address,
+                        StringComparison.OrdinalIgnoreCase))
+                .Select(entry => entry.index)
+                .DefaultIfEmpty(-1)
+                .First();
+
+            if (existingIndex >= 0)
             {
+                var existing = Devices[existingIndex];
+                var nameImproved =
+                    existing.Name == "未命名 BLE 设备" &&
+                    device.Name != "未命名 BLE 设备";
+                var rssiChanged = Math.Abs(existing.Rssi - device.Rssi) >= 5;
+                if (nameImproved || rssiChanged)
+                    Devices[existingIndex] = device;
                 return;
             }
 
