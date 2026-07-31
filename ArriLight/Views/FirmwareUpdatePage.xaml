@@ -70,7 +70,7 @@
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                     <Label
                         FontSize="12"
-                        Text="在线检查会读取固件清单；本地模式只接受 SLB .bin 文件。"
+                        Text="支持 SLB .bin，以及 Single Bank .hex、.hex4、.hex16、.hexe16、.res 文件。"
                         TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button

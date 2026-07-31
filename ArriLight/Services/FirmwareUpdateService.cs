@@ -38,6 +38,7 @@ public sealed class FirmwareCandidate
 {
     internal FirmwareCandidate(
         FirmwareSourceKind sourceKind,
+        OtaProtocol protocol,
         string version,
         string fileName,
         string releaseNotes,
@@ -47,6 +48,7 @@ public sealed class FirmwareCandidate
         FileResult? localFile)
     {
         SourceKind = sourceKind;
+        Protocol = protocol;
         Version = version;
         FileName = fileName;
         ReleaseNotes = releaseNotes;
@@ -57,6 +59,7 @@ public sealed class FirmwareCandidate
     }
 
     public FirmwareSourceKind SourceKind { get; }
+    public OtaProtocol Protocol { get; }
     public string Version { get; }
     public string FileName { get; }
     public string ReleaseNotes { get; }
@@ -67,6 +70,9 @@ public sealed class FirmwareCandidate
 
     public string SourceText =>
         SourceKind == FirmwareSourceKind.Online ? "在线固件" : "本地固件";
+
+    public string ProtocolText =>
+        Protocol == OtaProtocol.Slb ? "SLB" : "Single Bank";
 }
 
 public sealed class FirmwareUpdateConfiguration
@@ -143,10 +149,11 @@ public sealed class FirmwareUpdateService(
         var fileName = string.IsNullOrWhiteSpace(manifest.FileName)
             ? Path.GetFileName(downloadUri.LocalPath)
             : Path.GetFileName(manifest.FileName);
-        EnsureSlbFileName(fileName);
+        var protocol = GetFirmwareProtocol(fileName);
 
         var candidate = new FirmwareCandidate(
             FirmwareSourceKind.Online,
+            protocol,
             manifest.Version.Trim(),
             fileName,
             manifest.ReleaseNotes?.Trim() ?? "暂无版本说明",
@@ -167,21 +174,16 @@ public sealed class FirmwareUpdateService(
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(file);
-        EnsureSlbFileName(file.FileName);
+        var logicalFileName = GetLocalFirmwareFileName(file.FileName);
         diagnostics.Information(
             "OTA/Local",
-            $"开始校验本地固件：{file.FileName}。");
+            $"开始校验本地固件：selected={file.FileName}，logical={logicalFileName}。");
 
         await using var stream = await file.OpenReadAsync();
         var firmware = await FirmwareLoader.LoadAsync(
             stream,
-            file.FileName,
+            logicalFileName,
             cancellationToken);
-        if (firmware.Protocol != OtaProtocol.Slb)
-        {
-            throw new NotSupportedException(
-                "当前 APP 的升级流程仅开放 SLB 固件，请选择 .bin 文件。");
-        }
 
         var metadata = firmware.Metadata;
         var version = string.IsNullOrWhiteSpace(metadata.BootVersion)
@@ -189,13 +191,14 @@ public sealed class FirmwareUpdateService(
             : metadata.BootVersion;
         diagnostics.Information(
             "OTA/Local",
-            $"本地 SLB 固件校验成功：length={firmware.Length}，secure={firmware.IsSecure}，productId={metadata.ProductId ?? "未提供"}，bootVersion={metadata.BootVersion ?? "未提供"}。");
+            $"本地 {GetProtocolText(firmware.Protocol)} 固件校验成功：length={firmware.Length}，secure={firmware.IsSecure}，productId={metadata.ProductId ?? "未提供"}，bootVersion={metadata.BootVersion ?? "未提供"}。");
 
         return new FirmwareCandidate(
             FirmwareSourceKind.Local,
+            firmware.Protocol,
             version,
-            Path.GetFileName(file.FileName),
-            "已加载并通过格式校验的本地 SLB 固件。",
+            logicalFileName,
+            $"已加载并通过格式校验的本地 {GetProtocolText(firmware.Protocol)} 固件。",
             metadata.ProductId,
             null,
             null,
@@ -213,6 +216,7 @@ public sealed class FirmwareUpdateService(
             candidate,
             progress,
             cancellationToken);
+        var singleBankPayloadAccepted = false;
 
         try
         {
@@ -220,67 +224,103 @@ public sealed class FirmwareUpdateService(
                 new FirmwareUpdateProgress(
                     FirmwareUpdateStage.Connecting,
                     0,
-                    "正在连接设备并准备 SLB OTA。"));
+                    $"正在连接设备并准备 {candidate.ProtocolText} OTA。"));
 
-            await connectionService.RunExclusiveOtaAsync(
-                deviceAddress,
-                async (device, token) =>
-                {
-                    var otaDiagnostics = diagnostics.CreateOtaDiagnostics();
-                    var otaOptions = new PluginBleOtaOptions
+            try
+            {
+                await connectionService.RunExclusiveOtaAsync(
+                    deviceAddress,
+                    async (device, token) =>
                     {
-                        Protocol = new OtaOptions
+                        var otaDiagnostics = diagnostics.CreateOtaDiagnostics();
+                        var otaOptions = new PluginBleOtaOptions
                         {
-                            RequestedMtu = configuration.RequestedMtu,
-                            AesKeyHex = configuration.AesKeyHex,
-                            ValidateProductId = true,
-                            Diagnostics = otaDiagnostics
-                        },
-                        OperationDispatcher = operation =>
-                            MainThread.InvokeOnMainThreadAsync(operation)
-                    };
-                    var otaProgress = new Progress<OtaProgress>(value =>
-                    {
-                        var percentage = Math.Clamp(value.Percentage, 0, 100);
-                        diagnostics.Debug(
-                            "OTA/Progress",
-                            $"state={value.State}, progress={percentage:0.0}%, bytes={value.BytesTransferred}/{value.TotalBytes}, message={value.Message}");
-                        progress?.Report(
-                            new FirmwareUpdateProgress(
-                                value.State == OtaState.FeedbackProgress
-                                    ? FirmwareUpdateStage.Transferring
-                                    : FirmwareUpdateStage.Connecting,
-                                percentage,
-                                ToUserMessage(value),
-                                value.State));
-                    });
+                            Protocol = new OtaOptions
+                            {
+                                RequestedMtu = configuration.RequestedMtu,
+                                AesKeyHex = configuration.AesKeyHex,
+                                ValidateProductId = true,
+                                Diagnostics = otaDiagnostics
+                            },
+                            OperationDispatcher = operation =>
+                                MainThread.InvokeOnMainThreadAsync(operation)
+                        };
+                        var otaProgress = new InlineProgress<OtaProgress>(value =>
+                        {
+                            var percentage = Math.Clamp(value.Percentage, 0, 100);
+                            if (candidate.Protocol == OtaProtocol.SingleBank &&
+                                value.State == OtaState.FeedbackProgress &&
+                                value.TotalBytes > 0 &&
+                                value.BytesTransferred >= value.TotalBytes)
+                            {
+                                singleBankPayloadAccepted = true;
+                            }
 
-                    await using var stream = await prepared.OpenReadAsync(token);
-                    diagnostics.Information(
-                        "OTA",
-                        $"开始 SLB 升级：device={deviceAddress}，file={candidate.FileName}，source={candidate.SourceText}。");
-                    await otaClient.UpgradeAsync(
-                        device,
-                        stream,
-                        candidate.FileName,
-                        otaOptions,
-                        otaProgress,
-                        token);
-                },
-                cancellationToken);
+                            diagnostics.Debug(
+                                "OTA/Progress",
+                                $"state={value.State}, progress={percentage:0.0}%, bytes={value.BytesTransferred}/{value.TotalBytes}, message={value.Message}");
+                            progress?.Report(
+                                new FirmwareUpdateProgress(
+                                    value.State == OtaState.FeedbackProgress
+                                        ? FirmwareUpdateStage.Transferring
+                                        : FirmwareUpdateStage.Connecting,
+                                    percentage,
+                                    ToUserMessage(value),
+                                    value.State));
+                        });
 
-            diagnostics.Information("OTA", "SLB OTA 状态机执行完成。");
+                        await using var stream = await prepared.OpenReadAsync(token);
+                        diagnostics.Information(
+                            "OTA",
+                            $"开始 {candidate.ProtocolText} 升级：device={deviceAddress}，file={candidate.FileName}，source={candidate.SourceText}。");
+                        await otaClient.UpgradeAsync(
+                            device,
+                            stream,
+                            candidate.FileName,
+                            otaOptions,
+                            otaProgress,
+                            token);
+                    },
+                    cancellationToken);
+            }
+            catch (IOException exception)
+                when (IsExpectedSingleBankRestartDisconnect(
+                    candidate,
+                    singleBankPayloadAccepted,
+                    exception))
+            {
+                diagnostics.Warning(
+                    "OTA/SingleBank",
+                    "设备已确认全部 Single Bank 固件数据；最终重启命令触发 GATT 133 断开，按升级已提交处理。");
+            }
+
+            diagnostics.Information(
+                "OTA",
+                $"{candidate.ProtocolText} OTA 状态机执行完成。");
+            var completionMessage = candidate.Protocol == OtaProtocol.SingleBank
+                ? "升级成功，请删除本设备后重新再次连接。"
+                : "固件校验通过，设备正在重启。";
             progress?.Report(
                 new FirmwareUpdateProgress(
                     FirmwareUpdateStage.Completed,
                     100,
-                    "固件校验通过，设备正在重启。"));
+                    completionMessage));
         }
         finally
         {
             prepared.Dispose();
         }
     }
+
+    private static bool IsExpectedSingleBankRestartDisconnect(
+        FirmwareCandidate candidate,
+        bool payloadAccepted,
+        IOException exception) =>
+        candidate.Protocol == OtaProtocol.SingleBank &&
+        payloadAccepted &&
+        exception.Message.Contains(
+            "GATT result 133",
+            StringComparison.OrdinalIgnoreCase);
 
     private async Task<PreparedFirmware> PrepareFirmwareAsync(
         FirmwareCandidate candidate,
@@ -419,8 +459,18 @@ public sealed class FirmwareUpdateService(
         {
             OtaState.Connecting => "正在连接 OTA 设备…",
             OtaState.ConnectedDiscovering => "已连接，正在发现 OTA 服务…",
+            OtaState.SingleBankAppService or OtaState.SingleBankOtaService =>
+                "已发现 Single Bank OTA 服务。",
             OtaState.SlbService or OtaState.ConfirmedSlb or OtaState.SlbReady =>
                 "SLB OTA 服务已准备完成。",
+            OtaState.ConfirmedSingleBankApp or OtaState.SingleBankAppReady =>
+                "Single Bank APP 模式已准备完成，正在切换 OTA 模式。",
+            OtaState.AppModeEndWaitingScan =>
+                "正在等待设备切换到 OTA 模式并重新广播…",
+            OtaState.FoundOtaDevice =>
+                "已找到 Single Bank OTA 设备，正在重新连接。",
+            OtaState.ConfirmedSingleBankOta or OtaState.SingleBankOtaReady =>
+                "Single Bank OTA 服务已准备完成。",
             OtaState.FeedbackBootVersion => "已读取设备版本并校验固件。",
             OtaState.FeedbackProgress =>
                 $"正在传输固件… {progress.Percentage:0.0}%",
@@ -429,16 +479,40 @@ public sealed class FirmwareUpdateService(
             _ => progress.Message
         };
 
-    private static void EnsureSlbFileName(string fileName)
+    private static OtaProtocol GetFirmwareProtocol(string fileName)
     {
-        if (!string.Equals(
-                Path.GetExtension(fileName),
-                ".bin",
-                StringComparison.OrdinalIgnoreCase))
+        var extension = Path.GetExtension(fileName.Trim()).ToLowerInvariant();
+        if (string.Equals(extension, ".bin", StringComparison.OrdinalIgnoreCase))
+            return OtaProtocol.Slb;
+
+        if (extension is ".hex" or ".hex4" or ".hex16" or ".hexe16" or ".res")
+            return OtaProtocol.SingleBank;
+
+        throw new NotSupportedException(
+            "当前 APP 支持 SLB .bin，以及 Single Bank .hex、.hex4、.hex16、.hexe16、.res 固件。");
+    }
+
+    private static string GetProtocolText(OtaProtocol protocol) =>
+        protocol == OtaProtocol.Slb ? "SLB" : "Single Bank";
+
+    private string GetLocalFirmwareFileName(string? selectedFileName)
+    {
+        var fileName = Path.GetFileName(selectedFileName?.Trim() ?? string.Empty);
+        if (string.IsNullOrWhiteSpace(fileName))
+            fileName = "selected_firmware";
+
+        if (string.IsNullOrEmpty(Path.GetExtension(fileName)))
         {
-            throw new NotSupportedException(
-                "当前 APP 主要使用 SLB OTA，请选择扩展名为 .bin 的固件。");
+            var logicalFileName = $"{fileName}.bin";
+            diagnostics.Warning(
+                "OTA/Local",
+                $"Android 文件提供者未返回扩展名；将文件按 SLB .bin 处理：selected={selectedFileName}，logical={logicalFileName}。"
+            );
+            return logicalFileName;
         }
+
+        _ = GetFirmwareProtocol(fileName);
+        return fileName;
     }
 
     private static string? NormalizeSha256(string? value)
@@ -513,6 +587,11 @@ public sealed class FirmwareUpdateService(
                 // 缓存清理失败不应覆盖 OTA 的真实结果。
             }
         }
+    }
+
+    private sealed class InlineProgress<T>(Action<T> report) : IProgress<T>
+    {
+        public void Report(T value) => report(value);
     }
 
     private sealed record FirmwareManifest
