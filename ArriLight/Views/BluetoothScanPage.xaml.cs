@@ -11,6 +11,11 @@ public partial class BluetoothScanPage : ContentPage
     private string _scanStatusText = "准备开始搜索";
     private string _emptyText = "正在等待设备广播…";
 
+    // 每个设备以“首次发现时的 RSSI”作为固定的排序依据，
+    // 后续广播只更新行内强度值，不再改变排序位置。
+    private readonly Dictionary<string, int> _firstRssiByAddress =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public BluetoothScanPage()
     {
         InitializeComponent();
@@ -84,6 +89,7 @@ public partial class BluetoothScanPage : ContentPage
             return;
 
         Devices.Clear();
+        _firstRssiByAddress.Clear();
         EmptyText = "正在等待设备广播…";
         ScanStatusText = "正在搜索，请让灯具保持通电";
         IsScanning = true;
@@ -95,6 +101,7 @@ public partial class BluetoothScanPage : ContentPage
             await _discoveryService.ScanAsync(_scanCancellation.Token);
             ScanStatusText = $"搜索完成，共发现 {Devices.Count} 台设备";
             EmptyText = "没有发现可添加的设备";
+            await ScrollToTopAsync();
         }
         catch (OperationCanceledException)
         {
@@ -127,32 +134,66 @@ public partial class BluetoothScanPage : ContentPage
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            var existingIndex = Devices
-                .Select((item, index) => (item, index))
-                .Where(entry =>
+            // 已发现过的设备：保持首次发现时的名称、信号强度和排序完全不变，
+            // 防止信号反复跳动导致列表闪烁。
+            if (Devices.Any(existing =>
                     string.Equals(
-                        entry.item.Address,
+                        existing.Address,
                         device.Address,
-                        StringComparison.OrdinalIgnoreCase))
-                .Select(entry => entry.index)
-                .DefaultIfEmpty(-1)
-                .First();
-
-            if (existingIndex >= 0)
+                        StringComparison.OrdinalIgnoreCase)))
             {
-                var existing = Devices[existingIndex];
-                var nameImproved =
-                    existing.Name == "未命名 BLE 设备" &&
-                    device.Name != "未命名 BLE 设备";
-                var rssiChanged = Math.Abs(existing.Rssi - device.Rssi) >= 5;
-                if (nameImproved || rssiChanged)
-                    Devices[existingIndex] = device;
                 return;
             }
 
-            Devices.Add(device);
+            // 新设备：记录首次发现时的 RSSI 作为固定排序依据，
+            // 之后即使信号变化也不更新。
+            _firstRssiByAddress[device.Address] = device.Rssi;
+            var firstRssi = device.Rssi;
+
+            // 集合始终保持按“首次发现时的 RSSI”降序：越大越靠前。
+            var insertAt = 0;
+            while (insertAt < Devices.Count)
+            {
+                var sortKey = _firstRssiByAddress.TryGetValue(
+                    Devices[insertAt].Address, out var key)
+                    ? key
+                    : Devices[insertAt].Rssi;
+                if (sortKey <= firstRssi)
+                    break;
+                insertAt++;
+            }
+
+            Devices.Insert(insertAt, device);
             ScanStatusText = $"正在搜索，已发现 {Devices.Count} 台设备";
+            _ = ScrollToTopAsync();
         });
+    }
+
+    // 扫描结束后把列表定位到最顶端。
+    private async Task ScrollToTopAsync()
+    {
+        if (Devices.Count == 0)
+            return;
+
+        // 等待列表布局稳定，避免在布局未完成时滚动导致错位。
+        await Task.Delay(150);
+
+#if ANDROID
+        // MAUI 的 CollectionView.ScrollTo(0, Start) 在 Android 上存在已知 bug
+        // （dotnet/maui#27117），会滚动到第二个元素而不是第一个。
+        // 这里直接操作平台 RecyclerView，强制滚动到 position 0。
+        if (DeviceCollection.Handler?.PlatformView
+                is AndroidX.RecyclerView.Widget.RecyclerView recyclerView &&
+            recyclerView.GetLayoutManager()
+                is AndroidX.RecyclerView.Widget.LinearLayoutManager layoutManager)
+        {
+            layoutManager.ScrollToPositionWithOffset(0, 0);
+            return;
+        }
+#endif
+
+        DeviceCollection.ScrollTo(
+            0, position: ScrollToPosition.Start, animate: false);
     }
 
     private async void OnDeviceSelected(
