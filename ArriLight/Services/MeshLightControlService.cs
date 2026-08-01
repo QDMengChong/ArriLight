@@ -198,6 +198,7 @@ public sealed class MeshLightControlService
                 "Mesh/TX",
                 $"access opcode={accessPdu[0]:X2}, data={Convert.ToHexString(accessPdu)}");
             await handle.MeshClient.SendAccessMessageAsync(accessPdu, cancellationToken);
+            PersistConfig(address, handle.MeshClient.Config);
         }
         catch (InvalidOperationException exception) when (
             exception.Message.Contains("未提供服务", StringComparison.Ordinal) ||
@@ -210,7 +211,19 @@ public sealed class MeshLightControlService
             ResetProvisioning(address);
             var handle = await GetOrCreateClientAsync(address, cancellationToken);
             await handle.MeshClient.SendAccessMessageAsync(accessPdu, cancellationToken);
+            PersistConfig(address, handle.MeshClient.Config);
         }
+    }
+
+    /// <summary>持久化网络配置（含最新序列号），确保 App 重启后不会被设备
+    /// 的回放保护丢弃。</summary>
+    private void PersistConfig(string address, MeshNetworkConfig? config)
+    {
+        if (config is null)
+            return;
+        Preferences.Default.Set(
+            ConfigPreferencesPrefix + address,
+            JsonSerializer.Serialize(config));
     }
 
     private async Task<MeshClientHandle> GetOrCreateClientAsync(
@@ -245,12 +258,40 @@ public sealed class MeshLightControlService
                 await transport.StartReceivingAsync(cancellationToken);
                 var client = new MeshClient(transport);
                 client.Restore(config);
-                var handle = new MeshClientHandle(transport, client);
-                _clients[address] = handle;
-                _diagnostics.Information(
+
+                // 自愈：验证链路是否可用。若持久化序列号落后于设备已收到的
+                // 序列号（例如旧版本 App 未保存序列号），设备会静默丢弃消息；
+                // 这里前移序列号并重试，避免要求用户手动清数据。
+                var verified = await client.VerifyLinkAsync(
+                    TimeSpan.FromSeconds(3),
+                    cancellationToken);
+                for (var attempt = 0; !verified && attempt < 3; attempt++)
+                {
+                    _diagnostics.Warning(
+                        "Mesh/Provision",
+                        $"设备 {address} 未响应验证消息，序列号可能过期，" +
+                        $"前移 64 后重试（第 {attempt + 1} 次）。");
+                    config.SequenceNumber += 64;
+                    PersistConfig(address, config);
+                    verified = await client.VerifyLinkAsync(
+                        TimeSpan.FromSeconds(3),
+                        cancellationToken);
+                }
+
+                if (verified)
+                {
+                    var handle = new MeshClientHandle(transport, client);
+                    _clients[address] = handle;
+                    _diagnostics.Information(
+                        "Mesh/Provision",
+                        $"设备 {address} 链路验证通过，进入控制模式。");
+                    return handle;
+                }
+
+                _diagnostics.Warning(
                     "Mesh/Provision",
-                    $"设备 {address} 已有网络配置，直接进入控制模式。");
-                return handle;
+                    $"设备 {address} 链路验证持续失败，将尝试重新配网。");
+                Preferences.Default.Remove(ConfigPreferencesPrefix + address);
             }
         }
 
@@ -307,6 +348,7 @@ public sealed class MeshLightControlService
         _diagnostics.Information(
             "Mesh/Config",
             $"Config AppKey 状态码 0x{statusCode:X2}（0x00=成功）。");
+        PersistConfig(address, meshClient.Config);
         var provisioned = new MeshClientHandle(provisioningTransport, meshClient);
         _clients[address] = provisioned;
         return provisioned;
