@@ -19,6 +19,7 @@ public sealed class MeshGattTransport : IMeshLink, IDisposable
     private Guid _dataOutUuid;
     private byte[]? _sarBuffer;
     private byte _sarType;
+    private int _connectionId;
 
     public MeshGattTransport(
         BluetoothConnectionService connectionService,
@@ -30,7 +31,14 @@ public sealed class MeshGattTransport : IMeshLink, IDisposable
         _diagnostics = diagnostics;
         _address = address;
         SetMode(provisioningMode);
+        _connectionService.StateChanged += OnConnectionStateChanged;
     }
+
+    /// <summary>
+    /// 连接代次：每次与该设备建立新的 GATT 连接时递增。
+    /// 用于判断代理过滤器是否需要重新配置（过滤器与连接绑定）。
+    /// </summary>
+    public int ConnectionId => _connectionId;
 
     /// <summary>从 Data Out 特征收到的完整 Proxy PDU。</summary>
     public event EventHandler<byte[]>? Received;
@@ -207,6 +215,23 @@ public sealed class MeshGattTransport : IMeshLink, IDisposable
     private void DeliverProxyPdu(byte[] pdu) =>
         Received?.Invoke(this, pdu);
 
-    public void Dispose() =>
+    public void Dispose()
+    {
         _connectionService.MessageReceived -= OnMessageReceived;
+        _connectionService.StateChanged -= OnConnectionStateChanged;
+    }
+
+    private void OnConnectionStateChanged(
+        object? sender,
+        BluetoothSessionSnapshot snapshot)
+    {
+        if (snapshot.IsConnected &&
+            string.Equals(snapshot.Address, _address, StringComparison.OrdinalIgnoreCase))
+        {
+            Interlocked.Increment(ref _connectionId);
+            _diagnostics.Debug(
+                "Mesh/GATT",
+                $"连接代次更新为 {_connectionId}。");
+        }
+    }
 }

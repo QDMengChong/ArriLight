@@ -71,6 +71,44 @@ public sealed class MeshLightControlService
                     : null),
             cancellationToken);
 
+    /// <summary>
+    /// 读取灯具当前开关状态：发送 Generic OnOff Get 并等待 Status。
+    /// 超时或链路不可用时返回 null（页面保持默认状态）。
+    /// </summary>
+    public async Task<bool?> GetOnOffStateAsync(
+        string address,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var handle = await GetOrCreateClientAsync(address, cancellationToken);
+            await EnsureProxyFilterAsync(handle, cancellationToken);
+            // 先注册等待者再发送，避免设备响应先于等待者注册到达而被丢弃
+            var statusTask = handle.MeshClient.WaitForAccessMessageAsync(
+                MeshOpcode.Encode(MeshOpcode.GenericOnOffStatus),
+                TimeSpan.FromSeconds(3),
+                cancellationToken);
+            await handle.MeshClient.SendAccessMessageAsync(
+                GenericOnOffModel.Get(),
+                cancellationToken);
+            var status = await statusTask;
+            if (GenericOnOffModel.TryParseStatus(status, out var parsed))
+                return parsed.PresentOnOff;
+            return null;
+        }
+        catch (TimeoutException)
+        {
+            return null;
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Warning(
+                "Light/State",
+                $"读取灯具状态失败：{exception.Message}");
+            return null;
+        }
+    }
+
     /// <summary>发送 Light Lightness Set（Unacknowledged）。</summary>
     public Task SendLightnessAsync(
         string address,
@@ -186,6 +224,30 @@ public sealed class MeshLightControlService
         Preferences.Default.Remove(ConfigPreferencesPrefix + address);
     }
 
+    /// <summary>
+    /// GATT 连接建立后，代理过滤器会重置为空白名单（设备不再转发任何响应），
+    /// 因此每次连接建立都需要重新把 Provisioner 地址加入白名单。
+    /// </summary>
+    /// <summary>
+    /// 确保代理过滤器已针对当前 GATT 连接配置（过滤器与连接绑定，连接建立
+    /// 后设备会重置为空白名单，需重新把 Provisioner 地址加入白名单，否则
+    /// 设备不会把状态响应转发回来）。通过连接代次去重，避免重复发送。
+    /// </summary>
+    private async Task EnsureProxyFilterAsync(
+        MeshClientHandle handle,
+        CancellationToken cancellationToken)
+    {
+        if (handle.LastFilterConnectionId == handle.Transport.ConnectionId)
+            return;
+
+        await handle.MeshClient.ConfigureProxyFilterAsync(cancellationToken);
+        handle.LastFilterConnectionId = handle.Transport.ConnectionId;
+        _diagnostics.Information(
+            "Mesh/Proxy",
+            $"代理过滤器已配置（连接代次 {handle.Transport.ConnectionId}）。");
+    }
+
+
     private async Task SendAccessAsync(
         string address,
         byte[] accessPdu,
@@ -194,6 +256,7 @@ public sealed class MeshLightControlService
         try
         {
             var handle = await GetOrCreateClientAsync(address, cancellationToken);
+            await EnsureProxyFilterAsync(handle, cancellationToken);
             _diagnostics.Trace(
                 "Mesh/TX",
                 $"access opcode={accessPdu[0]:X2}, data={Convert.ToHexString(accessPdu)}");
@@ -210,6 +273,7 @@ public sealed class MeshLightControlService
                 $"设备端点失效（{exception.Message}），清空配置后重新配网。");
             ResetProvisioning(address);
             var handle = await GetOrCreateClientAsync(address, cancellationToken);
+            await EnsureProxyFilterAsync(handle, cancellationToken);
             await handle.MeshClient.SendAccessMessageAsync(accessPdu, cancellationToken);
             PersistConfig(address, handle.MeshClient.Config);
         }
@@ -257,7 +321,11 @@ public sealed class MeshLightControlService
                     provisioningMode: false);
                 await transport.StartReceivingAsync(cancellationToken);
                 var client = new MeshClient(transport);
+                client.DiagnosticLog = message => _diagnostics.Debug("Mesh/RX", message);
                 client.Restore(config);
+
+                // 代理过滤器默认是空白名单，先配置白名单才能收到设备响应
+                await client.ConfigureProxyFilterAsync(cancellationToken);
 
                 // 自愈：验证链路是否可用。若持久化序列号落后于设备已收到的
                 // 序列号（例如旧版本 App 未保存序列号），设备会静默丢弃消息；
@@ -281,6 +349,7 @@ public sealed class MeshLightControlService
                 if (verified)
                 {
                     var handle = new MeshClientHandle(transport, client);
+                handle.LastFilterConnectionId = transport.ConnectionId;
                     _clients[address] = handle;
                     _diagnostics.Information(
                         "Mesh/Provision",
@@ -323,6 +392,7 @@ public sealed class MeshLightControlService
         await provisioningTransport.RequestMtuAsync(247, cancellationToken);
 
         var meshClient = new MeshClient(provisioningTransport);
+        meshClient.DiagnosticLog = message => _diagnostics.Debug("Mesh/RX", message);
         var options = ProvisioningOptions.CreateRandom(
             provisionerAddress: 0x0001,
             deviceUnicastAddress: 0x0002);
@@ -344,17 +414,30 @@ public sealed class MeshLightControlService
             $"配网完成：{address}，设备单播地址 0x{config2.DeviceUnicastAddress:X4}。");
 
         await provisioningTransport.SwitchToProxyModeAsync(cancellationToken);
+        await meshClient.ConfigureProxyFilterAsync(cancellationToken);
         var statusCode = await meshClient.ConfigureNodeAsync(cancellationToken);
         _diagnostics.Information(
             "Mesh/Config",
             $"Config AppKey 状态码 0x{statusCode:X2}（0x00=成功）。");
         PersistConfig(address, meshClient.Config);
         var provisioned = new MeshClientHandle(provisioningTransport, meshClient);
+        provisioned.LastFilterConnectionId = provisioningTransport.ConnectionId;
         _clients[address] = provisioned;
         return provisioned;
     }
 
-    private sealed record MeshClientHandle(
-        MeshGattTransport Transport,
-        MeshClient MeshClient);
+    private sealed class MeshClientHandle
+    {
+        public MeshGattTransport Transport { get; }
+        public MeshClient MeshClient { get; }
+        public int LastFilterConnectionId { get; set; } = -1;
+
+        public MeshClientHandle(
+            MeshGattTransport transport,
+            MeshClient meshClient)
+        {
+            Transport = transport;
+            MeshClient = meshClient;
+        }
+    }
 }

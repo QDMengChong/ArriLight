@@ -6,8 +6,25 @@
     xmlns:controls="clr-namespace:ArriLight.Controls"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:DeviceControlPage"
-    Title="{Binding DeviceName}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <Shell.TitleView>
+        <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+            <Ellipse
+                HeightRequest="10"
+                WidthRequest="10"
+                Fill="{Binding ConnectionStatusColor}"
+                VerticalOptions="Center" />
+            <Label
+                FontFamily="OpenSansSemibold"
+                FontSize="17"
+                LineBreakMode="TailTruncation"
+                MaxLines="1"
+                Text="{Binding DeviceName}"
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                VerticalTextAlignment="Center" />
+        </HorizontalStackLayout>
+    </Shell.TitleView>
 
     <ContentPage.ToolbarItems>
         <ToolbarItem
@@ -20,36 +37,11 @@
 
     <Grid RowDefinitions="*,Auto">
         <ScrollView Grid.Row="0" VerticalScrollBarVisibility="Never">
-            <VerticalStackLayout Padding="20,20,20,24" Spacing="18">
-                <Border Style="{StaticResource MenuCardStyle}">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <VerticalStackLayout Spacing="4" VerticalOptions="Center">
-                            <HorizontalStackLayout Spacing="7">
-                                <Ellipse
-                                    HeightRequest="8"
-                                    WidthRequest="8"
-                                    Fill="{Binding ConnectionStatusColor}" />
-                                <Label
-                                    FontFamily="OpenSansSemibold"
-                                    FontSize="15"
-                                    Text="蓝牙连接"
-                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                            </HorizontalStackLayout>
-                            <Label
-                                FontSize="12"
-                                Text="{Binding ConnectionStatusText}"
-                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                        </VerticalStackLayout>
-                        <Button
-                            Grid.Column="1"
-                            Padding="14,8"
-                            Clicked="OnConnectClicked"
-                            FontSize="12"
-                            IsEnabled="{Binding CanConnect}"
-                            Text="{Binding ConnectionButtonText}" />
-                    </Grid>
-                </Border>
-
+            <VerticalStackLayout
+                Padding="20,20,20,24"
+                Spacing="18"
+                IsEnabled="{Binding IsDeviceOnline}"
+                Opacity="{Binding ControlOpacity}">
                 <Border Style="{StaticResource MenuCardStyle}">
                     <VerticalStackLayout Spacing="14">
                         <Grid ColumnDefinitions="*,Auto">
@@ -295,6 +287,8 @@
 
         <Border
             Grid.Row="1"
+            IsEnabled="{Binding IsDeviceOnline}"
+            Opacity="{Binding ControlOpacity}"
             Padding="20,12"
             BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
             Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"

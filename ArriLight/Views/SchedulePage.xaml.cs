@@ -209,7 +209,21 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         ActionOffButton.TextColor = _isActionOn ? inactiveText : Colors.White;
     }
 
-    private async void OnAddScheduleClicked(object? sender, EventArgs e)
+    /// <summary>标题栏“+ 添加”：打开添加定时弹层。</summary>
+    private void OnAddScheduleClicked(object? sender, EventArgs e)
+    {
+        _isInitializing = true;
+        RepeatModePicker.SelectedIndex = _confirmedRepeatIndex;
+        ScheduleTimePicker.Time = new TimeSpan(7, 30, 0);
+        UpdateActionButtons();
+        _isInitializing = false;
+        AddScheduleOverlay.IsVisible = true;
+    }
+
+    private void OnAddScheduleCancelClicked(object? sender, EventArgs e) =>
+        AddScheduleOverlay.IsVisible = false;
+
+    private async void OnAddScheduleConfirmClicked(object? sender, EventArgs e)
     {
         var time = ScheduleTimePicker.Time ?? DateTime.Now.TimeOfDay;
         var index = (byte)(Schedules.Count % 16);
@@ -226,6 +240,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             RepeatSelectionSummary,
             true,
             register));
+        AddScheduleOverlay.IsVisible = false;
     }
 
     private async void OnDeleteScheduleClicked(object? sender, EventArgs e)

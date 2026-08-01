@@ -142,6 +142,22 @@ public partial class MainPage : ContentPage
                     device.IsOnline = true;
                     device.Status = "在线";
                     device.StatusColor = Color.FromArgb("#35C987");
+
+                    // 同步灯具真实开关状态（打开 App / 从控制页返回都会走到这里）
+                    try
+                    {
+                        var state = await _meshLight.GetOnOffStateAsync(
+                            device.Address,
+                            cancellation.Token);
+                        if (state is { } onOff)
+                            device.IsOn = onOff;
+                    }
+                    catch (Exception exception)
+                    {
+                        _diagnostics.Debug(
+                            "Light/State",
+                            $"读取设备 {device.Address} 开关状态失败：{exception.Message}");
+                    }
                 }
                 catch (Exception exception)
                 {

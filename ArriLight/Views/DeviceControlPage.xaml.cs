@@ -23,6 +23,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private bool _canConnect = true;
     private bool _isReady;
     private bool _isDemo;
+    private bool _isDeviceOnline;
     private bool _isMasterPowerOn = true;
     private bool _longPressTriggered;
     private bool _suppressPresetClick;
@@ -96,6 +97,22 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         }
     }
 
+    /// <summary>设备是否在线（已连接或升级中）。离线时灯控功能全部置灰。</summary>
+    public bool IsDeviceOnline
+    {
+        get => _isDeviceOnline;
+        private set
+        {
+            if (_isDeviceOnline == value)
+                return;
+            _isDeviceOnline = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(ControlOpacity));
+        }
+    }
+
+    public double ControlOpacity => IsDeviceOnline ? 1 : 0.45;
+
 
     public ObservableCollection<ControlPreset> Presets { get; } =
     [
@@ -122,7 +139,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _isReady = true;
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         if (Application.Current is not null)
@@ -143,7 +160,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             else
             {
                 ApplyConnectionSnapshot(_connectionService.Snapshot);
-                _ = EnsureConnectedAsync(showError: false);
+                await EnsureConnectedAsync(showError: false);
+                await RefreshDeviceStateAsync();
             }
         }
     }
@@ -245,6 +263,35 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 Color.FromArgb("#F0A44B"),
             _ => Color.FromArgb("#A9B2C3")
         };
+        IsDeviceOnline = snapshot.IsConnected;
+    }
+
+    /// <summary>
+    /// 根据设备当前状态刷新页面：读取灯具真实开关状态并同步总开关。
+    /// </summary>
+    private async Task RefreshDeviceStateAsync()
+    {
+        if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress) || !IsDeviceOnline)
+            return;
+
+        try
+        {
+            var state = await _meshLight.GetOnOffStateAsync(DeviceAddress);
+            if (state is { } onOff)
+            {
+                _isMasterPowerOn = onOff;
+                UpdateMasterPowerVisual();
+                _diagnostics.Debug(
+                    "Light/State",
+                    $"灯具当前状态：{(onOff ? "开" : "关")}。");
+            }
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Warning(
+                "Light/State",
+                $"读取灯具状态失败：{exception.Message}");
+        }
     }
 
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
@@ -260,6 +307,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnSavePresetClicked(object? sender, EventArgs e)
     {
+        if (!IsDeviceOnline)
+            return;
         if (Presets.All(preset => preset.IsSaved))
         {
             await DisplayAlertAsync("配置已满", "最多可以保存 6 个自定义配置。", "知道了");
@@ -308,6 +357,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnPresetClicked(object? sender, EventArgs e)
     {
+        if (!IsDeviceOnline)
+            return;
         if (_longPressTriggered || _suppressPresetClick)
         {
             _longPressTriggered = false;
@@ -455,6 +506,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnTimerSendClicked(object? sender, EventArgs e)
     {
+        if (!IsDeviceOnline)
+            return;
         if (!int.TryParse(DelaySecondsEntry.Text, out var seconds) || seconds is < 1 or > 86400)
         {
             ToastService.Show("发送失败：请输入 1 至 86400 秒");
@@ -498,6 +551,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnMasterPowerTapped(object? sender, TappedEventArgs e)
     {
+        if (!IsDeviceOnline)
+            return;
         _isMasterPowerOn = !_isMasterPowerOn;
         UpdateMasterPowerVisual();
 
@@ -550,7 +605,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void QueueLightSettingsCommand()
     {
-        if (!_isReady)
+        if (!_isReady || !IsDeviceOnline)
             return;
 
         if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))

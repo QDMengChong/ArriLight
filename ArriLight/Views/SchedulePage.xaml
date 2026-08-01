@@ -8,32 +8,177 @@
     Title="定时设置"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
+    <Shell.TitleView>
+        <Grid ColumnDefinitions="*,Auto" Padding="0,0,8,0">
+            <Label
+                FontFamily="OpenSansSemibold"
+                FontSize="17"
+                Text="定时设置"
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                VerticalTextAlignment="Center" />
+            <Border
+                Grid.Column="1"
+                HeightRequest="36"
+                WidthRequest="76"
+                BackgroundColor="{StaticResource Primary}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 18">
+                <Button
+                    Padding="0"
+                    BackgroundColor="Transparent"
+                    Clicked="OnAddScheduleClicked"
+                    FontFamily="OpenSansSemibold"
+                    FontSize="13"
+                    Text="+ 添加"
+                    TextColor="White" />
+            </Border>
+        </Grid>
+    </Shell.TitleView>
+
     <Grid>
         <Grid
             Padding="20,18,20,12"
-            RowDefinitions="Auto,Auto,Auto,*"
+            RowDefinitions="Auto,Auto,*"
             RowSpacing="14">
             <Border
                 Padding="16"
                 BackgroundColor="{StaticResource Primary}"
                 StrokeThickness="0"
                 StrokeShape="RoundRectangle 20">
-                <VerticalStackLayout Spacing="3">
-                    <Label
-                        FontFamily="OpenSansSemibold"
-                        FontSize="18"
-                        Text="{Binding DeviceName}"
-                        TextColor="White" />
-                    <Label
-                        FontSize="12"
-                        Opacity="0.78"
-                        Text="设置自动开灯或关灯计划"
-                        TextColor="White" />
-                </VerticalStackLayout>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                        <Label
+                            FontFamily="OpenSansSemibold"
+                            FontSize="18"
+                            LineBreakMode="TailTruncation"
+                            MaxLines="1"
+                            Text="{Binding DeviceName}"
+                            TextColor="White" />
+                        <Label
+                            FontSize="12"
+                            Opacity="0.78"
+                            Text="管理自动开灯或关灯计划"
+                            TextColor="White" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout
+                        Grid.Column="1"
+                        Spacing="1"
+                        VerticalOptions="Center">
+                        <Label
+                            FontFamily="OpenSansSemibold"
+                            FontSize="15"
+                            HorizontalTextAlignment="End"
+                            Text="已添加的定时"
+                            TextColor="White" />
+                        <Label
+                            FontSize="11"
+                            HorizontalTextAlignment="End"
+                            Opacity="0.78"
+                            Text="{Binding ScheduleCountText}"
+                            TextColor="White" />
+                    </VerticalStackLayout>
+                </Grid>
             </Border>
 
-            <Border Grid.Row="1" Style="{StaticResource MenuCardStyle}">
-                <VerticalStackLayout Spacing="13">
+            <CollectionView
+                Grid.Row="1"
+                Grid.RowSpan="2"
+                ItemsSource="{Binding Schedules}"
+                SelectionMode="None"
+                VerticalScrollBarVisibility="Never">
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout Padding="20,42" Spacing="10">
+                        <Image
+                            HeightRequest="46"
+                            Opacity="0.45"
+                            Source="control_schedule.svg"
+                            WidthRequest="46" />
+                        <Label
+                            FontFamily="OpenSansSemibold"
+                            FontSize="16"
+                            HorizontalTextAlignment="Center"
+                            Text="还没有定时计划"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <Label
+                            FontSize="12"
+                            HorizontalTextAlignment="Center"
+                            Text="点击右上角“+ 添加”创建计划"
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="local:LightScheduleItem">
+                        <Border Style="{StaticResource MenuCardStyle}">
+                            <Grid ColumnDefinitions="104,*,Auto,Auto" ColumnSpacing="8">
+                                <Label
+                                    FontFamily="OpenSansSemibold"
+                                    FontSize="22"
+                                    LineBreakMode="NoWrap"
+                                    MaxLines="1"
+                                    Text="{Binding TimeText}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                    VerticalTextAlignment="Center" />
+                                <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                                    <Label
+                                        FontFamily="OpenSansSemibold"
+                                        FontSize="13"
+                                        Text="{Binding ActionText}"
+                                        TextColor="{StaticResource Primary}" />
+                                    <Label
+                                        FontSize="10"
+                                        LineBreakMode="TailTruncation"
+                                        MaxLines="1"
+                                        Text="{Binding RepeatText}"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                                </VerticalStackLayout>
+                                <ImageButton
+                                    Grid.Column="2"
+                                    Padding="10"
+                                    BackgroundColor="Transparent"
+                                    Clicked="OnDeleteScheduleClicked"
+                                    HeightRequest="42"
+                                    Source="control_delete.svg"
+                                    WidthRequest="42"
+                                    SemanticProperties.Description="删除定时计划" />
+                                <Switch
+                                    Grid.Column="3"
+                                    IsToggled="{Binding IsEnabled, Mode=OneWay}"
+                                    Toggled="OnScheduleEnabledToggled"
+                                    VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Grid>
+
+        <!-- 添加定时弹层 -->
+        <Grid
+            x:Name="AddScheduleOverlay"
+            ZIndex="90"
+            Padding="24"
+            BackgroundColor="#99000000"
+            IsVisible="False">
+            <Border
+                Padding="20"
+                BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                HorizontalOptions="Center"
+                MaximumWidthRequest="360"
+                Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                StrokeShape="RoundRectangle 24"
+                StrokeThickness="1"
+                VerticalOptions="Center"
+                WidthRequest="330">
+                <VerticalStackLayout Spacing="14">
+                    <Label
+                        FontFamily="OpenSansSemibold"
+                        FontSize="19"
+                        Text="添加定时"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+
                     <Grid ColumnDefinitions="86,*,100" ColumnSpacing="8">
                         <Label
                             Style="{StaticResource MenuTitleStyle}"
@@ -107,87 +252,19 @@
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                     </Grid>
 
-                    <Button
-                        Clicked="OnAddScheduleClicked"
-                        FontFamily="OpenSansSemibold"
-                        Text="+ 添加定时" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource DarkIconBackground}}"
+                            Clicked="OnAddScheduleCancelClicked"
+                            Text="取消"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <Button
+                            Grid.Column="1"
+                            Clicked="OnAddScheduleConfirmClicked"
+                            Text="添加" />
+                    </Grid>
                 </VerticalStackLayout>
             </Border>
-
-            <Grid Grid.Row="2" ColumnDefinitions="*,Auto">
-                <Label
-                    FontFamily="OpenSansSemibold"
-                    FontSize="17"
-                    Text="已添加的定时"
-                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                <Label
-                    Grid.Column="1"
-                    FontSize="12"
-                    Text="{Binding ScheduleCountText}"
-                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
-                    VerticalTextAlignment="Center" />
-            </Grid>
-
-            <CollectionView
-                Grid.Row="3"
-                ItemsSource="{Binding Schedules}"
-                SelectionMode="None"
-                VerticalScrollBarVisibility="Never">
-                <CollectionView.EmptyView>
-                    <VerticalStackLayout Padding="20,42" Spacing="10">
-                        <Image HeightRequest="46" Opacity="0.45" Source="control_schedule.svg" WidthRequest="46" />
-                        <Label
-                            FontFamily="OpenSansSemibold"
-                            FontSize="16"
-                            HorizontalTextAlignment="Center"
-                            Text="还没有定时计划"
-                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    </VerticalStackLayout>
-                </CollectionView.EmptyView>
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
-                </CollectionView.ItemsLayout>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="local:LightScheduleItem">
-                        <Border Style="{StaticResource MenuCardStyle}">
-                            <Grid ColumnDefinitions="68,*,Auto,Auto" ColumnSpacing="8">
-                                <Label
-                                    FontFamily="OpenSansSemibold"
-                                    FontSize="22"
-                                    Text="{Binding TimeText}"
-                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                                    VerticalTextAlignment="Center" />
-                                <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                                    <Label
-                                        FontFamily="OpenSansSemibold"
-                                        FontSize="13"
-                                        Text="{Binding ActionText}"
-                                        TextColor="{StaticResource Primary}" />
-                                    <Label
-                                        FontSize="10"
-                                        LineBreakMode="TailTruncation"
-                                        Text="{Binding RepeatText}"
-                                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                                </VerticalStackLayout>
-                                <ImageButton
-                                    Grid.Column="2"
-                                    Padding="10"
-                                    BackgroundColor="Transparent"
-                                    Clicked="OnDeleteScheduleClicked"
-                                    HeightRequest="42"
-                                    Source="control_delete.svg"
-                                    WidthRequest="42"
-                                    SemanticProperties.Description="删除定时计划" />
-                                <Switch
-                                    Grid.Column="3"
-                                    IsToggled="{Binding IsEnabled, Mode=OneWay}"
-                                    Toggled="OnScheduleEnabledToggled"
-                                    VerticalOptions="Center" />
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
         </Grid>
 
         <Grid
