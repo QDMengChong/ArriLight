@@ -6,8 +6,13 @@ namespace ArriLight;
 
 public partial class MainPage : ContentPage
 {
+    private static readonly TimeSpan DeviceCheckTimeout = TimeSpan.FromSeconds(8);
+
     private readonly DeviceRepository _repository;
+    private readonly BluetoothConnectionService _connectionService;
+    private readonly MeshLightControlService _meshLight;
     private readonly AppDiagnosticService _diagnostics;
+    private bool _isRefreshing;
 
     public ObservableCollection<LightDeviceItem> Devices { get; } = [];
 
@@ -17,16 +22,19 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _connectionService = ServiceHelper.GetRequiredService<BluetoothConnectionService>();
+        _meshLight = ServiceHelper.GetRequiredService<MeshLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         _repository.DevicesChanged += OnDevicesChanged;
         BindingContext = this;
         ReloadDevices();
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         ReloadDevices();
+        await RefreshDeviceStatusesAsync();
     }
 
     private async void OnScanQrCodeClicked(object? sender, EventArgs e) =>
@@ -59,22 +67,45 @@ public partial class MainPage : ContentPage
                 isOnlineDemo
                     ? Color.FromArgb("#35C987")
                     : Color.FromArgb("#A9B2C3"),
-                isOn: isOnlineDemo));
+                isOn: isOnlineDemo,
+                isDemo: savedDevice.IsDemo,
+                isOnline: isOnlineDemo));
         }
 
         OnPropertyChanged(nameof(DeviceCountText));
     }
 
-    private void OnDevicePowerClicked(object? sender, EventArgs e)
+    private async void OnDevicePowerClicked(object? sender, EventArgs e)
     {
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
+        if (device.IsDemo)
+        {
+            device.IsOn = !device.IsOn;
+            return;
+        }
+
+        if (!device.IsOnline || device.IsChecking)
+        {
+            ToastService.Show("设备离线，无法控制");
+            return;
+        }
+
         device.IsOn = !device.IsOn;
-        // TODO: 接入灯具通信协议后，在这里发送设备开关指令。
-        _diagnostics.Debug(
-            "Light/Power",
-            $"Device power command: {device.Address} = {device.IsOn}");
+        try
+        {
+            await _meshLight.SendOnOffAsync(device.Address, device.IsOn);
+        }
+        catch (Exception exception)
+        {
+            device.IsOn = !device.IsOn;
+            _diagnostics.Error(
+                "Light/Power",
+                $"列表页发送开关指令失败：{device.Address}。",
+                exception);
+            ToastService.Show("发送失败，请重试");
+        }
     }
 
     private async void OnDeviceManageClicked(object? sender, EventArgs e)
@@ -85,30 +116,143 @@ public partial class MainPage : ContentPage
         await Shell.Current.GoToAsync(
             $"{nameof(DeviceControlPage)}?name={Uri.EscapeDataString(device.Name)}&address={Uri.EscapeDataString(device.Address)}");
     }
+
+    /// <summary>
+    /// 逐个检测已保存设备的在线状态：按设备连接，失败或超时标记为离线。
+    /// 连接成功标记“在线”，失败或超时标记“离线”。
+    /// </summary>
+    private async Task RefreshDeviceStatusesAsync()
+    {
+        if (_isRefreshing)
+            return;
+
+        _isRefreshing = true;
+        try
+        {
+            foreach (var device in Devices.Where(item => !item.IsDemo).ToList())
+            {
+                device.IsChecking = true;
+                device.Status = "连接中";
+                try
+                {
+                    using var cancellation = new CancellationTokenSource(DeviceCheckTimeout);
+                    await _connectionService.ConnectAsync(
+                        device.Address,
+                        cancellation.Token);
+                    device.IsOnline = true;
+                    device.Status = "在线";
+                    device.StatusColor = Color.FromArgb("#35C987");
+                }
+                catch (Exception exception)
+                {
+                    device.IsOnline = false;
+                    device.Status = "离线";
+                    device.StatusColor = Color.FromArgb("#E65B65");
+                    _diagnostics.Debug(
+                        "BLE/Status",
+                        $"设备 {device.Address} 检测为离线：{exception.Message}");
+                }
+                finally
+                {
+                    device.IsChecking = false;
+                }
+            }
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
+    }
 }
 
 public sealed class LightDeviceItem : INotifyPropertyChanged
 {
     private bool _isOn;
+    private string _status;
+    private Color _statusColor;
+    private bool _isOnline;
+    private bool _isChecking;
 
     public LightDeviceItem(
         string name,
         string address,
         string status,
         Color statusColor,
-        bool isOn = false)
+        bool isOn = false,
+        bool isDemo = false,
+        bool isOnline = false)
     {
         Name = name;
         Address = address;
-        Status = status;
-        StatusColor = statusColor;
+        IsDemo = isDemo;
+        _status = status;
+        _statusColor = statusColor;
+        _isOnline = isOnline;
         _isOn = isOn;
     }
 
     public string Name { get; }
     public string Address { get; }
-    public string Status { get; }
-    public Color StatusColor { get; }
+    public bool IsDemo { get; }
+
+    public string Status
+    {
+        get => _status;
+        set
+        {
+            if (_status == value)
+                return;
+            _status = value;
+            OnPropertyChanged();
+        }
+    }
+
+    public Color StatusColor
+    {
+        get => _statusColor;
+        set
+        {
+            if (_statusColor == value)
+                return;
+            _statusColor = value;
+            OnPropertyChanged();
+        }
+    }
+
+    /// <summary>是否检测为在线（离线时列表页开关不可用）。</summary>
+    public bool IsOnline
+    {
+        get => _isOnline;
+        set
+        {
+            if (_isOnline == value)
+                return;
+            _isOnline = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsEnabled));
+            OnPropertyChanged(nameof(PowerOpacity));
+        }
+    }
+
+    /// <summary>正在检测连接状态。</summary>
+    public bool IsChecking
+    {
+        get => _isChecking;
+        set
+        {
+            if (_isChecking == value)
+                return;
+            _isChecking = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsEnabled));
+            OnPropertyChanged(nameof(PowerOpacity));
+        }
+    }
+
+    /// <summary>列表页开关是否可用（仅在线且不在检测中）。</summary>
+    public bool IsEnabled => IsOnline && !IsChecking;
+
+    public double PowerOpacity => IsEnabled ? 1 : 0.35;
 
     public bool IsOn
     {

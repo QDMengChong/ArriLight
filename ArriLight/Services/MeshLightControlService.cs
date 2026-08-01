@@ -1,30 +1,25 @@
 using System.Collections.Concurrent;
+using System.Text.Json;
+using ArriOpto.Mesh.Client;
 using ArriOpto.Mesh.Codec;
 using ArriOpto.Mesh.Models.Generic;
 using ArriOpto.Mesh.Models.Light;
 using ArriOpto.Mesh.Models.Scheduler;
 using ArriOpto.Mesh.Models.Scene;
-using Plugin.BLE.Abstractions;
+using ArriOpto.Mesh.Provisioning;
 
 namespace ArriLight;
 
 /// <summary>
-/// 将 ArriOpto.Mesh 生成的灯控信号通过现有 BLE 连接发送给设备。
+/// 把 ArriOpto.Mesh 生成的灯控信号发送给已配网的 Mesh 灯具。
 /// </summary>
 /// <remarks>
-/// Mesh 通过 GATT 传输时使用标准 Mesh Proxy 服务（0x1828，特征 0x2ADD/0x2ADE）
-/// 或未配网阶段的 Mesh Provisioning 服务（0x1827，特征 0x2ADB/0x2ADC）。
-/// 本服务发送前会枚举设备服务表并自动选择可用端点（优先级：
-/// 显式配置 &gt; 0x1828 &gt; 0x1827），并在端点缺失时刷新 GATT 缓存后重试，
-/// 与厂商 PhyMeshPlus Android 客户端的行为一致（其 Mesh Data In 特征使用
-/// Write Without Response）。
+/// 发送链路：访问层消息（ArriOpto.Mesh 模型）→ 上层/下层传输加密 →
+/// 网络层加密 + 隐私混淆 → Proxy PDU → <see cref="MeshGattTransport"/> 写入
+/// Mesh Proxy Data In（0x2ADD）。
 ///
-/// 注意：本服务目前发送的是 ArriOpto.Mesh 生成的【访问层消息】。对于符合 SIG
-/// 规范的 Mesh 节点，写入 0x2ADD 的必须是 Proxy PDU（SAR 分片 + PDU 类型），
-/// 且其中的网络层载荷需要 NetKey 加密、IV Index、序列号等完整协议栈封装，
-/// 裸访问层消息无法被直接执行——这需要引入完整的 Mesh 网络栈（或与厂商确认
-/// 是否存在自定义裸命令通道）。在拿到真机服务表之前，请先通过诊断日志确认
-/// 设备实际暴露的 GATT 布局。
+/// 首次控制某台设备时自动执行 PB-GATT 配网（0x1827/0x2ADB+0x2ADC），配网
+/// 完成后把网络配置（NetKey/AppKey/地址/IV）持久化到本地，之后直接复用。
 /// </remarks>
 public sealed class MeshLightControlService
 {
@@ -42,9 +37,12 @@ public sealed class MeshLightControlService
     public static readonly Guid MeshProvisioningDataOutUuid =
         Guid.Parse("00002ADC-0000-1000-8000-00805F9B34FB");
 
+    private const string ConfigPreferencesPrefix = "mesh_network_config_v1_";
+    private static readonly TimeSpan ProvisioningTimeout = TimeSpan.FromSeconds(90);
+
     private readonly BluetoothConnectionService _connectionService;
     private readonly AppDiagnosticService _diagnostics;
-    private readonly ConcurrentDictionary<string, GattEndpoint> _meshEndpoints = new();
+    private readonly ConcurrentDictionary<string, MeshClientHandle> _clients = new();
     private byte _tid;
 
     public MeshLightControlService(
@@ -55,125 +53,110 @@ public sealed class MeshLightControlService
         _diagnostics = diagnostics;
     }
 
-    /// <summary>
-    /// Mesh GATT 服务 UUID。默认 Mesh Proxy；可改为厂商自定义服务 UUID。
-    /// </summary>
-    public Guid ServiceUuid { get; set; } = MeshProxyServiceUuid;
-
-    /// <summary>
-    /// Mesh GATT 数据写入特征 UUID。默认 Mesh Proxy Data In；可改为厂商自定义特征。
-    /// </summary>
-    public Guid CharacteristicUuid { get; set; } = MeshProxyDataInUuid;
-
     private byte NextTid() => unchecked(_tid++);
 
-    /// <summary>发送 Generic OnOff Set（Unacknowledged，适合高频控制）。</summary>
-    public Task<int> SendOnOffAsync(
+    /// <summary>发送 Generic OnOff Set（Unacknowledged）。</summary>
+    public Task SendOnOffAsync(
         string address,
         bool onOff,
         TimeSpan? transitionTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        var message = GenericOnOffModel.SetUnacknowledged(
-            onOff,
-            NextTid(),
-            transitionTime is { } transition
-                ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
-                : null);
-        return SendRawAsync(address, message, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAccessAsync(
+            address,
+            GenericOnOffModel.SetUnacknowledged(
+                onOff,
+                NextTid(),
+                transitionTime is { } transition
+                    ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
+                    : null),
+            cancellationToken);
 
     /// <summary>发送 Light Lightness Set（Unacknowledged）。</summary>
-    public Task<int> SendLightnessAsync(
+    public Task SendLightnessAsync(
         string address,
         ushort lightness,
         TimeSpan? transitionTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        var message = LightLightnessModel.SetUnacknowledged(
-            lightness,
-            NextTid(),
-            transitionTime is { } transition
-                ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
-                : null);
-        return SendRawAsync(address, message, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAccessAsync(
+            address,
+            LightLightnessModel.SetUnacknowledged(
+                lightness,
+                NextTid(),
+                transitionTime is { } transition
+                    ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
+                    : null),
+            cancellationToken);
 
     /// <summary>发送 Light CTL Set（Unacknowledged）：亮度 + 色温 + Delta UV。</summary>
-    public Task<int> SendCtlAsync(
+    public Task SendCtlAsync(
         string address,
         ushort lightness,
         ushort temperature,
         short deltaUv = 0,
         TimeSpan? transitionTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        var message = LightCtlModel.SetUnacknowledged(
-            lightness,
-            temperature,
-            deltaUv,
-            NextTid(),
-            transitionTime is { } transition
-                ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
-                : null);
-        return SendRawAsync(address, message, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAccessAsync(
+            address,
+            LightCtlModel.SetUnacknowledged(
+                lightness,
+                temperature,
+                deltaUv,
+                NextTid(),
+                transitionTime is { } transition
+                    ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
+                    : null),
+            cancellationToken);
 
     /// <summary>发送 Light HSL Set（Unacknowledged）：亮度 + 色相 + 饱和度。</summary>
-    public Task<int> SendHslAsync(
+    public Task SendHslAsync(
         string address,
         ushort lightness,
         ushort hue,
         ushort saturation,
         TimeSpan? transitionTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        var message = LightHslModel.SetUnacknowledged(
-            lightness,
-            hue,
-            saturation,
-            NextTid(),
-            transitionTime is { } transition
-                ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
-                : null);
-        return SendRawAsync(address, message, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAccessAsync(
+            address,
+            LightHslModel.SetUnacknowledged(
+                lightness,
+                hue,
+                saturation,
+                NextTid(),
+                transitionTime is { } transition
+                    ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
+                    : null),
+            cancellationToken);
 
     /// <summary>发送 Scheduler Action Set，用于定时开/关或场景回放。</summary>
-    public Task<int> SendSchedulerActionAsync(
+    public Task SendSchedulerActionAsync(
         string address,
         ScheduleRegister register,
-        CancellationToken cancellationToken = default)
-    {
-        var message = SchedulerModel.ActionSet(register);
-        return SendRawAsync(address, message, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAccessAsync(
+            address,
+            SchedulerModel.ActionSet(register),
+            cancellationToken);
 
     /// <summary>发送 Scene Recall（Unacknowledged）。</summary>
-    public Task<int> SendSceneRecallAsync(
+    public Task SendSceneRecallAsync(
         string address,
         ushort sceneNumber,
         TimeSpan? transitionTime = null,
-        CancellationToken cancellationToken = default)
-    {
-        var message = SceneModel.RecallUnacknowledged(
-            sceneNumber,
-            NextTid(),
-            transitionTime is { } transition
-                ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
-                : null);
-        return SendRawAsync(address, message, cancellationToken);
-    }
+        CancellationToken cancellationToken = default) =>
+        SendAccessAsync(
+            address,
+            SceneModel.RecallUnacknowledged(
+                sceneNumber,
+                NextTid(),
+                transitionTime is { } transition
+                    ? TransitionTime.FromMilliseconds(transition.TotalMilliseconds)
+                    : null),
+            cancellationToken);
 
     /// <summary>
     /// 把“N 秒后开/关”换算成本地时间点，写入 Scheduler 条目。
     /// </summary>
-    /// <remarks>
-    /// Scheduler 表达的是本地时间点而非相对延时，因此这里把计时换算成具体时间。
-    /// Year 只取年份后两位，条目会在每年同月同日再次触发；如需真正的一次性
-    /// 语义，需要设备端自定义模型或由上层在触发后清除条目。
-    /// </remarks>
-    public Task<int> SendTimerAsync(
+    public Task SendTimerAsync(
         string address,
         TimeSpan delay,
         bool turnOn,
@@ -195,116 +178,141 @@ public sealed class MeshLightControlService
         return SendSchedulerActionAsync(address, register, cancellationToken);
     }
 
-    /// <summary>
-    /// 把编码好的访问层消息写入设备的 Mesh 特征。
-    /// </summary>
-    /// <remarks>
-    /// 首次发送会做一次强制刷新缓存的 GATT 服务枚举并缓存端点；若写入因
-    /// “服务/特征不存在”失败（例如节点从 Provisioning 服务切到 Proxy 服务
-    /// 导致缓存过期），会重新枚举并重试一次。
-    /// </remarks>
-    public async Task<int> SendRawAsync(
-        string address,
-        byte[] message,
-        CancellationToken cancellationToken = default)
+    /// <summary>清除某台设备的 Mesh 网络配置与缓存（用于重新配网）。</summary>
+    public void ResetProvisioning(string address)
     {
-        if (!_meshEndpoints.TryGetValue(address, out var endpoint))
-        {
-            endpoint = await ResolveMeshEndpointAsync(
-                address,
-                refreshCache: true,
-                cancellationToken);
-            _meshEndpoints[address] = endpoint;
-        }
+        if (_clients.TryRemove(address, out var handle))
+            handle.Transport.Dispose();
+        Preferences.Default.Remove(ConfigPreferencesPrefix + address);
+    }
 
-        _diagnostics.Trace(
-            "Mesh/TX",
-            $"service={endpoint.ServiceId}, characteristic={endpoint.CharacteristicId}, " +
-            $"data={Convert.ToHexString(message)}");
+    private async Task SendAccessAsync(
+        string address,
+        byte[] accessPdu,
+        CancellationToken cancellationToken)
+    {
         try
         {
-            return await _connectionService.WriteAsync(
-                address,
-                endpoint.ServiceId,
-                endpoint.CharacteristicId,
-                message,
-                endpoint.WriteType,
-                cancellationToken);
+            var handle = await GetOrCreateClientAsync(address, cancellationToken);
+            _diagnostics.Trace(
+                "Mesh/TX",
+                $"access opcode={accessPdu[0]:X2}, data={Convert.ToHexString(accessPdu)}");
+            await handle.MeshClient.SendAccessMessageAsync(accessPdu, cancellationToken);
         }
         catch (InvalidOperationException exception) when (
             exception.Message.Contains("未提供服务", StringComparison.Ordinal) ||
             exception.Message.Contains("未提供特征", StringComparison.Ordinal))
         {
+            // 会话中设备被重置或服务发生切换：清掉过期配置并重新配网一次
             _diagnostics.Warning(
-                "Mesh/TX",
-                $"端点可能已变化，刷新 GATT 缓存后重试：{exception.Message}");
-            endpoint = await ResolveMeshEndpointAsync(
-                address,
-                refreshCache: true,
-                cancellationToken);
-            _meshEndpoints[address] = endpoint;
-            return await _connectionService.WriteAsync(
-                address,
-                endpoint.ServiceId,
-                endpoint.CharacteristicId,
-                message,
-                endpoint.WriteType,
-                cancellationToken);
+                "Mesh/Provision",
+                $"设备端点失效（{exception.Message}），清空配置后重新配网。");
+            ResetProvisioning(address);
+            var handle = await GetOrCreateClientAsync(address, cancellationToken);
+            await handle.MeshClient.SendAccessMessageAsync(accessPdu, cancellationToken);
         }
     }
 
-    /// <summary>清除缓存的设备端点，下次发送会重新发现。</summary>
-    public void InvalidateMeshEndpoint(string address) =>
-        _meshEndpoints.TryRemove(address, out _);
-
-    private async Task<GattEndpoint> ResolveMeshEndpointAsync(
+    private async Task<MeshClientHandle> GetOrCreateClientAsync(
         string address,
-        bool refreshCache,
         CancellationToken cancellationToken)
     {
+        if (_clients.TryGetValue(address, out var cached))
+            return cached;
+
+        // 先看设备当前暴露哪个 Mesh 服务：0x1827=未配网，0x1828=已配网
         var services = await _connectionService.EnumerateGattAsync(
             address,
-            refreshCache,
+            refreshCache: true,
             cancellationToken);
-        var characteristics = services
-            .SelectMany(s => s.Characteristics.Select(c => (ServiceId: s.Id, Info: c)))
-            .ToList();
+        var hasProvisioningService = services.Any(service =>
+            service.Id == MeshProvisioningServiceUuid);
+        var hasProxyService = services.Any(service =>
+            service.Id == MeshProxyServiceUuid);
 
-        var explicitMatch = characteristics
-            .FirstOrDefault(t => t.ServiceId == ServiceUuid && t.Info.Id == CharacteristicUuid);
-        var proxyMatch = characteristics
-            .FirstOrDefault(t => t.ServiceId == MeshProxyServiceUuid && t.Info.Id == MeshProxyDataInUuid);
-        var provisioningMatch = characteristics
-            .FirstOrDefault(t => t.ServiceId == MeshProvisioningServiceUuid && t.Info.Id == MeshProvisioningDataInUuid);
-
-        // 优先级：显式配置 > Mesh Proxy（0x1828/0x2ADD） > Mesh Provisioning（0x1827/0x2ADB）。
-        var (serviceId, info) = explicitMatch.Info is not null ? explicitMatch
-            : proxyMatch.Info is not null ? proxyMatch
-            : provisioningMatch.Info is not null ? provisioningMatch
-            : (Guid.Empty, null as GattCharacteristicInfo);
-
-        if (info is null)
+        // 已配网且设备确实有 Proxy 服务：恢复持久化的网络配置，直接控制
+        var stored = Preferences.Default.Get(ConfigPreferencesPrefix + address, string.Empty);
+        if (hasProxyService && !string.IsNullOrWhiteSpace(stored))
         {
-            var table = string.Join(
-                " | ",
-                services.Select(s =>
-                    $"{s.Id} [{string.Join(", ", s.Characteristics.Select(c => $"{c.Id}:{c.Properties}"))}]"));
-            throw new InvalidOperationException(
-                $"设备未发现 Mesh GATT 端点（0x1828/0x2ADD 或 0x1827/0x2ADB）。服务表：{table}");
+            var config = JsonSerializer.Deserialize<MeshNetworkConfig>(stored);
+            if (config is not null)
+            {
+                var transport = new MeshGattTransport(
+                    _connectionService,
+                    _diagnostics,
+                    address,
+                    provisioningMode: false);
+                await transport.StartReceivingAsync(cancellationToken);
+                var client = new MeshClient(transport);
+                client.Restore(config);
+                var handle = new MeshClientHandle(transport, client);
+                _clients[address] = handle;
+                _diagnostics.Information(
+                    "Mesh/Provision",
+                    $"设备 {address} 已有网络配置，直接进入控制模式。");
+                return handle;
+            }
         }
 
-        var writeType = info.Properties.HasFlag(CharacteristicPropertyType.WriteWithoutResponse)
-            ? CharacteristicWriteType.WithoutResponse
-            : CharacteristicWriteType.WithResponse;
+        // 设备没有任何 Mesh 服务：给出服务表便于定位
+        if (!hasProvisioningService)
+        {
+            var table = string.Join(
+                ", ",
+                services.Select(service => service.Id.ToString("D")));
+            throw new InvalidOperationException(
+                $"设备未暴露 Mesh Provisioning 服务（0x1827），无法配网。实际服务：{table}");
+        }
+
+        // 未配网：执行 PB-GATT 配网
+        if (!string.IsNullOrWhiteSpace(stored))
+        {
+            _diagnostics.Warning(
+                "Mesh/Provision",
+                $"设备 {address} 的本地网络配置已过期，将重新配网。");
+            Preferences.Default.Remove(ConfigPreferencesPrefix + address);
+        }
+
+        var provisioningTransport = new MeshGattTransport(
+            _connectionService,
+            _diagnostics,
+            address,
+            provisioningMode: true);
+        await provisioningTransport.StartReceivingAsync(cancellationToken);
+        await provisioningTransport.RequestMtuAsync(247, cancellationToken);
+
+        var meshClient = new MeshClient(provisioningTransport);
+        var options = ProvisioningOptions.CreateRandom(
+            provisionerAddress: 0x0001,
+            deviceUnicastAddress: 0x0002);
         _diagnostics.Information(
-            "Mesh/GATT",
-            $"Mesh 端点：service={serviceId}, characteristic={info.Id}, writeType={writeType}");
-        return new GattEndpoint(serviceId, info.Id, writeType);
+            "Mesh/Provision",
+            $"开始配网：{address}，设备单播地址 0x{options.DeviceUnicastAddress:X4}。");
+
+        using var timeout = new CancellationTokenSource(ProvisioningTimeout);
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken,
+            timeout.Token);
+        var config2 = await meshClient.ProvisionAsync(options, linked.Token);
+
+        Preferences.Default.Set(
+            ConfigPreferencesPrefix + address,
+            JsonSerializer.Serialize(config2));
+        _diagnostics.Information(
+            "Mesh/Provision",
+            $"配网完成：{address}，设备单播地址 0x{config2.DeviceUnicastAddress:X4}。");
+
+        await provisioningTransport.SwitchToProxyModeAsync(cancellationToken);
+        var statusCode = await meshClient.ConfigureNodeAsync(cancellationToken);
+        _diagnostics.Information(
+            "Mesh/Config",
+            $"Config AppKey 状态码 0x{statusCode:X2}（0x00=成功）。");
+        var provisioned = new MeshClientHandle(provisioningTransport, meshClient);
+        _clients[address] = provisioned;
+        return provisioned;
     }
 
-    /// <summary>解析出的 Mesh GATT 写入端点。</summary>
-    private sealed record GattEndpoint(
-        Guid ServiceId,
-        Guid CharacteristicId,
-        CharacteristicWriteType WriteType);
+    private sealed record MeshClientHandle(
+        MeshGattTransport Transport,
+        MeshClient MeshClient);
 }

@@ -208,6 +208,8 @@
                                         Padding="9"
                                         BackgroundColor="Transparent"
                                         Clicked="OnDevicePowerClicked"
+                                        IsEnabled="{Binding IsEnabled}"
+                                        Opacity="{Binding PowerOpacity}"
                                         Source="{Binding PowerIcon}"
                                         SemanticProperties.Description="快速开关灯光" />
                                 </Border>

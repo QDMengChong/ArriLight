@@ -216,6 +216,28 @@ public sealed class BluetoothConnectionService
         }
     }
 
+    /// <summary>协商 ATT MTU（Mesh 需要 ≥ 247 以单包承载 Proxy PDU）。</summary>
+    public async Task<int> RequestMtuAsync(
+        string address,
+        int mtu,
+        CancellationToken cancellationToken = default)
+    {
+        await _operationLock.WaitAsync(cancellationToken);
+        try
+        {
+            var device = await ConnectCoreAsync(address, cancellationToken);
+            var negotiated = await device.RequestMtuAsync(mtu, cancellationToken);
+            _diagnostics.Debug(
+                "BLE/MTU",
+                $"请求 MTU {mtu}，协商结果 {negotiated}。");
+            return negotiated;
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
     public async Task<byte[]> ReadAsync(
         string address,
         Guid serviceId,
