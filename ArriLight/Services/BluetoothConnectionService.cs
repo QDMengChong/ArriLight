@@ -31,6 +31,28 @@ public sealed record BluetoothMessage(
     byte[] Data,
     DateTimeOffset ReceivedAt);
 
+/// <summary>设备 GATT 特征信息（用于服务发现/诊断）。</summary>
+public sealed record GattCharacteristicInfo(
+    Guid Id,
+    string? Name,
+    CharacteristicPropertyType Properties)
+{
+    public bool CanWrite =>
+        Properties.HasFlag(CharacteristicPropertyType.Write) ||
+        Properties.HasFlag(CharacteristicPropertyType.WriteWithoutResponse);
+
+    public bool CanNotify =>
+        Properties.HasFlag(CharacteristicPropertyType.Notify) ||
+        Properties.HasFlag(CharacteristicPropertyType.Indicate);
+}
+
+/// <summary>设备 GATT 服务信息（用于服务发现/诊断）。</summary>
+public sealed record GattServiceInfo(
+    Guid Id,
+    string? Name,
+    bool IsPrimary,
+    IReadOnlyList<GattCharacteristicInfo> Characteristics);
+
 public sealed class BluetoothConnectionService
 {
     private static readonly Guid DeviceInformationService =
@@ -113,6 +135,7 @@ public sealed class BluetoothConnectionService
         Guid serviceId,
         Guid characteristicId,
         byte[] data,
+        CharacteristicWriteType? writeType = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(data);
@@ -124,11 +147,67 @@ public sealed class BluetoothConnectionService
                 serviceId,
                 characteristicId,
                 cancellationToken);
+            if (writeType is not null)
+                characteristic.WriteType = writeType.Value;
             _diagnostics.Trace(
                 "BLE/TX",
-                $"service={serviceId}, characteristic={characteristicId}, length={data.Length}, data={Convert.ToHexString(data)}");
+                $"service={serviceId}, characteristic={characteristicId}, writeType={writeType ?? characteristic.WriteType}, length={data.Length}, data={Convert.ToHexString(data)}");
             var result = await characteristic.WriteAsync(data, cancellationToken);
             _diagnostics.Debug("BLE/TX", $"写入完成，GATT result={result}。");
+            return result;
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// 枚举设备的全部 GATT 服务与特征，并写入诊断日志。
+    /// </summary>
+    /// <param name="address">设备地址。</param>
+    /// <param name="refreshCache">
+    /// true 时先调用 <c>ClearServices</c> 强制重新发现。Mesh 节点在
+    /// “未配网（Provisioning 服务）→ 已配网（Proxy 服务）”切换后，Android 的
+    /// GATT 缓存可能过期，重新发现才能看到最新服务表。
+    /// </param>
+    /// <param name="cancellationToken">取消令牌。</param>
+    public async Task<IReadOnlyList<GattServiceInfo>> EnumerateGattAsync(
+        string address,
+        bool refreshCache = true,
+        CancellationToken cancellationToken = default)
+    {
+        await _operationLock.WaitAsync(cancellationToken);
+        try
+        {
+            var device = await ConnectCoreAsync(address, cancellationToken);
+            if (refreshCache)
+                device.ClearServices();
+
+            var services = await device.GetServicesAsync(cancellationToken);
+            var result = new List<GattServiceInfo>(services.Count);
+            foreach (var service in services)
+            {
+                var characteristics = await service.GetCharacteristicsAsync(cancellationToken);
+                result.Add(new GattServiceInfo(
+                    service.Id,
+                    service.Name,
+                    service.IsPrimary,
+                    characteristics
+                        .Select(c => new GattCharacteristicInfo(
+                            c.Id,
+                            c.Name,
+                            c.Properties))
+                        .ToList()));
+            }
+
+            _diagnostics.Information(
+                "BLE/GATT",
+                $"设备 {address} 服务表：" +
+                string.Join(
+                    " | ",
+                    result.Select(s =>
+                        $"{s.Id} [{string.Join(", ", s.Characteristics.Select(c => $"{c.Id}:{c.Properties}"))}]")));
             return result;
         }
         finally

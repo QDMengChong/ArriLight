@@ -1,15 +1,19 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using ArriOpto.Mesh.Codec;
+using ArriOpto.Mesh.Models.Scheduler;
 
 namespace ArriLight;
 
 public partial class SchedulePage : ContentPage, IQueryAttributable
 {
     private readonly AppDiagnosticService _diagnostics;
+    private readonly MeshLightControlService _meshLight;
     private readonly HashSet<int> _weeklySelections = [];
     private readonly HashSet<int> _monthlySelections = [];
     private string _deviceName = "灯光设备";
+    private string _deviceAddress = string.Empty;
     private string _repeatSelectionSummary = "每天";
     private string _repeatSelectionDisplayText = "每天";
     private int _confirmedRepeatIndex = 1;
@@ -50,6 +54,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     public SchedulePage()
     {
         InitializeComponent();
+        _meshLight = ServiceHelper.GetRequiredService<MeshLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
         Schedules.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ScheduleCountText));
@@ -60,11 +65,12 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         UpdateRepeatSummary();
         _isInitializing = false;
     }
-
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("name", out var value) && value is not null)
             DeviceName = Uri.UnescapeDataString(value.ToString()!);
+        if (query.TryGetValue("address", out var address) && address is not null)
+            _deviceAddress = Uri.UnescapeDataString(address.ToString()!);
     }
 
     private void OnRepeatModeChanged(object? sender, EventArgs e)
@@ -203,14 +209,23 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         ActionOffButton.TextColor = _isActionOn ? inactiveText : Colors.White;
     }
 
-    private void OnAddScheduleClicked(object? sender, EventArgs e)
+    private async void OnAddScheduleClicked(object? sender, EventArgs e)
     {
         var time = ScheduleTimePicker.Time ?? DateTime.Now.TimeOfDay;
+        var index = (byte)(Schedules.Count % 16);
+        var register = BuildRegister(index, time, _isActionOn);
+        if (!await TrySendScheduleAsync(register))
+        {
+            await DisplayAlertAsync("发送失败", "无法发送定时指令，请确认设备已连接。", "知道了");
+            return;
+        }
+
         Schedules.Add(new(
             $"{time.Hours:00}:{time.Minutes:00}",
             _isActionOn ? "定时开" : "定时关",
             RepeatSelectionSummary,
-            true));
+            true,
+            register));
     }
 
     private async void OnDeleteScheduleClicked(object? sender, EventArgs e)
@@ -224,11 +239,15 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             "删除",
             "取消");
 
-        if (confirmed)
-            Schedules.Remove(schedule);
+        if (!confirmed)
+            return;
+
+        var index = (byte)Math.Max(0, Schedules.IndexOf(schedule));
+        await TrySendScheduleAsync(InactiveRegister(index));
+        Schedules.Remove(schedule);
     }
 
-    private void OnScheduleEnabledToggled(object? sender, ToggledEventArgs e)
+    private async void OnScheduleEnabledToggled(object? sender, ToggledEventArgs e)
     {
         if (sender is not Switch { BindingContext: LightScheduleItem schedule } ||
             schedule.IsEnabled == e.Value)
@@ -236,12 +255,100 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             return;
         }
 
-        schedule.IsEnabled = e.Value;
-        // TODO: 在蓝牙服务接入后，同步定时计划的启用状态。
-        _diagnostics.Debug(
-            "Light/Schedule",
-            $"Schedule enabled command: {DeviceName}, {schedule.TimeText} = {e.Value}");
+        var index = (byte)Math.Max(0, Schedules.IndexOf(schedule));
+        var register = e.Value && schedule.Register is not null
+            ? schedule.Register
+            : InactiveRegister(index);
+        if (await TrySendScheduleAsync(register))
+            schedule.IsEnabled = e.Value;
     }
+
+    private async Task<bool> TrySendScheduleAsync(ScheduleRegister register)
+    {
+        if (string.IsNullOrWhiteSpace(_deviceAddress))
+            return false;
+
+        try
+        {
+            await _meshLight.SendSchedulerActionAsync(_deviceAddress, register);
+            return true;
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Error(
+                "Light/Schedule",
+                $"发送定时指令失败：{DeviceName}。",
+                exception);
+            return false;
+        }
+    }
+
+    private ScheduleRegister BuildRegister(byte index, TimeSpan time, bool turnOn)
+    {
+        var now = DateTime.Now;
+        byte year;
+        ushort month;
+        byte day;
+        byte dayOfWeek;
+
+        switch (_confirmedRepeatIndex)
+        {
+            case 0: // 仅一次：写入具体年月日
+                year = (byte)(now.Year % 100);
+                month = (ushort)(1 << (now.Month - 1));
+                day = (byte)now.Day;
+                dayOfWeek = 0x7F;
+                break;
+            case 2: // 每周：星期位图（bit0=周一 … bit6=周日）
+                year = 0x64;
+                month = 0xFFF;
+                day = 0x00;
+                dayOfWeek = (byte)_weeklySelections
+                    .Aggregate(0, (acc, dayNumber) => acc | (1 << (dayNumber - 1)));
+                break;
+            case 3: // 每月：多个日期需要多个条目，这里取首个选中日
+                year = 0x64;
+                month = 0xFFF;
+                day = _monthlySelections.Count > 0
+                    ? (byte)_monthlySelections.Min()
+                    : (byte)0x00;
+                dayOfWeek = 0x7F;
+                break;
+            default: // 每天
+                year = 0x64;
+                month = 0xFFF;
+                day = 0x00;
+                dayOfWeek = 0x7F;
+                break;
+        }
+
+        return new ScheduleRegister(
+            index,
+            year,
+            month,
+            day,
+            (byte)time.Hours,
+            (byte)time.Minutes,
+            0,
+            dayOfWeek,
+            (byte)(turnOn ? SchedulerAction.TurnOn : SchedulerAction.TurnOff),
+            TransitionTime.FromMilliseconds(500),
+            0x0000);
+    }
+
+    private static ScheduleRegister InactiveRegister(byte index) =>
+        new(
+            index,
+            year: 0x64,
+            month: 0,
+            day: 0,
+            hour: 0,
+            minute: 0,
+            second: 0,
+            dayOfWeek: 0,
+            action: (byte)SchedulerAction.Inactive,
+            transitionTime: TransitionTime.Instantaneous,
+            sceneNumber: 0x0000);
 
     private static int ToMondayBasedDay(DayOfWeek dayOfWeek) =>
         dayOfWeek == DayOfWeek.Sunday ? 7 : (int)dayOfWeek;
@@ -318,17 +425,20 @@ public sealed class LightScheduleItem : INotifyPropertyChanged
         string timeText,
         string actionText,
         string repeatText,
-        bool isEnabled)
+        bool isEnabled,
+        ScheduleRegister? register = null)
     {
         TimeText = timeText;
         ActionText = actionText;
         RepeatText = repeatText;
         _isEnabled = isEnabled;
+        Register = register;
     }
 
     public string TimeText { get; }
     public string ActionText { get; }
     public string RepeatText { get; }
+    public ScheduleRegister? Register { get; }
 
     public bool IsEnabled
     {

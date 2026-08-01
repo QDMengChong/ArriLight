@@ -1,6 +1,7 @@
 <Solution>
   <Project Path="../ota-csharp-sdk/src/PhyPlus.Ota.Core/PhyPlus.Ota.Core.csproj" />
   <Project Path="../ota-csharp-sdk/src/PhyPlus.Ota.PluginBle/PhyPlus.Ota.PluginBle.csproj" />
+  <Project Path="../ArriOpto.Mesh/src/ArriOpto.Mesh/ArriOpto.Mesh.csproj" />
   <Project Path="ArriLight/ArriLight.csproj">
     <Deploy Solution="Debug|*" />
   </Project>

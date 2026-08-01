@@ -7,9 +7,12 @@ namespace ArriLight;
 public partial class DeviceControlPage : ContentPage, IQueryAttributable
 {
     private const int LongPressMilliseconds = 650;
+    private const double ColorSaturationThreshold = 0.05;
+    private static readonly TimeSpan LightSettingsDebounce = TimeSpan.FromMilliseconds(250);
 
     private readonly DeviceRepository _repository;
     private readonly BluetoothConnectionService _connectionService;
+    private readonly MeshLightControlService _meshLight;
     private readonly AppDiagnosticService _diagnostics;
 
     private string _deviceName = "设备管理";
@@ -19,10 +22,12 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private Color _connectionStatusColor = Color.FromArgb("#A9B2C3");
     private bool _canConnect = true;
     private bool _isReady;
+    private bool _isDemo;
     private bool _isMasterPowerOn = true;
     private bool _longPressTriggered;
     private bool _suppressPresetClick;
     private CancellationTokenSource? _presetPressCancellation;
+    private CancellationTokenSource? _lightSettingsCancellation;
     private ControlPreset? _pressedPreset;
 
     public string DeviceName
@@ -108,6 +113,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
         _connectionService =
             ServiceHelper.GetRequiredService<BluetoothConnectionService>();
+        _meshLight = ServiceHelper.GetRequiredService<MeshLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
         if (TimerModePicker.SelectedIndex < 0)
@@ -126,6 +132,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
             _repository.GetByAddress(DeviceAddress) is { } device)
         {
+            _isDemo = device.IsDemo;
             DeviceName = device.Name;
             if (device.IsDemo)
             {
@@ -148,6 +155,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _connectionService.StateChanged -= OnConnectionStateChanged;
 
         CancelPresetPress();
+        _lightSettingsCancellation?.Cancel();
+        _lightSettingsCancellation?.Dispose();
+        _lightSettingsCancellation = null;
         base.OnDisappearing();
     }
 
@@ -468,20 +478,25 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         ToastService.Show(sent ? "计时指令发送成功" : "计时指令发送失败");
     }
 
-    private Task<bool> SendTimerCommandAsync(string timerMode, int seconds)
+    private async Task<bool> SendTimerCommandAsync(string timerMode, int seconds)
     {
-        // TODO: 蓝牙服务接入后，在此发送计时开灯或计时关灯指令，并返回真实结果。
-        _diagnostics.Debug(
-            "Light/Timer",
-            $"Timer command: {DeviceName}, Mode={timerMode}, Delay={seconds}s");
-        return Task.FromResult(true);
+        if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
+            return false;
+
+        // Scheduler 表达本地时间点，服务内会把“N 秒后”换算成具体时间。
+        await _meshLight.SendTimerAsync(
+            DeviceAddress,
+            TimeSpan.FromSeconds(seconds),
+            turnOn: timerMode == "TimedOn");
+        return true;
     }
 
     private async void OnScheduleTapped(object? sender, TappedEventArgs e) =>
         await Shell.Current.GoToAsync(
-            $"{nameof(SchedulePage)}?name={Uri.EscapeDataString(DeviceName)}");
+            $"{nameof(SchedulePage)}?name={Uri.EscapeDataString(DeviceName)}" +
+            $"&address={Uri.EscapeDataString(DeviceAddress)}");
 
-    private void OnMasterPowerTapped(object? sender, TappedEventArgs e)
+    private async void OnMasterPowerTapped(object? sender, TappedEventArgs e)
     {
         _isMasterPowerOn = !_isMasterPowerOn;
         UpdateMasterPowerVisual();
@@ -489,10 +504,20 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (!_isReady)
             return;
 
-        // TODO: 在蓝牙服务接入后，发送设备总开关指令。
-        _diagnostics.Debug(
-            "Light/Power",
-            $"Master power command: {DeviceName} = {_isMasterPowerOn}");
+        if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
+            return;
+
+        try
+        {
+            await _meshLight.SendOnOffAsync(DeviceAddress, _isMasterPowerOn);
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Error(
+                "Light/Power",
+                $"发送总开关指令失败：{DeviceName} = {_isMasterPowerOn}。",
+                exception);
+        }
     }
 
     private void UpdateMasterPowerVisual()
@@ -528,10 +553,67 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (!_isReady)
             return;
 
-        // TODO: 接入蓝牙后应合并高频变化，并在短暂防抖后发送颜色、色温和亮度。
-        _diagnostics.Trace(
-            "Light/Settings",
-            $"Light settings: H={ColorPicker.Hue:F2}, T={ColorPicker.Temperature:F2}, B={BrightnessSlider.Value:F0}");
+        if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
+            return;
+
+        _lightSettingsCancellation?.Cancel();
+        _lightSettingsCancellation?.Dispose();
+        _lightSettingsCancellation = new CancellationTokenSource();
+        _ = SendLightSettingsAsync(_lightSettingsCancellation.Token);
+    }
+
+    private async Task SendLightSettingsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await Task.Delay(LightSettingsDebounce, cancellationToken);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        var lightness = (ushort)Math.Round(
+            BrightnessSlider.Value / 100.0 * ushort.MaxValue);
+        try
+        {
+            if (ColorPicker.Saturation >= ColorSaturationThreshold)
+            {
+                // 有彩色：走 Light HSL Set。
+                var hue = (ushort)Math.Round(ColorPicker.Hue * ushort.MaxValue);
+                var saturation = (ushort)Math.Round(
+                    ColorPicker.Saturation * ushort.MaxValue);
+                await _meshLight.SendHslAsync(
+                    DeviceAddress,
+                    lightness,
+                    hue,
+                    saturation);
+            }
+            else
+            {
+                // 接近白色：走 Light CTL Set（亮度 + 色温）。
+                await _meshLight.SendCtlAsync(
+                    DeviceAddress,
+                    lightness,
+                    MapTemperature(ColorPicker.Temperature));
+            }
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Error(
+                "Light/Settings",
+                $"发送灯光设置失败：{DeviceName}。",
+                exception);
+        }
+    }
+
+    /// <summary>把色温环的 0-1 归一化值映射到 SIG CTL Temperature（800-20000 K）。</summary>
+    private static ushort MapTemperature(double normalized)
+    {
+        const ushort minimumKelvin = 800;
+        const ushort maximumKelvin = 20000;
+        return (ushort)Math.Round(
+            minimumKelvin + (maximumKelvin - minimumKelvin) * Math.Clamp(normalized, 0, 1));
     }
 }
 

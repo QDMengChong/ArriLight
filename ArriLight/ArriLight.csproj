@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFrameworks>net10.0-android</TargetFrameworks>
@@ -78,6 +78,7 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\..\ota-csharp-sdk\src\PhyPlus.Ota.PluginBle\PhyPlus.Ota.PluginBle.csproj" />
+  <ProjectReference Include="..\..\ArriOpto.Mesh\src\ArriOpto.Mesh\ArriOpto.Mesh.csproj" />
 	</ItemGroup>
 
 </Project>
