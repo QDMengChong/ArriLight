@@ -2,9 +2,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using PhyPlus.Ota.Firmware;
-using PhyPlus.Ota.Models;
-using PhyPlus.Ota.PluginBle;
+using ArriOpto.BLE.Ota;
 
 namespace ArriLight;
 

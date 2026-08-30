@@ -1,5 +1,4 @@
-using ArriOpto.Mesh.Client;
-using ArriOpto.Mesh.Proxy;
+using ArriOpto.BLE.Mesh;
 using Plugin.BLE.Abstractions;
 
 namespace ArriLight;

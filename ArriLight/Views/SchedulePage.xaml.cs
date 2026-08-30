@@ -1,8 +1,8 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using ArriOpto.Mesh.Codec;
-using ArriOpto.Mesh.Models.Scheduler;
+using ArriOpto.BLE.Mesh;
+using ArriOpto.BLE.Mesh.Models;
 
 namespace ArriLight;
 

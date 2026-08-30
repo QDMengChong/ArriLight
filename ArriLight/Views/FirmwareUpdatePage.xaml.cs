@@ -1,6 +1,6 @@
 using System.Net.Http;
 using System.Runtime.CompilerServices;
-using PhyPlus.Ota.Models;
+using ArriOpto.BLE.Ota;
 
 namespace ArriLight;
 

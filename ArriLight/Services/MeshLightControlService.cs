@@ -1,20 +1,16 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
-using ArriOpto.Mesh.Client;
-using ArriOpto.Mesh.Codec;
-using ArriOpto.Mesh.Models.Generic;
-using ArriOpto.Mesh.Models.Light;
-using ArriOpto.Mesh.Models.Scheduler;
-using ArriOpto.Mesh.Models.Scene;
-using ArriOpto.Mesh.Provisioning;
+using ArriOpto.BLE.Mesh;
+using ArriOpto.BLE.Mesh.Models;
+using ArriOpto.BLE.Mesh.Provisioning;
 
 namespace ArriLight;
 
 /// <summary>
-/// 把 ArriOpto.Mesh 生成的灯控信号发送给已配网的 Mesh 灯具。
+/// 把 ArriOpto.BLE.Mesh 生成的灯控信号发送给已配网的 Mesh 灯具。
 /// </summary>
 /// <remarks>
-/// 发送链路：访问层消息（ArriOpto.Mesh 模型）→ 上层/下层传输加密 →
+/// 发送链路：访问层消息（ArriOpto.BLE.Mesh 模型）→ 上层/下层传输加密 →
 /// 网络层加密 + 隐私混淆 → Proxy PDU → <see cref="MeshGattTransport"/> 写入
 /// Mesh Proxy Data In（0x2ADD）。
 ///

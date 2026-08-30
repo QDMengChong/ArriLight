@@ -77,8 +77,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\..\ota-csharp-sdk\src\PhyPlus.Ota.PluginBle\PhyPlus.Ota.PluginBle.csproj" />
-  <ProjectReference Include="..\..\ArriOpto.Mesh\src\ArriOpto.Mesh\ArriOpto.Mesh.csproj" />
+	  <ProjectReference Include="..\..\ArriOpto.BLE\ArriOpto.BLE\ArriOpto.BLE.csproj" />
 	</ItemGroup>
 
 </Project>

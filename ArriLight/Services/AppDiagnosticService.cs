@@ -1,5 +1,5 @@
 using System.Threading.Channels;
-using PhyPlus.Ota.Diagnostics;
+using ArriOpto.BLE.Ota;
 
 namespace ArriLight;
 

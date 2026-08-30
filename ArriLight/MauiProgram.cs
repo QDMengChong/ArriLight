@@ -1,5 +1,5 @@
 using Microsoft.Extensions.Logging;
-using PhyPlus.Ota.PluginBle;
+using ArriOpto.BLE.Ota;
 using Plugin.BLE;
 using Plugin.BLE.Abstractions.Contracts;
 using ZXing.Net.Maui.Controls;
