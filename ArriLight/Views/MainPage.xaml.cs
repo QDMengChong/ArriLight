@@ -10,7 +10,7 @@ public partial class MainPage : ContentPage
 
     private readonly DeviceRepository _repository;
     private readonly BluetoothConnectionService _connectionService;
-    private readonly MeshLightControlService _meshLight;
+    private readonly AgpLightControlService _agpLight;
     private readonly AppDiagnosticService _diagnostics;
     private bool _isRefreshing;
 
@@ -23,7 +23,7 @@ public partial class MainPage : ContentPage
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
         _connectionService = ServiceHelper.GetRequiredService<BluetoothConnectionService>();
-        _meshLight = ServiceHelper.GetRequiredService<MeshLightControlService>();
+        _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         _repository.DevicesChanged += OnDevicesChanged;
         BindingContext = this;
@@ -95,7 +95,7 @@ public partial class MainPage : ContentPage
         device.IsOn = !device.IsOn;
         try
         {
-            await _meshLight.SendOnOffAsync(device.Address, device.IsOn);
+            await _agpLight.SetOnOffAsync(device.Address, device.IsOn);
         }
         catch (Exception exception)
         {
@@ -113,8 +113,38 @@ public partial class MainPage : ContentPage
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
+        string route;
+        if (device.IsDemo)
+        {
+            route = nameof(HslCtlDeviceControlPage);
+        }
+        else
+        {
+            try
+            {
+                var profile = await _agpLight.GetControlProfileAsync(device.Address);
+                route = profile.PageKind switch
+                {
+                    AgpControlPageKind.Hsl => nameof(HslDeviceControlPage),
+                    AgpControlPageKind.Ctl => nameof(CtlDeviceControlPage),
+                    AgpControlPageKind.HslAndCtl => nameof(HslCtlDeviceControlPage),
+                    _ => nameof(DeviceControlPage)
+                };
+            }
+            catch (Exception exception)
+            {
+                _diagnostics.Error(
+                    "AGP/Capabilities",
+                    $"读取设备色彩模型能力失败：{device.Address}。",
+                    exception);
+                ToastService.Show("无法读取设备控制能力，请确认设备在线");
+                return;
+            }
+        }
+
         await Shell.Current.GoToAsync(
-            $"{nameof(DeviceControlPage)}?name={Uri.EscapeDataString(device.Name)}&address={Uri.EscapeDataString(device.Address)}");
+            $"{route}?name={Uri.EscapeDataString(device.Name)}" +
+            $"&address={Uri.EscapeDataString(device.Address)}");
     }
 
     /// <summary>
@@ -139,25 +169,14 @@ public partial class MainPage : ContentPage
                     await _connectionService.ConnectAsync(
                         device.Address,
                         cancellation.Token);
+                    var state = await _agpLight.GetOnOffStateAsync(
+                        device.Address,
+                        cancellation.Token);
                     device.IsOnline = true;
                     device.Status = "在线";
                     device.StatusColor = Color.FromArgb("#35C987");
-
-                    // 同步灯具真实开关状态（打开 App / 从控制页返回都会走到这里）
-                    try
-                    {
-                        var state = await _meshLight.GetOnOffStateAsync(
-                            device.Address,
-                            cancellation.Token);
-                        if (state is { } onOff)
-                            device.IsOn = onOff;
-                    }
-                    catch (Exception exception)
-                    {
-                        _diagnostics.Debug(
-                            "Light/State",
-                            $"读取设备 {device.Address} 开关状态失败：{exception.Message}");
-                    }
+                    if (state is { } onOff)
+                        device.IsOn = onOff;
                 }
                 catch (Exception exception)
                 {
@@ -166,7 +185,7 @@ public partial class MainPage : ContentPage
                     device.StatusColor = Color.FromArgb("#E65B65");
                     _diagnostics.Debug(
                         "BLE/Status",
-                        $"设备 {device.Address} 检测为离线：{exception.Message}");
+                        $"设备 {device.Address} 无法建立 AGP 灯控会话：{exception.Message}");
                 }
                 finally
                 {

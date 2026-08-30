@@ -2,6 +2,13 @@ using Microsoft.Maui.Graphics;
 
 namespace ArriLight.Controls;
 
+public enum ColorTemperatureSelection
+{
+    None,
+    Color,
+    Temperature
+}
+
 public sealed class ColorTemperaturePicker : GraphicsView
 {
     private const double DragThreshold = 8;
@@ -13,6 +20,28 @@ public sealed class ColorTemperaturePicker : GraphicsView
     private bool _hasDragged;
 
     public event EventHandler? SelectionChanged;
+
+    public ColorTemperatureSelection LastChangedComponent { get; private set; }
+
+    public bool IsColorControlEnabled
+    {
+        get => _drawable.IsColorControlEnabled;
+        set
+        {
+            _drawable.IsColorControlEnabled = value;
+            Invalidate();
+        }
+    }
+
+    public bool IsTemperatureControlEnabled
+    {
+        get => _drawable.IsTemperatureControlEnabled;
+        set
+        {
+            _drawable.IsTemperatureControlEnabled = value;
+            Invalidate();
+        }
+    }
 
     public double Hue
     {
@@ -115,10 +144,11 @@ public sealed class ColorTemperaturePicker : GraphicsView
         var outerRadius = Math.Min(Width, Height) / 2 - 8;
         var colorRadius = outerRadius * 0.62;
 
-        if (distance <= colorRadius)
+        if (IsColorControlEnabled && distance <= colorRadius)
             return PickerRegion.Color;
 
-        return distance >= outerRadius * 0.68 && distance <= outerRadius * 1.15
+        return IsTemperatureControlEnabled &&
+               distance >= outerRadius * 0.68 && distance <= outerRadius * 1.15
             ? PickerRegion.Temperature
             : PickerRegion.None;
     }
@@ -149,7 +179,14 @@ public sealed class ColorTemperaturePicker : GraphicsView
 
             Temperature = Math.Clamp((degrees - 135) / 270, 0, 1);
         }
+        else
+        {
+            return;
+        }
 
+        LastChangedComponent = _activeRegion == PickerRegion.Color
+            ? ColorTemperatureSelection.Color
+            : ColorTemperatureSelection.Temperature;
         SelectionChanged?.Invoke(this, EventArgs.Empty);
     }
 
@@ -163,6 +200,8 @@ public sealed class ColorTemperaturePicker : GraphicsView
 
 internal sealed class ColorTemperatureDrawable : IDrawable
 {
+    public bool IsColorControlEnabled { get; set; } = true;
+    public bool IsTemperatureControlEnabled { get; set; } = true;
     public double Hue { get; set; } = 0.08;
     public double Saturation { get; set; } = 0.78;
     public double Temperature { get; set; } = 0.32;
@@ -174,8 +213,10 @@ internal sealed class ColorTemperatureDrawable : IDrawable
         var ringInnerRadius = outerRadius * 0.75f;
         var colorRadius = outerRadius * 0.62f;
 
-        DrawTemperatureRing(canvas, center, ringInnerRadius, outerRadius);
-        DrawColorDisc(canvas, center, colorRadius);
+        if (IsTemperatureControlEnabled)
+            DrawTemperatureRing(canvas, center, ringInnerRadius, outerRadius);
+        if (IsColorControlEnabled)
+            DrawColorDisc(canvas, center, colorRadius);
         DrawSelectionHandles(canvas, center, ringInnerRadius, outerRadius, colorRadius);
     }
 
@@ -233,17 +274,23 @@ internal sealed class ColorTemperatureDrawable : IDrawable
         float outerRadius,
         float colorRadius)
     {
-        var hueAngle = Hue * Math.PI * 2;
-        var colorPoint = PointOnCircle(center, colorRadius * Saturation, hueAngle);
-        DrawHandle(canvas, colorPoint, SelectedColor());
+        if (IsColorControlEnabled)
+        {
+            var hueAngle = Hue * Math.PI * 2;
+            var colorPoint = PointOnCircle(center, colorRadius * Saturation, hueAngle);
+            DrawHandle(canvas, colorPoint, SelectedColor());
+        }
 
-        var temperatureAngle = DegreesToRadians(135 + Temperature * 270);
-        var temperatureRadius = (ringInnerRadius + outerRadius) / 2;
-        var temperaturePoint = PointOnCircle(center, temperatureRadius, temperatureAngle);
-        DrawHandle(
-            canvas,
-            temperaturePoint,
-            Interpolate(Color.FromArgb("#FFB36B"), Color.FromArgb("#D9ECFF"), Temperature));
+        if (IsTemperatureControlEnabled)
+        {
+            var temperatureAngle = DegreesToRadians(135 + Temperature * 270);
+            var temperatureRadius = (ringInnerRadius + outerRadius) / 2;
+            var temperaturePoint = PointOnCircle(center, temperatureRadius, temperatureAngle);
+            DrawHandle(
+                canvas,
+                temperaturePoint,
+                Interpolate(Color.FromArgb("#FFB36B"), Color.FromArgb("#D9ECFF"), Temperature));
+        }
     }
 
     private static void DrawHandle(ICanvas canvas, PointF point, Color fill)

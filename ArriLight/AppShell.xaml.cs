@@ -11,6 +11,15 @@ namespace ArriLight
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
             Routing.RegisterRoute(nameof(LegalDocumentPage), typeof(LegalDocumentPage));
             Routing.RegisterRoute(nameof(DeviceControlPage), typeof(DeviceControlPage));
+            Routing.RegisterRoute(
+                nameof(HslDeviceControlPage),
+                typeof(HslDeviceControlPage));
+            Routing.RegisterRoute(
+                nameof(CtlDeviceControlPage),
+                typeof(CtlDeviceControlPage));
+            Routing.RegisterRoute(
+                nameof(HslCtlDeviceControlPage),
+                typeof(HslCtlDeviceControlPage));
             Routing.RegisterRoute(nameof(SchedulePage), typeof(SchedulePage));
             Routing.RegisterRoute(nameof(BluetoothScanPage), typeof(BluetoothScanPage));
             Routing.RegisterRoute(nameof(QrCodeScanPage), typeof(QrCodeScanPage));

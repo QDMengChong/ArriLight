@@ -1,15 +1,14 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
-using ArriOpto.BLE.Mesh;
-using ArriOpto.BLE.Mesh.Models;
+using ArriOpto.BLE.Agp;
 
 namespace ArriLight;
 
 public partial class SchedulePage : ContentPage, IQueryAttributable
 {
     private readonly AppDiagnosticService _diagnostics;
-    private readonly MeshLightControlService _meshLight;
+    private readonly AgpLightControlService _agpLight;
     private readonly HashSet<int> _weeklySelections = [];
     private readonly HashSet<int> _monthlySelections = [];
     private string _deviceName = "灯光设备";
@@ -54,7 +53,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     public SchedulePage()
     {
         InitializeComponent();
-        _meshLight = ServiceHelper.GetRequiredService<MeshLightControlService>();
+        _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
         Schedules.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ScheduleCountText));
@@ -225,8 +224,17 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     private async void OnAddScheduleConfirmClicked(object? sender, EventArgs e)
     {
+        if (Schedules.Count >= AgpModelCodec.MaximumScheduleSlots - 1)
+        {
+            await DisplayAlertAsync(
+                "日程已满",
+                "当前可用 7 个 AGP 日程槽，最后一个槽保留给延时开灯。",
+                "知道了");
+            return;
+        }
+
         var time = ScheduleTimePicker.Time ?? DateTime.Now.TimeOfDay;
-        var index = (byte)(Schedules.Count % 16);
+        var index = (byte)(Schedules.Count % (AgpModelCodec.MaximumScheduleSlots - 1));
         var register = BuildRegister(index, time, _isActionOn);
         if (!await TrySendScheduleAsync(register))
         {
@@ -257,8 +265,21 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         if (!confirmed)
             return;
 
-        var index = (byte)Math.Max(0, Schedules.IndexOf(schedule));
-        await TrySendScheduleAsync(InactiveRegister(index));
+        var slot = schedule.Register?.Slot ??
+            (byte)Math.Max(0, Schedules.IndexOf(schedule));
+        try
+        {
+            await _agpLight.DeleteScheduleAsync(_deviceAddress, slot);
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Error(
+                "Light/Schedule",
+                $"删除 AGP 日程失败：{DeviceName}。",
+                exception);
+            await DisplayAlertAsync("删除失败", "设备未接受删除日程指令。", "知道了");
+            return;
+        }
         Schedules.Remove(schedule);
     }
 
@@ -270,22 +291,25 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             return;
         }
 
-        var index = (byte)Math.Max(0, Schedules.IndexOf(schedule));
-        var register = e.Value && schedule.Register is not null
-            ? schedule.Register
-            : InactiveRegister(index);
+        var index = schedule.Register?.Slot ??
+            (byte)Math.Max(0, Schedules.IndexOf(schedule));
+        var register = schedule.Register ?? BuildRegister(
+            index,
+            TimeSpan.Parse(schedule.TimeText),
+            schedule.ActionText == "定时开");
+        register = register with { IsEnabled = e.Value };
         if (await TrySendScheduleAsync(register))
             schedule.IsEnabled = e.Value;
     }
 
-    private async Task<bool> TrySendScheduleAsync(ScheduleRegister register)
+    private async Task<bool> TrySendScheduleAsync(AgpSchedule register)
     {
         if (string.IsNullOrWhiteSpace(_deviceAddress))
             return false;
 
         try
         {
-            await _meshLight.SendSchedulerActionAsync(_deviceAddress, register);
+            await _agpLight.SetScheduleAsync(_deviceAddress, register);
             return true;
         }
         catch (Exception exception)
@@ -298,72 +322,79 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         }
     }
 
-    private ScheduleRegister BuildRegister(byte index, TimeSpan time, bool turnOn)
+    private AgpSchedule BuildRegister(byte index, TimeSpan time, bool turnOn)
     {
-        var now = DateTime.Now;
-        byte year;
-        ushort month;
-        byte day;
-        byte dayOfWeek;
-
-        switch (_confirmedRepeatIndex)
+        var action = turnOn ? AgpScheduleAction.On : AgpScheduleAction.Off;
+        var brightness = turnOn ? (byte)100 : (byte)0;
+        var utcTime = ToUtcScheduleTime(time);
+        return _confirmedRepeatIndex switch
         {
-            case 0: // 仅一次：写入具体年月日
-                year = (byte)(now.Year % 100);
-                month = (ushort)(1 << (now.Month - 1));
-                day = (byte)now.Day;
-                dayOfWeek = 0x7F;
-                break;
-            case 2: // 每周：星期位图（bit0=周一 … bit6=周日）
-                year = 0x64;
-                month = 0xFFF;
-                day = 0x00;
-                dayOfWeek = (byte)_weeklySelections
-                    .Aggregate(0, (acc, dayNumber) => acc | (1 << (dayNumber - 1)));
-                break;
-            case 3: // 每月：多个日期需要多个条目，这里取首个选中日
-                year = 0x64;
-                month = 0xFFF;
-                day = _monthlySelections.Count > 0
-                    ? (byte)_monthlySelections.Min()
-                    : (byte)0x00;
-                dayOfWeek = 0x7F;
-                break;
-            default: // 每天
-                year = 0x64;
-                month = 0xFFF;
-                day = 0x00;
-                dayOfWeek = 0x7F;
-                break;
-        }
-
-        return new ScheduleRegister(
-            index,
-            year,
-            month,
-            day,
-            (byte)time.Hours,
-            (byte)time.Minutes,
-            0,
-            dayOfWeek,
-            (byte)(turnOn ? SchedulerAction.TurnOn : SchedulerAction.TurnOff),
-            TransitionTime.FromMilliseconds(500),
-            0x0000);
+            0 => AgpSchedule.Once(
+                index,
+                true,
+                action,
+                brightness,
+                ToNextExecutionUtc(time)),
+            2 => AgpSchedule.Weekly(
+                index,
+                true,
+                action,
+                brightness,
+                ToUtcWeekdayMask(_weeklySelections, utcTime.DayShift),
+                utcTime.SecondsOfDay),
+            3 => AgpSchedule.Monthly(
+                index,
+                true,
+                action,
+                brightness,
+                ToUtcMonthlyDay(
+                    _monthlySelections.Count > 0
+                        ? _monthlySelections.Min()
+                        : DateTime.Today.Day,
+                    time),
+                utcTime.SecondsOfDay),
+            _ => AgpSchedule.Daily(
+                index,
+                true,
+                action,
+                brightness,
+                utcTime.SecondsOfDay)
+        };
     }
 
-    private static ScheduleRegister InactiveRegister(byte index) =>
-        new(
-            index,
-            year: 0x64,
-            month: 0,
-            day: 0,
-            hour: 0,
-            minute: 0,
-            second: 0,
-            dayOfWeek: 0,
-            action: (byte)SchedulerAction.Inactive,
-            transitionTime: TransitionTime.Instantaneous,
-            sceneNumber: 0x0000);
+    private static uint ToNextExecutionUtc(TimeSpan time)
+    {
+        var local = DateTime.Today.Add(time);
+        if (local <= DateTime.Now)
+            local = local.AddDays(1);
+        return checked((uint)new DateTimeOffset(local).ToUniversalTime().ToUnixTimeSeconds());
+    }
+
+    private static (uint SecondsOfDay, int DayShift) ToUtcScheduleTime(
+        TimeSpan localTime)
+    {
+        var local = DateTime.Today.Add(localTime);
+        var utc = new DateTimeOffset(local).ToUniversalTime();
+        return (
+            checked((uint)utc.TimeOfDay.TotalSeconds),
+            (utc.Date - local.Date).Days);
+    }
+
+    private static byte ToUtcWeekdayMask(
+        IEnumerable<int> localDays,
+        int dayShift) =>
+        (byte)localDays.Aggregate(
+            0,
+            (mask, dayNumber) =>
+                mask | (1 << ((dayNumber - 1 + dayShift + 7) % 7)));
+
+    private static byte ToUtcMonthlyDay(int localDay, TimeSpan localTime)
+    {
+        var today = DateTime.Today;
+        var day = Math.Min(localDay, DateTime.DaysInMonth(today.Year, today.Month));
+        var local = new DateTime(today.Year, today.Month, day).Add(localTime);
+        return (byte)new DateTimeOffset(local).ToUniversalTime().Day;
+    }
 
     private static int ToMondayBasedDay(DayOfWeek dayOfWeek) =>
         dayOfWeek == DayOfWeek.Sunday ? 7 : (int)dayOfWeek;
@@ -441,7 +472,7 @@ public sealed class LightScheduleItem : INotifyPropertyChanged
         string actionText,
         string repeatText,
         bool isEnabled,
-        ScheduleRegister? register = null)
+        AgpSchedule? register = null)
     {
         TimeText = timeText;
         ActionText = actionText;
@@ -453,7 +484,7 @@ public sealed class LightScheduleItem : INotifyPropertyChanged
     public string TimeText { get; }
     public string ActionText { get; }
     public string RepeatText { get; }
-    public ScheduleRegister? Register { get; }
+    public AgpSchedule? Register { get; }
 
     public bool IsEnabled
     {

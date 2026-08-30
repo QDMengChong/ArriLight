@@ -52,8 +52,9 @@
                                     Text="灯光调节"
                                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                                 <Label
+                                    x:Name="LightControlDescription"
                                     FontSize="12"
-                                    Text="内圈选颜色，外环调色温"
+                                    Text="亮度控制"
                                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                             </VerticalStackLayout>
                             <Button
@@ -71,7 +72,9 @@
                             SelectionChanged="OnColorPickerSelectionChanged"
                             WidthRequest="260" />
 
-                        <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Grid
+                            x:Name="ColorTemperatureLegend"
+                            ColumnDefinitions="Auto,*,Auto">
                             <Label
                                 FontSize="11"
                                 Text="暖光"

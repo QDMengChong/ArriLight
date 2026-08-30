@@ -1,19 +1,21 @@
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using ArriOpto.BLE.Agp;
+using ArriLight.Controls;
 
 namespace ArriLight;
 
 public partial class DeviceControlPage : ContentPage, IQueryAttributable
 {
     private const int LongPressMilliseconds = 650;
-    private const double ColorSaturationThreshold = 0.05;
     private static readonly TimeSpan LightSettingsDebounce = TimeSpan.FromMilliseconds(250);
 
     private readonly DeviceRepository _repository;
     private readonly BluetoothConnectionService _connectionService;
-    private readonly MeshLightControlService _meshLight;
+    private readonly AgpLightControlService _agpLight;
     private readonly AppDiagnosticService _diagnostics;
+    private readonly AgpControlPageKind _controlPageKind;
 
     private string _deviceName = "设备管理";
     private string _deviceAddress = string.Empty;
@@ -30,6 +32,11 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private CancellationTokenSource? _presetPressCancellation;
     private CancellationTokenSource? _lightSettingsCancellation;
     private ControlPreset? _pressedPreset;
+    private AgpColorModel _activeColorModel;
+    private AgpCtlRange _ctlRange = new(
+        AgpColorModelCodec.MinimumCtlTemperatureKelvin,
+        AgpColorModelCodec.MaximumCtlTemperatureKelvin);
+    private bool _isApplyingControlState;
 
     public string DeviceName
     {
@@ -125,17 +132,27 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     ];
 
     public DeviceControlPage()
+        : this(AgpControlPageKind.Lightness)
     {
+    }
+
+    protected DeviceControlPage(AgpControlPageKind controlPageKind)
+    {
+        _controlPageKind = controlPageKind;
+        _activeColorModel = controlPageKind == AgpControlPageKind.Ctl
+            ? AgpColorModel.Ctl
+            : AgpColorModel.Hsl;
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
         _connectionService =
             ServiceHelper.GetRequiredService<BluetoothConnectionService>();
-        _meshLight = ServiceHelper.GetRequiredService<MeshLightControlService>();
+        _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
         if (TimerModePicker.SelectedIndex < 0)
             TimerModePicker.SelectedIndex = 0;
         UpdateMasterPowerVisual();
+        ConfigureControlPage();
         _isReady = true;
     }
 
@@ -161,7 +178,6 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             {
                 ApplyConnectionSnapshot(_connectionService.Snapshot);
                 await EnsureConnectedAsync(showError: false);
-                await RefreshDeviceStateAsync();
             }
         }
     }
@@ -202,12 +218,20 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async Task EnsureConnectedAsync(bool showError)
     {
-        if (string.IsNullOrWhiteSpace(DeviceAddress) || !CanConnect)
+        if (string.IsNullOrWhiteSpace(DeviceAddress))
             return;
 
         try
         {
             await _connectionService.ConnectAsync(DeviceAddress);
+            var profile = await _agpLight.GetControlProfileAsync(DeviceAddress);
+            ApplyControlProfile(profile);
+            var state = await _agpLight.GetOnOffStateAsync(DeviceAddress);
+            if (state is { } onOff)
+            {
+                _isMasterPowerOn = onOff;
+                UpdateMasterPowerVisual();
+            }
         }
         catch (Exception exception)
         {
@@ -219,8 +243,17 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             {
                 await DisplayAlertAsync(
                     "连接失败",
-                    exception.Message,
+                    $"设备无法建立 AGP 灯控会话：{exception.Message}",
                     "知道了");
+            }
+
+            try
+            {
+                await _connectionService.DisconnectAsync();
+            }
+            catch
+            {
+                // 原始 AGP 连接异常更有诊断价值，断开清理失败不覆盖它。
             }
         }
     }
@@ -266,41 +299,21 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         IsDeviceOnline = snapshot.IsConnected;
     }
 
-    /// <summary>
-    /// 根据设备当前状态刷新页面：读取灯具真实开关状态并同步总开关。
-    /// </summary>
-    private async Task RefreshDeviceStateAsync()
-    {
-        if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress) || !IsDeviceOnline)
-            return;
-
-        try
-        {
-            var state = await _meshLight.GetOnOffStateAsync(DeviceAddress);
-            if (state is { } onOff)
-            {
-                _isMasterPowerOn = onOff;
-                UpdateMasterPowerVisual();
-                _diagnostics.Debug(
-                    "Light/State",
-                    $"灯具当前状态：{(onOff ? "开" : "关")}。");
-            }
-        }
-        catch (Exception exception)
-        {
-            _diagnostics.Warning(
-                "Light/State",
-                $"读取灯具状态失败：{exception.Message}");
-        }
-    }
-
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
     {
         UpdateMasterPowerVisual();
     }
 
-    private void OnColorPickerSelectionChanged(object? sender, EventArgs e) =>
+    private void OnColorPickerSelectionChanged(object? sender, EventArgs e)
+    {
+        _activeColorModel = ColorPicker.LastChangedComponent switch
+        {
+            ColorTemperatureSelection.Color => AgpColorModel.Hsl,
+            ColorTemperatureSelection.Temperature => AgpColorModel.Ctl,
+            _ => _activeColorModel
+        };
         QueueLightSettingsCommand();
+    }
 
     private void OnBrightnessChanged(object? sender, ValueChangedEventArgs e) =>
         QueueLightSettingsCommand();
@@ -536,8 +549,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
             return false;
 
-        // Scheduler 表达本地时间点，服务内会把“N 秒后”换算成具体时间。
-        await _meshLight.SendTimerAsync(
+        // AGP 延时关使用 Relative Timer；延时开使用一次性 Scheduler。
+        await _agpLight.SetTimerAsync(
             DeviceAddress,
             TimeSpan.FromSeconds(seconds),
             turnOn: timerMode == "TimedOn");
@@ -564,7 +577,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
         try
         {
-            await _meshLight.SendOnOffAsync(DeviceAddress, _isMasterPowerOn);
+            await _agpLight.SetOnOffAsync(DeviceAddress, _isMasterPowerOn);
         }
         catch (Exception exception)
         {
@@ -605,7 +618,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void QueueLightSettingsCommand()
     {
-        if (!_isReady || !IsDeviceOnline)
+        if (!_isReady || _isApplyingControlState || !IsDeviceOnline)
             return;
 
         if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
@@ -628,29 +641,38 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
         }
 
-        var lightness = (ushort)Math.Round(
-            BrightnessSlider.Value / 100.0 * ushort.MaxValue);
+        var brightnessPercent = (byte)Math.Clamp(
+            Math.Round(BrightnessSlider.Value),
+            0,
+            AgpModelCodec.MaximumBrightnessPercent);
         try
         {
-            if (ColorPicker.Saturation >= ColorSaturationThreshold)
+            if (_controlPageKind == AgpControlPageKind.Hsl ||
+                (_controlPageKind == AgpControlPageKind.HslAndCtl &&
+                 _activeColorModel != AgpColorModel.Ctl))
             {
-                // 有彩色：走 Light HSL Set。
-                var hue = (ushort)Math.Round(ColorPicker.Hue * ushort.MaxValue);
-                var saturation = (ushort)Math.Round(
-                    ColorPicker.Saturation * ushort.MaxValue);
-                await _meshLight.SendHslAsync(
+                await _agpLight.SetHslAsync(
                     DeviceAddress,
-                    lightness,
-                    hue,
-                    saturation);
+                    brightnessPercent,
+                    ColorPicker.Hue,
+                    ColorPicker.Saturation,
+                    cancellationToken);
+            }
+            else if (_controlPageKind == AgpControlPageKind.Ctl ||
+                     _controlPageKind == AgpControlPageKind.HslAndCtl)
+            {
+                await _agpLight.SetCtlAsync(
+                    DeviceAddress,
+                    brightnessPercent,
+                    TemperatureRatioToKelvin(ColorPicker.Temperature),
+                    cancellationToken: cancellationToken);
             }
             else
             {
-                // 接近白色：走 Light CTL Set（亮度 + 色温）。
-                await _meshLight.SendCtlAsync(
+                await _agpLight.SetLightnessAsync(
                     DeviceAddress,
-                    lightness,
-                    MapTemperature(ColorPicker.Temperature));
+                    brightnessPercent,
+                    cancellationToken);
             }
         }
         catch (Exception exception)
@@ -662,14 +684,92 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         }
     }
 
-    /// <summary>把色温环的 0-1 归一化值映射到 SIG CTL Temperature（800-20000 K）。</summary>
-    private static ushort MapTemperature(double normalized)
+    private void ConfigureControlPage()
     {
-        const ushort minimumKelvin = 800;
-        const ushort maximumKelvin = 20000;
-        return (ushort)Math.Round(
-            minimumKelvin + (maximumKelvin - minimumKelvin) * Math.Clamp(normalized, 0, 1));
+        var supportsHsl = _controlPageKind is
+            AgpControlPageKind.Hsl or AgpControlPageKind.HslAndCtl;
+        var supportsCtl = _controlPageKind is
+            AgpControlPageKind.Ctl or AgpControlPageKind.HslAndCtl;
+
+        ColorPicker.IsVisible = supportsHsl || supportsCtl;
+        ColorPicker.IsColorControlEnabled = supportsHsl;
+        ColorPicker.IsTemperatureControlEnabled = supportsCtl;
+        ColorTemperatureLegend.IsVisible = supportsCtl;
+        LightControlDescription.Text = _controlPageKind switch
+        {
+            AgpControlPageKind.Hsl => "HSL 色彩与亮度控制",
+            AgpControlPageKind.Ctl => "CTL 色温与亮度控制",
+            AgpControlPageKind.HslAndCtl => "HSL 色盘与 CTL 色温环控制",
+            _ => "亮度控制"
+        };
     }
+
+    private void ApplyControlProfile(AgpDeviceControlProfile profile)
+    {
+        _ctlRange = profile.CtlRange;
+        _isApplyingControlState = true;
+        try
+        {
+            switch (profile.ColorState)
+            {
+                case AgpHslState hsl:
+                    _activeColorModel = hsl.ActiveModel == AgpColorModel.None
+                        ? AgpColorModel.Hsl
+                        : hsl.ActiveModel;
+                    BrightnessSlider.Value =
+                        AgpColorModelCodec.Lightness16ToBrightnessPercent(
+                            hsl.Present.Lightness);
+                    ColorPicker.Hue = hsl.Present.Hue / (double)ushort.MaxValue;
+                    ColorPicker.Saturation =
+                        hsl.Present.Saturation / (double)ushort.MaxValue;
+                    break;
+
+                case AgpCtlState ctl:
+                    _activeColorModel = ctl.ActiveModel == AgpColorModel.None
+                        ? AgpColorModel.Ctl
+                        : ctl.ActiveModel;
+                    BrightnessSlider.Value =
+                        AgpColorModelCodec.Lightness16ToBrightnessPercent(
+                            ctl.Present.Lightness);
+                    ColorPicker.Temperature =
+                        KelvinToTemperatureRatio(ctl.Present.TemperatureKelvin);
+                    break;
+
+                case AgpLightness16State lightness:
+                    BrightnessSlider.Value =
+                        AgpColorModelCodec.Lightness16ToBrightnessPercent(
+                            lightness.Present);
+                    break;
+            }
+        }
+        finally
+        {
+            _isApplyingControlState = false;
+        }
+    }
+
+    private ushort TemperatureRatioToKelvin(double ratio)
+    {
+        var temperature = _ctlRange.TemperatureMinimumKelvin +
+            Math.Clamp(ratio, 0, 1) *
+            (_ctlRange.TemperatureMaximumKelvin -
+             _ctlRange.TemperatureMinimumKelvin);
+        return (ushort)Math.Round(temperature);
+    }
+
+    private double KelvinToTemperatureRatio(ushort temperatureKelvin)
+    {
+        var span = _ctlRange.TemperatureMaximumKelvin -
+            _ctlRange.TemperatureMinimumKelvin;
+        return span == 0
+            ? 0
+            : Math.Clamp(
+                (temperatureKelvin - _ctlRange.TemperatureMinimumKelvin) /
+                (double)span,
+                0,
+                1);
+    }
+
 }
 
 public sealed class ControlPreset : INotifyPropertyChanged

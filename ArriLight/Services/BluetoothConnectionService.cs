@@ -37,6 +37,8 @@ public sealed record GattCharacteristicInfo(
     string? Name,
     CharacteristicPropertyType Properties)
 {
+    public bool CanRead => Properties.HasFlag(CharacteristicPropertyType.Read);
+
     public bool CanWrite =>
         Properties.HasFlag(CharacteristicPropertyType.Write) ||
         Properties.HasFlag(CharacteristicPropertyType.WriteWithoutResponse);
@@ -167,9 +169,8 @@ public sealed class BluetoothConnectionService
     /// </summary>
     /// <param name="address">设备地址。</param>
     /// <param name="refreshCache">
-    /// true 时先调用 <c>ClearServices</c> 强制重新发现。Mesh 节点在
-    /// “未配网（Provisioning 服务）→ 已配网（Proxy 服务）”切换后，Android 的
-    /// GATT 缓存可能过期，重新发现才能看到最新服务表。
+    /// true 时先调用 <c>ClearServices</c> 强制重新发现，避免 Android GATT
+    /// 缓存与设备当前固件暴露的服务表不一致。
     /// </param>
     /// <param name="cancellationToken">取消令牌。</param>
     public async Task<IReadOnlyList<GattServiceInfo>> EnumerateGattAsync(
@@ -216,7 +217,7 @@ public sealed class BluetoothConnectionService
         }
     }
 
-    /// <summary>协商 ATT MTU（Mesh 需要 ≥ 247 以单包承载 Proxy PDU）。</summary>
+    /// <summary>协商 ATT MTU。</summary>
     public async Task<int> RequestMtuAsync(
         string address,
         int mtu,
