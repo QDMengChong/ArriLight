@@ -132,6 +132,10 @@ public partial class BluetoothScanPage : ContentPage
         object? sender,
         DiscoveredBluetoothDevice device)
     {
+        // 仅允许设备端明确打开配对窗口时进入“添加设备”列表。
+        if (!device.IsPairingOpen)
+            return;
+
         MainThread.BeginInvokeOnMainThread(() =>
         {
             // 已发现过的设备：保持首次发现时的名称、信号强度和排序完全不变，

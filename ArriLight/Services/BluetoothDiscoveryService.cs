@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
+using ArriOpto.BLE.Agp;
 using Plugin.BLE.Abstractions;
 using Plugin.BLE.Abstractions.Contracts;
 using Plugin.BLE.Abstractions.EventArgs;
@@ -186,7 +187,8 @@ public sealed class BluetoothDiscoveryService(
             new DiscoveredBluetoothDevice(
                 name,
                 address,
-                device.Rssi));
+                device.Rssi,
+                AgpAdvertisement.IsPairingOpen(device.AdvertisementRecords)));
     }
 
     private bool CacheDevice(IDevice device)
@@ -268,7 +270,8 @@ public sealed class BluetoothDiscoveryService(
 public sealed record DiscoveredBluetoothDevice(
     string Name,
     string Address,
-    int Rssi);
+    int Rssi,
+    bool IsPairingOpen);
 
 public sealed class BluetoothDiscoveryException(string message)
     : Exception(message);

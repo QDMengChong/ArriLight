@@ -137,8 +137,9 @@ public partial class MainPage : ContentPage
                     "AGP/Capabilities",
                     $"读取设备色彩模型能力失败：{device.Address}。",
                     exception);
-                ToastService.Show("无法读取设备控制能力，请确认设备在线");
-                return;
+                // 设备离线时无法读取色彩模型能力，但仍应允许进入基础控制页，
+                // 以便通过“更多”执行重命名、解除绑定等本地管理操作。
+                route = nameof(DeviceControlPage);
             }
         }
 
