@@ -132,6 +132,7 @@ public partial class BluetoothScanPage : ContentPage
         object? sender,
         DiscoveredBluetoothDevice device)
     {
+        // AgpAdvertisement 按 AGP 128-bit Service Data UUID 解析连接前状态；
         // 仅允许设备端明确打开配对窗口时进入“添加设备”列表。
         if (!device.IsPairingOpen)
             return;
