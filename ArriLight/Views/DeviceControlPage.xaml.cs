@@ -12,6 +12,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private static readonly TimeSpan LightSettingsDebounce = TimeSpan.FromMilliseconds(250);
 
     private readonly DeviceRepository _repository;
+    private readonly BluetoothDiscoveryService _discoveryService;
     private readonly BluetoothConnectionService _connectionService;
     private readonly AgpLightControlService _agpLight;
     private readonly AppDiagnosticService _diagnostics;
@@ -146,6 +147,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             : AgpColorModel.Hsl;
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _discoveryService =
+            ServiceHelper.GetRequiredService<BluetoothDiscoveryService>();
         _connectionService =
             ServiceHelper.GetRequiredService<BluetoothConnectionService>();
         _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
@@ -161,6 +164,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        // 控制页需要独占扫描之外的 BLE 资源，避免后台广播扫描影响
+        // 当前设备的连接、授权和灯控操作。
+        await _discoveryService.StopAsync();
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged += OnRequestedThemeChanged;
         _connectionService.StateChanged += OnConnectionStateChanged;

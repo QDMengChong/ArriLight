@@ -6,15 +6,21 @@ namespace ArriLight;
 
 public partial class MainPage : ContentPage
 {
-    private static readonly TimeSpan FirstStatusCheckTimeout =
-        TimeSpan.FromMilliseconds(300);
-    private static readonly TimeSpan RetryStatusCheckTimeout =
-        TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan StatusQueryTimeout =
+        // 扫描已经确认设备正在广播；给 Android BLE 完成连接、服务发现
+        // 和公开状态读取完整的 5 秒窗口，避免 300ms 内被提前取消。
+        TimeSpan.FromSeconds(5);
 
     private readonly DeviceRepository _repository;
+    private readonly BluetoothDiscoveryService _discoveryService;
     private readonly AgpLightControlService _agpLight;
     private readonly AppDiagnosticService _diagnostics;
-    private bool _isRefreshing;
+    private readonly object _statusQueueSync = new();
+    private readonly Dictionary<string, (LightDeviceItem Device, int Rssi)>
+        _pendingStatusQueries = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _statusQueryAttempted =
+        new(StringComparer.OrdinalIgnoreCase);
+    private bool _statusQuerySuppressed;
     private CancellationTokenSource? _statusRefreshCancellation;
     private Task? _statusRefreshTask;
 
@@ -26,6 +32,8 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _discoveryService =
+            ServiceHelper.GetRequiredService<BluetoothDiscoveryService>();
         _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         _repository.DevicesChanged += OnDevicesChanged;
@@ -33,17 +41,78 @@ public partial class MainPage : ContentPage
         ReloadDevices();
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
         ReloadDevices();
-        await StartStatusRefreshAsync();
+        _statusQuerySuppressed = false;
+        lock (_statusQueueSync)
+        {
+            _pendingStatusQueries.Clear();
+            _statusQueryAttempted.Clear();
+        }
+
+        _discoveryService.DeviceFound += OnDeviceFound;
+        _ = StartHomeScanAsync();
     }
 
     protected override void OnDisappearing()
     {
+        _discoveryService.DeviceFound -= OnDeviceFound;
+        _statusQuerySuppressed = true;
         _statusRefreshCancellation?.Cancel();
+        // 主页离开后不再需要扫描；添加页进入时会重新启动并重置 60 秒窗口。
+        _ = _discoveryService.StopAsync();
         base.OnDisappearing();
+    }
+
+    private async Task StartHomeScanAsync()
+    {
+        try
+        {
+            // 主页每次进入都将服务级扫描窗口重置为 60 秒。
+            await _discoveryService.StartOrResetBackgroundScanAsync(
+                TimeSpan.FromSeconds(60));
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Warning(
+                "BLE/Scan",
+                $"主页启动后台扫描失败：{exception.Message}");
+        }
+    }
+
+    private void OnDeviceFound(
+        object? sender,
+        DiscoveredBluetoothDevice discovered)
+    {
+        if (_statusQuerySuppressed)
+            return;
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (_statusQuerySuppressed)
+                return;
+
+            var device = Devices.FirstOrDefault(item =>
+                !item.IsDemo &&
+                string.Equals(
+                    item.Address,
+                    discovered.Address,
+                    StringComparison.OrdinalIgnoreCase));
+            if (device is null)
+                return;
+
+            lock (_statusQueueSync)
+            {
+                if (_statusQueryAttempted.Contains(device.Address))
+                    return;
+
+                _pendingStatusQueries[device.Address] = (device, discovered.Rssi);
+            }
+
+            _ = StartStatusRefreshAsync();
+        });
     }
 
     private async void OnScanQrCodeClicked(object? sender, EventArgs e)
@@ -96,17 +165,18 @@ public partial class MainPage : ContentPage
             return;
 
         // 状态轮询不应抢占用户针对某台设备发起的授权控制操作。
+        _statusQuerySuppressed = true;
         await StopStatusRefreshAsync();
 
-        if (device.IsDemo)
-        {
-            device.IsOn = !device.IsOn;
-            return;
-        }
-
-        device.IsOn = !device.IsOn;
         try
         {
+            if (device.IsDemo)
+            {
+                device.IsOn = !device.IsOn;
+                return;
+            }
+
+            device.IsOn = !device.IsOn;
             await _agpLight.SetOnOffAsync(device.Address, device.IsOn);
         }
         catch (Exception exception)
@@ -118,6 +188,10 @@ public partial class MainPage : ContentPage
                 exception);
             ToastService.Show("发送失败，请重试");
         }
+        finally
+        {
+            _statusQuerySuppressed = false;
+        }
     }
 
     private async void OnDeviceManageClicked(object? sender, EventArgs e)
@@ -125,6 +199,7 @@ public partial class MainPage : ContentPage
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
+        _statusQuerySuppressed = true;
         await StopStatusRefreshAsync();
 
         // 不要在主页等待 BLE 连接、服务发现和能力读取后再导航。
@@ -141,11 +216,11 @@ public partial class MainPage : ContentPage
 
     private async Task StartStatusRefreshAsync()
     {
-        if (_statusRefreshTask is { IsCompleted: false } activeTask)
-        {
-            await activeTask;
+        if (_statusQuerySuppressed)
             return;
-        }
+
+        if (_statusRefreshTask is { IsCompleted: false })
+            return;
 
         var refreshTask = RefreshDeviceStatusesAsync();
         _statusRefreshTask = refreshTask;
@@ -153,61 +228,66 @@ public partial class MainPage : ContentPage
     }
 
     /// <summary>
-    /// 主页状态轮询分两遍执行：第一遍每台设备只等待 300ms，
-    /// 第二遍只重试第一遍超时的设备，等待时间放宽到 1 秒。
+    /// 主页只查询扫描中发现的已保存设备，并按 RSSI 从强到弱处理。
     /// 查询只读取公开 Light State，不执行 AGP Token 授权。
     /// </summary>
     private async Task RefreshDeviceStatusesAsync()
     {
-        if (_isRefreshing)
+        if (_statusQuerySuppressed)
             return;
 
-        _isRefreshing = true;
         using var refreshCancellation = new CancellationTokenSource();
         _statusRefreshCancellation = refreshCancellation;
         var cancellationToken = refreshCancellation.Token;
         try
         {
-            var devices = Devices.Where(item => !item.IsDemo).ToList();
-            var timedOutDevices = new List<LightDeviceItem>();
-
-            foreach (var device in devices)
+            while (!cancellationToken.IsCancellationRequested &&
+                   !_statusQuerySuppressed)
             {
-                var result = await QueryDeviceStatusAsync(
-                    device,
-                    FirstStatusCheckTimeout,
-                    cancellationToken);
-                if (result == StatusQueryResult.Cancelled)
-                    return;
-                if (result == StatusQueryResult.TimedOut)
-                    timedOutDevices.Add(device);
-            }
-
-            if (timedOutDevices.Count == 0 || cancellationToken.IsCancellationRequested)
-                return;
-
-            foreach (var device in timedOutDevices)
-            {
-                if (cancellationToken.IsCancellationRequested)
+                // 给同一轮扫描中的多个广播留出一个很短的收集窗口，
+                // 使查询顺序更稳定地按 RSSI 从强到弱排列。
+                await Task.Delay(200, cancellationToken);
+                var candidates = TakePendingStatusQueries();
+                if (candidates.Count == 0)
                     return;
 
-                if (await QueryDeviceStatusAsync(
-                        device,
-                        RetryStatusCheckTimeout,
-                        cancellationToken) == StatusQueryResult.Cancelled)
+                // 设备已经通过广播筛选，连接并读取状态只执行一次；
+                // 失败后不在本次主页扫描窗口内再次连接重试。
+                foreach (var candidate in candidates)
                 {
-                    return;
+                    if (_statusQuerySuppressed)
+                        return;
+
+                    await QueryDeviceStatusAsync(
+                        candidate.Device,
+                        StatusQueryTimeout,
+                        cancellationToken);
                 }
             }
         }
         finally
         {
             _statusRefreshCancellation = null;
-            _isRefreshing = false;
         }
     }
 
-    private async Task<StatusQueryResult> QueryDeviceStatusAsync(
+    private List<(LightDeviceItem Device, int Rssi)> TakePendingStatusQueries()
+    {
+        lock (_statusQueueSync)
+        {
+            var candidates = _pendingStatusQueries.Values
+                .OrderByDescending(item => item.Rssi)
+                .ToList();
+            _pendingStatusQueries.Clear();
+
+            foreach (var candidate in candidates)
+                _statusQueryAttempted.Add(candidate.Device.Address);
+
+            return candidates;
+        }
+    }
+
+    private async Task QueryDeviceStatusAsync(
         LightDeviceItem device,
         TimeSpan timeout,
         CancellationToken refreshCancellationToken)
@@ -227,12 +307,12 @@ public partial class MainPage : ContentPage
             device.Status = "在线";
             device.StatusColor = Color.FromArgb("#35C987");
             device.IsOn = state;
-            return StatusQueryResult.Online;
+            return;
         }
         catch (OperationCanceledException) when (
             refreshCancellationToken.IsCancellationRequested)
         {
-            return StatusQueryResult.Cancelled;
+            return;
         }
         catch (OperationCanceledException)
         {
@@ -240,7 +320,7 @@ public partial class MainPage : ContentPage
             _diagnostics.Debug(
                 "BLE/Status",
                 $"设备 {device.Address} 状态查询超时，等待 {timeout.TotalMilliseconds:0} ms。");
-            return StatusQueryResult.TimedOut;
+            return;
         }
         catch (Exception exception)
         {
@@ -248,7 +328,7 @@ public partial class MainPage : ContentPage
             _diagnostics.Debug(
                 "BLE/Status",
                 $"设备 {device.Address} 状态查询失败：{exception.Message}");
-            return StatusQueryResult.Failed;
+            return;
         }
         finally
         {
@@ -266,6 +346,8 @@ public partial class MainPage : ContentPage
     private async Task StopStatusRefreshAsync()
     {
         _statusRefreshCancellation?.Cancel();
+        lock (_statusQueueSync)
+            _pendingStatusQueries.Clear();
         if (_statusRefreshTask is not { } refreshTask)
             return;
 
@@ -279,13 +361,6 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private enum StatusQueryResult
-    {
-        Online,
-        TimedOut,
-        Failed,
-        Cancelled
-    }
 }
 
 public sealed class LightDeviceItem : INotifyPropertyChanged
