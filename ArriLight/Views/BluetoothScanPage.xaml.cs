@@ -6,6 +6,7 @@ public partial class BluetoothScanPage : ContentPage
 {
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly DeviceRepository _repository;
+    private readonly AgpLightControlService _agpLight;
     private CancellationTokenSource? _scanCancellation;
     private bool _isScanning;
     private string _scanStatusText = "准备开始搜索";
@@ -21,6 +22,7 @@ public partial class BluetoothScanPage : ContentPage
         InitializeComponent();
         _discoveryService = ServiceHelper.GetRequiredService<BluetoothDiscoveryService>();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         BindingContext = this;
     }
 
@@ -245,6 +247,18 @@ public partial class BluetoothScanPage : ContentPage
                 "设备名称不能为空，或该设备已经存在。",
                 "知道了");
             return;
+        }
+
+        try
+        {
+            await _agpLight.BindAsync(address);
+        }
+        catch (Exception exception)
+        {
+            await DisplayAlertAsync(
+                "绑定未完成",
+                $"设备已保存，但尚未完成物理确认：{exception.Message}",
+                "知道了");
         }
 
         await _discoveryService.StopAsync();

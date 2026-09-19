@@ -72,6 +72,43 @@ public sealed class DeviceRepository
             address,
             device => device with { FirmwareVersion = firmwareVersion });
 
+    public string? GetToken(string address) =>
+        GetByAddress(address)?.Token;
+
+    public byte[]? GetTokenBytes(string address)
+    {
+        var token = GetToken(address);
+        if (string.IsNullOrWhiteSpace(token) || token.Length != 8)
+            return null;
+
+        try
+        {
+            var bytes = Convert.FromHexString(token);
+            return bytes.Length == 4 ? bytes : null;
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    public bool SetToken(string address, byte[] token)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        if (token.Length != 4)
+            throw new ArgumentException("设备 Token 必须为 4 字节。", nameof(token));
+
+        return Update(
+            address,
+            device => device with
+            {
+                Token = Convert.ToHexString(token).ToUpperInvariant()
+            });
+    }
+
+    public bool ClearToken(string address) =>
+        Update(address, device => device with { Token = null });
+
     public bool Remove(string address)
     {
         var removed = false;

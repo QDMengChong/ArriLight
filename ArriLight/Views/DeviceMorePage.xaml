@@ -97,6 +97,17 @@
                         </Grid>
                         <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                            <Grid.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnRebindTapped" />
+                            </Grid.GestureRecognizers>
+                            <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                <Label Style="{StaticResource MenuTitleStyle}" Text="重新绑定" />
+                                <Label Style="{StaticResource MenuDescriptionStyle}" Text="需要轻触灯身按键确认" />
+                            </VerticalStackLayout>
+                            <Image Grid.Column="1" Style="{StaticResource MenuChevronStyle}" />
+                        </Grid>
+                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
                             <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                 <Label Style="{StaticResource MenuTitleStyle}" Text="置顶显示" />
                                 <Label Style="{StaticResource MenuDescriptionStyle}" Text="在首页设备列表中优先显示" />

@@ -5,6 +5,7 @@ namespace ArriLight;
 public partial class QrCodeScanPage : ContentPage
 {
     private readonly DeviceRepository _repository;
+    private readonly AgpLightControlService _agpLight;
     private int _isHandlingCode;
     private bool _isTorchOn;
     private bool _hasCameraPermission;
@@ -14,6 +15,7 @@ public partial class QrCodeScanPage : ContentPage
     {
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         BarcodeReader.Options = new BarcodeReaderOptions
         {
             Formats = BarcodeFormats.TwoDimensional,
@@ -105,6 +107,18 @@ public partial class QrCodeScanPage : ContentPage
                 "重新扫描");
             ResumeScanning();
             return;
+        }
+
+        try
+        {
+            await _agpLight.BindAsync(address);
+        }
+        catch (Exception exception)
+        {
+            await DisplayAlertAsync(
+                "绑定未完成",
+                $"设备已保存，但尚未完成物理确认：{exception.Message}",
+                "知道了");
         }
 
         await Shell.Current.GoToAsync("..");

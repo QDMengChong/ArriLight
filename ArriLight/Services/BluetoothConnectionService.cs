@@ -1,5 +1,7 @@
+using System.Buffers.Binary;
 using System.Collections.Concurrent;
 using System.Text;
+using ArriOpto.BLE.Agp;
 using Plugin.BLE.Abstractions;
 using Plugin.BLE.Abstractions.Contracts;
 using Plugin.BLE.Abstractions.EventArgs;
@@ -153,7 +155,7 @@ public sealed class BluetoothConnectionService
                 characteristic.WriteType = writeType.Value;
             _diagnostics.Trace(
                 "BLE/TX",
-                $"service={serviceId}, characteristic={characteristicId}, writeType={writeType ?? characteristic.WriteType}, length={data.Length}, data={Convert.ToHexString(data)}");
+                $"service={serviceId}, characteristic={characteristicId}, writeType={writeType ?? characteristic.WriteType}, length={data.Length}, data={FormatBlePayload(serviceId, characteristicId, data)}");
             var result = await characteristic.WriteAsync(data, cancellationToken);
             _diagnostics.Debug("BLE/TX", $"写入完成，GATT result={result}。");
             return result;
@@ -257,7 +259,7 @@ public sealed class BluetoothConnectionService
             var data = result.Item1 ?? [];
             _diagnostics.Trace(
                 "BLE/RX",
-                $"读取完成，service={serviceId}, characteristic={characteristicId}, result={result.Item2}, length={data.Length}, data={Convert.ToHexString(data)}");
+                $"读取完成，service={serviceId}, characteristic={characteristicId}, result={result.Item2}, length={data.Length}, data={FormatBlePayload(serviceId, characteristicId, data)}");
             return data;
         }
         finally
@@ -475,7 +477,7 @@ public sealed class BluetoothConnectionService
         var data = characteristic.Value?.ToArray() ?? [];
         _diagnostics.Trace(
             "BLE/RX",
-            $"通知：service={characteristic.Service.Id}, characteristic={characteristic.Id}, length={data.Length}, data={Convert.ToHexString(data)}");
+            $"通知：service={characteristic.Service.Id}, characteristic={characteristic.Id}, length={data.Length}, data={FormatBlePayload(characteristic.Service.Id, characteristic.Id, data)}");
         MessageReceived?.Invoke(
             this,
             new BluetoothMessage(
@@ -483,6 +485,23 @@ public sealed class BluetoothConnectionService
                 characteristic.Id,
                 data,
                 DateTimeOffset.Now));
+    }
+
+    private static string FormatBlePayload(
+        Guid serviceId,
+        Guid characteristicId,
+        ReadOnlySpan<byte> data)
+    {
+        if (serviceId == AgpProfile.ServiceId &&
+            characteristicId == AgpProfile.ControlPointCharacteristicId &&
+            data.Length >= AgpProfile.HeaderSize)
+        {
+            var opcode = BinaryPrimitives.ReadUInt16LittleEndian(data.Slice(4, 2));
+            if (opcode is (ushort)AgpOpcode.AuthGetToken or (ushort)AgpOpcode.AuthToken)
+                return $"<AGP auth payload redacted; length={data.Length}>";
+        }
+
+        return Convert.ToHexString(data);
     }
 
     private void OnDeviceDisconnected(object? sender, DeviceEventArgs eventArgs)

@@ -95,6 +95,7 @@ public sealed class FirmwareUpdateService(
     HttpClient httpClient,
     PluginBleOtaClient otaClient,
     BluetoothConnectionService connectionService,
+    AgpLightControlService agpLightControlService,
     AppDiagnosticService diagnostics,
     FirmwareUpdateConfiguration configuration)
 {
@@ -218,6 +219,11 @@ public sealed class FirmwareUpdateService(
 
         try
         {
+            // OTA 入口与普通控制使用同一条 AGP 会话；未认证的连接不得进入升级。
+            await agpLightControlService.EnsureAuthorizedAsync(
+                deviceAddress,
+                cancellationToken);
+
             progress?.Report(
                 new FirmwareUpdateProgress(
                     FirmwareUpdateStage.Connecting,

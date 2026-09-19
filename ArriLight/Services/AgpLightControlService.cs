@@ -32,6 +32,17 @@ public sealed record AgpDeviceControlProfile(
     }
 }
 
+public sealed class AgpAuthenticationRequiredException : InvalidOperationException
+{
+    public AgpAuthenticationRequiredException(string address)
+        : base($"设备 {address} 尚未完成 ArriLight 绑定认证。")
+    {
+        Address = address;
+    }
+
+    public string Address { get; }
+}
+
 /// <summary>通过 AGP 私有 GATT 协议执行直连灯控；当前版本不使用 Mesh。</summary>
 public sealed class AgpLightControlService : IAsyncDisposable
 {
@@ -39,16 +50,51 @@ public sealed class AgpLightControlService : IAsyncDisposable
 
     private readonly BluetoothConnectionService _connectionService;
     private readonly AppDiagnosticService _diagnostics;
+    private readonly DeviceRepository _repository;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private AgpClientHandle? _handle;
 
     public AgpLightControlService(
         BluetoothConnectionService connectionService,
-        AppDiagnosticService diagnostics)
+        AppDiagnosticService diagnostics,
+        DeviceRepository repository)
     {
         _connectionService = connectionService;
         _diagnostics = diagnostics;
+        _repository = repository;
     }
+
+    /// <summary>用户明确发起首次绑定时调用，允许进入物理确认流程。</summary>
+    public async Task BindAsync(
+        string address,
+        CancellationToken cancellationToken = default)
+    {
+        await _operationLock.WaitAsync(cancellationToken);
+        try
+        {
+            await DisposeHandleAsync();
+            await GetOrCreateClientAsync(address, cancellationToken, true);
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
+    }
+
+    /// <summary>清除本机绑定后重新执行一次物理确认流程。</summary>
+    public async Task RebindAsync(
+        string address,
+        CancellationToken cancellationToken = default)
+    {
+        _repository.ClearToken(address);
+        await BindAsync(address, cancellationToken);
+    }
+
+    /// <summary>确保当前 AGP 会话已完成 Token 认证，供 OTA 前置检查使用。</summary>
+    public Task EnsureAuthorizedAsync(
+        string address,
+        CancellationToken cancellationToken = default) =>
+        WithClientAsync(address, _ => Task.CompletedTask, cancellationToken);
 
     public Task SetOnOffAsync(
         string address,
@@ -319,7 +365,8 @@ public sealed class AgpLightControlService : IAsyncDisposable
 
     private async Task<AgpClientHandle> GetOrCreateClientAsync(
         string address,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool allowProvisioning = false)
     {
         if (_handle is not null &&
             string.Equals(_handle.Address, address, StringComparison.OrdinalIgnoreCase) &&
@@ -340,6 +387,39 @@ public sealed class AgpLightControlService : IAsyncDisposable
         try
         {
             var capabilities = await client.ReadCapabilitiesAsync(cancellationToken);
+            var isAuthorized = true;
+            if (capabilities.HasFlag(AgpCapabilities.SecureControl))
+            {
+                var token = _repository.GetTokenBytes(address);
+                if (token is null)
+                {
+                    if (!allowProvisioning)
+                        throw new AgpAuthenticationRequiredException(address);
+
+                    await ShowBindingPromptAsync(address);
+                    var provision = await client.GetProvisionTokenAsync(
+                        cancellationToken: cancellationToken);
+                    EnsureSuccess(provision.Result);
+                    if (provision.Token is not { Length: 4 } provisionedToken)
+                    {
+                        throw new InvalidOperationException(
+                            "设备返回的 AGP Token 格式无效。");
+                    }
+
+                    if (!_repository.SetToken(address, provisionedToken))
+                    {
+                        throw new InvalidOperationException(
+                            "设备已返回 Token，但本地设备记录不存在，无法保存绑定信息。");
+                    }
+                    token = provisionedToken;
+                }
+
+                var authentication = await client.AuthenticateAsync(
+                    token,
+                    cancellationToken);
+                EnsureSuccess(authentication.Result);
+            }
+
             var state = await client.ReadLightStateAsync(cancellationToken);
             if (capabilities.HasFlag(AgpCapabilities.RtcTime))
             {
@@ -347,7 +427,8 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 EnsureSuccess(time.Result);
             }
 
-            var handle = new AgpClientHandle(address, client, capabilities, state);
+            var handle = new AgpClientHandle(
+                address, client, capabilities, state, isAuthorized);
             client.LightStateChanged += (_, value) => handle.LastState = value;
             client.ColorStateChanged += (_, value) => handle.LastColorState = value;
             client.InvalidPacketReceived += (_, args) =>
@@ -372,6 +453,13 @@ public sealed class AgpLightControlService : IAsyncDisposable
         if (handle is not null)
             await handle.Client.DisposeAsync();
     }
+
+    private static Task ShowBindingPromptAsync(string address) =>
+        MainThread.InvokeOnMainThreadAsync(() =>
+            Shell.Current.DisplayAlertAsync(
+                "确认绑定设备",
+                $"请确认这是要绑定的灯具（{address}），然后轻触灯身按键。\n\n设备指示灯闪烁后，App 将完成绑定。",
+                "等待触摸"));
 
     private static void RequireCapability(
         AgpCapabilities available,
@@ -404,12 +492,14 @@ public sealed class AgpLightControlService : IAsyncDisposable
         string address,
         AgpClient client,
         AgpCapabilities capabilities,
-        AgpLightState lastState)
+        AgpLightState lastState,
+        bool isAuthorized)
     {
         public string Address { get; } = address;
         public AgpClient Client { get; } = client;
         public AgpCapabilities Capabilities { get; } = capabilities;
         public AgpLightState LastState { get; set; } = lastState;
+        public bool IsAuthorized { get; } = isAuthorized;
         public AgpColorStatus? LastColorState { get; set; }
         public AgpCtlRange? CtlRange { get; set; }
     }

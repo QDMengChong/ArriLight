@@ -6,4 +6,5 @@ public sealed record SavedDevice(
     DateTimeOffset AddedAt = default,
     bool IsPinned = false,
     string FirmwareVersion = "1.0.0",
-    bool IsDemo = false);
+    bool IsDemo = false,
+    string? Token = null);
