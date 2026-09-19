@@ -116,5 +116,44 @@
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
+
+        <Grid
+            x:Name="BindingPromptOverlay"
+            Grid.RowSpan="3"
+            BackgroundColor="#88000000"
+            IsVisible="False"
+            Padding="28"
+            ZIndex="10">
+            <Border
+                Padding="22"
+                BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 20"
+                VerticalOptions="Center">
+                <VerticalStackLayout Spacing="14">
+                    <Label
+                        FontFamily="OpenSansSemibold"
+                        FontSize="20"
+                        HorizontalTextAlignment="Center"
+                        Text="确认绑定设备"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    <Label
+                        FontSize="14"
+                        HorizontalTextAlignment="Center"
+                        LineBreakMode="WordWrap"
+                        Text="请确认灯具在身边，然后轻触 PW01 灯身按键。"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    <Label
+                        x:Name="BindingPromptCountdown"
+                        FontFamily="OpenSansSemibold"
+                        FontSize="16"
+                        HorizontalTextAlignment="Center"
+                        TextColor="{StaticResource Primary}" />
+                    <Button
+                        Clicked="OnCancelBindingClicked"
+                        Text="取消添加" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 </ContentPage>

@@ -6,13 +6,17 @@ namespace ArriLight;
 
 public partial class MainPage : ContentPage
 {
-    private static readonly TimeSpan DeviceCheckTimeout = TimeSpan.FromSeconds(8);
+    private static readonly TimeSpan FirstStatusCheckTimeout =
+        TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan RetryStatusCheckTimeout =
+        TimeSpan.FromSeconds(1);
 
     private readonly DeviceRepository _repository;
-    private readonly BluetoothConnectionService _connectionService;
     private readonly AgpLightControlService _agpLight;
     private readonly AppDiagnosticService _diagnostics;
     private bool _isRefreshing;
+    private CancellationTokenSource? _statusRefreshCancellation;
+    private Task? _statusRefreshTask;
 
     public ObservableCollection<LightDeviceItem> Devices { get; } = [];
 
@@ -22,7 +26,6 @@ public partial class MainPage : ContentPage
     {
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
-        _connectionService = ServiceHelper.GetRequiredService<BluetoothConnectionService>();
         _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         _repository.DevicesChanged += OnDevicesChanged;
@@ -34,14 +37,26 @@ public partial class MainPage : ContentPage
     {
         base.OnAppearing();
         ReloadDevices();
-        await RefreshDeviceStatusesAsync();
+        await StartStatusRefreshAsync();
     }
 
-    private async void OnScanQrCodeClicked(object? sender, EventArgs e) =>
-        await Shell.Current.GoToAsync(nameof(QrCodeScanPage));
+    protected override void OnDisappearing()
+    {
+        _statusRefreshCancellation?.Cancel();
+        base.OnDisappearing();
+    }
 
-    private async void OnAddDeviceClicked(object? sender, EventArgs e) =>
+    private async void OnScanQrCodeClicked(object? sender, EventArgs e)
+    {
+        await StopStatusRefreshAsync();
+        await Shell.Current.GoToAsync(nameof(QrCodeScanPage));
+    }
+
+    private async void OnAddDeviceClicked(object? sender, EventArgs e)
+    {
+        await StopStatusRefreshAsync();
         await Shell.Current.GoToAsync(nameof(BluetoothScanPage));
+    }
 
     private void OnDevicesChanged(object? sender, EventArgs e) =>
         MainThread.BeginInvokeOnMainThread(ReloadDevices);
@@ -80,15 +95,12 @@ public partial class MainPage : ContentPage
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
+        // 状态轮询不应抢占用户针对某台设备发起的授权控制操作。
+        await StopStatusRefreshAsync();
+
         if (device.IsDemo)
         {
             device.IsOn = !device.IsOn;
-            return;
-        }
-
-        if (!device.IsOnline || device.IsChecking)
-        {
-            ToastService.Show("设备离线，无法控制");
             return;
         }
 
@@ -113,44 +125,37 @@ public partial class MainPage : ContentPage
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
-        string route;
-        if (device.IsDemo)
-        {
-            route = nameof(HslCtlDeviceControlPage);
-        }
-        else
-        {
-            try
-            {
-                var profile = await _agpLight.GetControlProfileAsync(device.Address);
-                route = profile.PageKind switch
-                {
-                    AgpControlPageKind.Hsl => nameof(HslDeviceControlPage),
-                    AgpControlPageKind.Ctl => nameof(CtlDeviceControlPage),
-                    AgpControlPageKind.HslAndCtl => nameof(HslCtlDeviceControlPage),
-                    _ => nameof(DeviceControlPage)
-                };
-            }
-            catch (Exception exception)
-            {
-                _diagnostics.Error(
-                    "AGP/Capabilities",
-                    $"读取设备色彩模型能力失败：{device.Address}。",
-                    exception);
-                // 设备离线时无法读取色彩模型能力，但仍应允许进入基础控制页，
-                // 以便通过“更多”执行重命名、解除绑定等本地管理操作。
-                route = nameof(DeviceControlPage);
-            }
-        }
+        await StopStatusRefreshAsync();
+
+        // 不要在主页等待 BLE 连接、服务发现和能力读取后再导航。
+        // 这些操作可能需要数秒，控制页本身已经会在进入后异步完成连接，
+        // 并在能力读取完成后切换到对应的 HSL/CTL 控件。
+        var route = device.IsDemo
+            ? nameof(HslCtlDeviceControlPage)
+            : nameof(DeviceControlPage);
 
         await Shell.Current.GoToAsync(
             $"{route}?name={Uri.EscapeDataString(device.Name)}" +
             $"&address={Uri.EscapeDataString(device.Address)}");
     }
 
+    private async Task StartStatusRefreshAsync()
+    {
+        if (_statusRefreshTask is { IsCompleted: false } activeTask)
+        {
+            await activeTask;
+            return;
+        }
+
+        var refreshTask = RefreshDeviceStatusesAsync();
+        _statusRefreshTask = refreshTask;
+        await refreshTask;
+    }
+
     /// <summary>
-    /// 逐个检测已保存设备的在线状态：按设备连接，失败或超时标记为离线。
-    /// 连接成功标记“在线”，失败或超时标记“离线”。
+    /// 主页状态轮询分两遍执行：第一遍每台设备只等待 300ms，
+    /// 第二遍只重试第一遍超时的设备，等待时间放宽到 1 秒。
+    /// 查询只读取公开 Light State，不执行 AGP Token 授权。
     /// </summary>
     private async Task RefreshDeviceStatusesAsync()
     {
@@ -158,46 +163,128 @@ public partial class MainPage : ContentPage
             return;
 
         _isRefreshing = true;
+        using var refreshCancellation = new CancellationTokenSource();
+        _statusRefreshCancellation = refreshCancellation;
+        var cancellationToken = refreshCancellation.Token;
         try
         {
-            foreach (var device in Devices.Where(item => !item.IsDemo).ToList())
+            var devices = Devices.Where(item => !item.IsDemo).ToList();
+            var timedOutDevices = new List<LightDeviceItem>();
+
+            foreach (var device in devices)
             {
-                device.IsChecking = true;
-                device.Status = "连接中";
-                try
+                var result = await QueryDeviceStatusAsync(
+                    device,
+                    FirstStatusCheckTimeout,
+                    cancellationToken);
+                if (result == StatusQueryResult.Cancelled)
+                    return;
+                if (result == StatusQueryResult.TimedOut)
+                    timedOutDevices.Add(device);
+            }
+
+            if (timedOutDevices.Count == 0 || cancellationToken.IsCancellationRequested)
+                return;
+
+            foreach (var device in timedOutDevices)
+            {
+                if (cancellationToken.IsCancellationRequested)
+                    return;
+
+                if (await QueryDeviceStatusAsync(
+                        device,
+                        RetryStatusCheckTimeout,
+                        cancellationToken) == StatusQueryResult.Cancelled)
                 {
-                    using var cancellation = new CancellationTokenSource(DeviceCheckTimeout);
-                    await _connectionService.ConnectAsync(
-                        device.Address,
-                        cancellation.Token);
-                    var state = await _agpLight.GetOnOffStateAsync(
-                        device.Address,
-                        cancellation.Token);
-                    device.IsOnline = true;
-                    device.Status = "在线";
-                    device.StatusColor = Color.FromArgb("#35C987");
-                    if (state is { } onOff)
-                        device.IsOn = onOff;
-                }
-                catch (Exception exception)
-                {
-                    device.IsOnline = false;
-                    device.Status = "离线";
-                    device.StatusColor = Color.FromArgb("#E65B65");
-                    _diagnostics.Debug(
-                        "BLE/Status",
-                        $"设备 {device.Address} 无法建立 AGP 灯控会话：{exception.Message}");
-                }
-                finally
-                {
-                    device.IsChecking = false;
+                    return;
                 }
             }
         }
         finally
         {
+            _statusRefreshCancellation = null;
             _isRefreshing = false;
         }
+    }
+
+    private async Task<StatusQueryResult> QueryDeviceStatusAsync(
+        LightDeviceItem device,
+        TimeSpan timeout,
+        CancellationToken refreshCancellationToken)
+    {
+        device.IsChecking = true;
+        device.Status = "连接中";
+        using var timeoutCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(refreshCancellationToken);
+        timeoutCancellation.CancelAfter(timeout);
+
+        try
+        {
+            var state = await _agpLight.GetOnOffStateWithoutAuthorizationAsync(
+                device.Address,
+                timeoutCancellation.Token);
+            device.IsOnline = true;
+            device.Status = "在线";
+            device.StatusColor = Color.FromArgb("#35C987");
+            device.IsOn = state;
+            return StatusQueryResult.Online;
+        }
+        catch (OperationCanceledException) when (
+            refreshCancellationToken.IsCancellationRequested)
+        {
+            return StatusQueryResult.Cancelled;
+        }
+        catch (OperationCanceledException)
+        {
+            MarkDeviceOffline(device);
+            _diagnostics.Debug(
+                "BLE/Status",
+                $"设备 {device.Address} 状态查询超时，等待 {timeout.TotalMilliseconds:0} ms。");
+            return StatusQueryResult.TimedOut;
+        }
+        catch (Exception exception)
+        {
+            MarkDeviceOffline(device);
+            _diagnostics.Debug(
+                "BLE/Status",
+                $"设备 {device.Address} 状态查询失败：{exception.Message}");
+            return StatusQueryResult.Failed;
+        }
+        finally
+        {
+            device.IsChecking = false;
+        }
+    }
+
+    private static void MarkDeviceOffline(LightDeviceItem device)
+    {
+        device.IsOnline = false;
+        device.Status = "离线";
+        device.StatusColor = Color.FromArgb("#E65B65");
+    }
+
+    private async Task StopStatusRefreshAsync()
+    {
+        _statusRefreshCancellation?.Cancel();
+        if (_statusRefreshTask is not { } refreshTask)
+            return;
+
+        try
+        {
+            await refreshTask;
+        }
+        catch (OperationCanceledException)
+        {
+            // 用户操作取消轮询是正常流程。
+        }
+    }
+
+    private enum StatusQueryResult
+    {
+        Online,
+        TimedOut,
+        Failed,
+        Cancelled
     }
 }
 
@@ -285,10 +372,12 @@ public sealed class LightDeviceItem : INotifyPropertyChanged
         }
     }
 
-    /// <summary>列表页开关是否可用（仅在线且不在检测中）。</summary>
-    public bool IsEnabled => IsOnline && !IsChecking;
+    /// <summary>
+    /// 查询中仍允许用户点击，以便取消轮询并立即执行该设备的授权控制操作。
+    /// </summary>
+    public bool IsEnabled => IsOnline || IsChecking;
 
-    public double PowerOpacity => IsEnabled ? 1 : 0.35;
+    public double PowerOpacity => IsOnline || IsChecking ? 1 : 0.35;
 
     public bool IsOn
     {

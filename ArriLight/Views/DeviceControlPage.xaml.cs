@@ -15,7 +15,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private readonly BluetoothConnectionService _connectionService;
     private readonly AgpLightControlService _agpLight;
     private readonly AppDiagnosticService _diagnostics;
-    private readonly AgpControlPageKind _controlPageKind;
+    // 真实设备的能力需要通过 BLE 读取。控制页先以亮度控件快速显示，
+    // 连接完成后再切换到设备实际支持的控制模型。
+    private AgpControlPageKind _controlPageKind;
 
     private string _deviceName = "设备管理";
     private string _deviceAddress = string.Empty;
@@ -706,6 +708,16 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void ApplyControlProfile(AgpDeviceControlProfile profile)
     {
+        _controlPageKind = profile.PageKind;
+        ConfigureControlPage();
+
+        if (profile.ColorState is null)
+        {
+            _activeColorModel = _controlPageKind == AgpControlPageKind.Ctl
+                ? AgpColorModel.Ctl
+                : AgpColorModel.Hsl;
+        }
+
         _ctlRange = profile.CtlRange;
         _isApplyingControlState = true;
         try

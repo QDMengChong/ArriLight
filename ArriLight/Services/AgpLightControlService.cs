@@ -68,12 +68,51 @@ public sealed class AgpLightControlService : IAsyncDisposable
     public async Task BindAsync(
         string address,
         CancellationToken cancellationToken = default)
+        => await BindAsync(
+            address,
+            bindingPrompt: null,
+            cancellationToken: cancellationToken);
+
+    /// <summary>
+    /// 用户明确发起首次绑定时调用，允许由调用方提供带倒计时的物理确认提示。
+    /// 提示回调返回后才会发送 AuthGetToken 请求，设备可在等待期间完成物理触摸。
+    /// </summary>
+    public async Task BindAsync(
+        string address,
+        Func<CancellationToken, Task>? bindingPrompt,
+        CancellationToken cancellationToken = default)
     {
+        // 先显示宿主提供的确认提示，再等待 AGP 操作锁；这样页面不会被
+        // 既有 BLE 数据交换阻塞，用户点击“保存”后可以立即看到提示。
+        var bindingPromptAlreadyShown = bindingPrompt is not null;
+        if (bindingPrompt is not null)
+            await bindingPrompt(cancellationToken);
+
         await _operationLock.WaitAsync(cancellationToken);
         try
         {
             await DisposeHandleAsync();
-            await GetOrCreateClientAsync(address, cancellationToken, true);
+            await GetOrCreateClientAsync(
+                address,
+                cancellationToken,
+                allowProvisioning: true,
+                bindingPromptAlreadyShown: bindingPromptAlreadyShown);
+        }
+        catch
+        {
+            // 绑定超时或用户取消后，不保留半开的 GATT 会话，避免下一次添加
+            // 误复用上一次未完成认证的连接。
+            await DisposeHandleAsync();
+            try
+            {
+                await _connectionService.DisconnectAsync();
+            }
+            catch
+            {
+                // 保留原始绑定异常，清理失败不覆盖它。
+            }
+
+            throw;
         }
         finally
         {
@@ -239,6 +278,49 @@ public sealed class AgpLightControlService : IAsyncDisposable
             },
             cancellationToken);
 
+    /// <summary>
+    /// 快速读取 Light State，只建立 GATT 连接并读取公开状态特征，不读取能力位，
+    /// 也不执行 AGP Token 认证。主页状态轮询使用此方法，避免轮询阻塞在授权流程。
+    /// </summary>
+    public async Task<bool> GetOnOffStateWithoutAuthorizationAsync(
+        string address,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(address))
+            throw new ArgumentException("设备地址不能为空。", nameof(address));
+
+        await _operationLock.WaitAsync(cancellationToken);
+        try
+        {
+            // 主页轮询不应复用控制页留下的已授权 AGP 客户端。
+            await DisposeHandleAsync();
+            var packet = await _connectionService.ReadAsync(
+                address,
+                AgpProfile.ServiceId,
+                AgpProfile.LightStateCharacteristicId,
+                cancellationToken);
+            var state = AgpModelCodec.DecodeLightState(
+                AgpCodec.Decode(packet.AsSpan()));
+            return state.IsOn;
+        }
+        finally
+        {
+            await DisposeHandleAsync();
+            try
+            {
+                // 每台设备的快速查询结束后立即释放连接，避免下一台设备查询
+                // 复用前一台的会话，也让用户操作可以获得干净的连接。
+                await _connectionService.DisconnectAsync(CancellationToken.None);
+            }
+            catch
+            {
+                // 保留查询本身的异常，断开清理失败不覆盖它。
+            }
+
+            _operationLock.Release();
+        }
+    }
+
     public Task SetTimerAsync(
         string address,
         TimeSpan delay,
@@ -366,7 +448,8 @@ public sealed class AgpLightControlService : IAsyncDisposable
     private async Task<AgpClientHandle> GetOrCreateClientAsync(
         string address,
         CancellationToken cancellationToken,
-        bool allowProvisioning = false)
+        bool allowProvisioning = false,
+        bool bindingPromptAlreadyShown = false)
     {
         if (_handle is not null &&
             string.Equals(_handle.Address, address, StringComparison.OrdinalIgnoreCase) &&
@@ -396,7 +479,11 @@ public sealed class AgpLightControlService : IAsyncDisposable
                     if (!allowProvisioning)
                         throw new AgpAuthenticationRequiredException(address);
 
-                    await ShowBindingPromptAsync(address);
+                    if (!bindingPromptAlreadyShown)
+                        await ShowBindingPromptAsync(address);
+                    _diagnostics.Information(
+                        "AGP/Binding",
+                        $"等待设备 {address} 的物理触摸确认，绑定窗口 {TimeSpan.FromSeconds(60).TotalSeconds:0} 秒。发送 AuthGetToken 请求。");
                     var provision = await client.GetProvisionTokenAsync(
                         cancellationToken: cancellationToken);
                     EnsureSuccess(provision.Result);
