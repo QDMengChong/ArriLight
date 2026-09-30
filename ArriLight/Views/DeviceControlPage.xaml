@@ -117,6 +117,52 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout Spacing="3">
+                                <Label Style="{StaticResource MenuTitleStyle}" Text="特效" />
+                                <Label
+                                    x:Name="EffectDescription"
+                                    Style="{StaticResource MenuDescriptionStyle}"
+                                    Text="常亮"
+                                    />
+                            </VerticalStackLayout>
+                            <Label
+                                Grid.Column="1"
+                                FontSize="11"
+                                Text="长按设置参数"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                                VerticalTextAlignment="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                            <Button
+                                x:Name="SteadyEffectButton"
+                                Clicked="OnEffectClicked"
+                                Pressed="OnEffectPressed"
+                                Released="OnEffectReleased"
+                                Text="常亮"
+                                CommandParameter="0" />
+                            <Button
+                                x:Name="BlinkEffectButton"
+                                Grid.Column="1"
+                                Clicked="OnEffectClicked"
+                                Pressed="OnEffectPressed"
+                                Released="OnEffectReleased"
+                                Text="闪烁"
+                                CommandParameter="1" />
+                            <Button
+                                x:Name="BreatheEffectButton"
+                                Grid.Column="2"
+                                Clicked="OnEffectClicked"
+                                Pressed="OnEffectPressed"
+                                Released="OnEffectReleased"
+                                Text="呼吸灯"
+                                CommandParameter="2" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
                 <VerticalStackLayout Spacing="10">
                     <Grid ColumnDefinitions="*,Auto">
                         <Label

@@ -13,7 +13,9 @@ public enum AgpControlPageKind
 public sealed record AgpDeviceControlProfile(
     AgpCapabilities Capabilities,
     AgpColorStatus? ColorState,
-    AgpCtlRange CtlRange)
+    AgpCtlRange CtlRange,
+    AgpLightMode EffectMode = AgpLightMode.Steady,
+    ushort? EffectPeriodMilliseconds = null)
 {
     public AgpControlPageKind PageKind
     {
@@ -220,6 +222,26 @@ public sealed class AgpLightControlService : IAsyncDisposable
             },
             cancellationToken);
 
+    public Task<AgpEffectResponse> SetEffectAsync(
+        string address,
+        AgpLightMode mode,
+        ushort periodMilliseconds,
+        CancellationToken cancellationToken = default) =>
+        WithClientAsync(
+            address,
+            async handle =>
+            {
+                RequireCapability(handle.Capabilities, AgpCapabilities.Effects);
+                var response = await handle.Client.SetEffectAsync(
+                    mode,
+                    periodMilliseconds,
+                    cancellationToken);
+                EnsureSuccess(response.Result);
+                handle.LastState = handle.LastState with { Mode = response.Mode };
+                return response;
+            },
+            cancellationToken);
+
     public Task<AgpDeviceControlProfile> GetControlProfileAsync(
         string address,
         CancellationToken cancellationToken = default) =>
@@ -259,10 +281,31 @@ public sealed class AgpLightControlService : IAsyncDisposable
                     }
                 }
 
+                var effectMode = handle.LastState.Mode;
+                ushort? effectPeriodMilliseconds = null;
+                if (handle.Capabilities.HasFlag(AgpCapabilities.Effects))
+                {
+                    try
+                    {
+                        var effect = await handle.Client.GetEffectAsync(cancellationToken);
+                        EnsureSuccess(effect.Result);
+                        effectMode = effect.Mode;
+                        effectPeriodMilliseconds = effect.PeriodMilliseconds;
+                    }
+                    catch (Exception exception)
+                    {
+                        _diagnostics.Warning(
+                            "AGP/Effect",
+                            $"读取特效参数失败，继续使用 Light State 的模式：{exception.Message}");
+                    }
+                }
+
                 return new AgpDeviceControlProfile(
                     handle.Capabilities,
                     handle.LastColorState,
-                    handle.CtlRange ?? DefaultCtlRange);
+                    handle.CtlRange ?? DefaultCtlRange,
+                    effectMode,
+                    effectPeriodMilliseconds);
             },
             cancellationToken);
 
