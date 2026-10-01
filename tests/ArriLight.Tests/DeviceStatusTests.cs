@@ -151,6 +151,67 @@ public sealed class DeviceStatusTests
         Assert.False(fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState!.IsOn);
     }
 
+    [Theory]
+    [InlineData(AgpLightMode.Blink)]
+    [InlineData(AgpLightMode.Breathe)]
+    public async Task StartingDynamicEffectFromOffPublishesTheHardwarePowerOnState(
+        AgpLightMode mode)
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Ble.Capabilities |= AgpCapabilities.Effects;
+        fixture.Ble.LightStatePacket = LightStatePacket(false, 0);
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+
+        var response = await fixture.Service.SetEffectAsync(fixture.Address, mode, 1_000);
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+
+        Assert.Equal(mode, response.Mode);
+        Assert.True(cached.LightState!.IsOn);
+        Assert.Equal(mode, cached.LightState.Mode);
+        Assert.Equal(mode, cached.Profile!.EffectMode);
+        Assert.Equal((ushort)1_000, cached.Profile.EffectPeriodMilliseconds);
+        Assert.DoesNotContain(AgpOpcode.OnOffSet, fixture.Ble.Requests);
+    }
+
+    [Fact]
+    public async Task StartingSteadyEffectFromOffDoesNotInventPowerOnState()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Ble.Capabilities |= AgpCapabilities.Effects;
+        fixture.Ble.LightStatePacket = LightStatePacket(false, 0);
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+
+        await fixture.Service.SetEffectAsync(
+            fixture.Address, AgpLightMode.Steady, periodMilliseconds: 0);
+
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.False(cached.LightState!.IsOn);
+        Assert.Equal(AgpLightMode.Steady, cached.LightState.Mode);
+        Assert.DoesNotContain(AgpOpcode.OnOffSet, fixture.Ble.Requests);
+    }
+
+    [Fact]
+    public async Task RejectedEffectDoesNotChangeCachedPowerOrMode()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Ble.Capabilities |= AgpCapabilities.Effects;
+        fixture.Ble.LightStatePacket = LightStatePacket(false, 0);
+        fixture.Ble.EffectResult = AgpResultCode.NotAuthorized;
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.SetEffectAsync(fixture.Address, AgpLightMode.Blink, 1_000));
+
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.False(cached.LightState!.IsOn);
+        Assert.Equal(AgpLightMode.Steady, cached.LightState.Mode);
+        Assert.Equal(AgpLightMode.Steady, cached.Profile!.EffectMode);
+        Assert.DoesNotContain(AgpOpcode.OnOffSet, fixture.Ble.Requests);
+    }
+
     private static int StateReadCount(PairingFixture fixture) =>
         fixture.Ble.Reads.Count(id => id == AgpProfile.LightStateCharacteristicId);
 

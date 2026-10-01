@@ -258,6 +258,7 @@ internal sealed class FakeBle
     public AgpCapabilities Capabilities { get; set; } = AgpCapabilities.SecureControl | AgpCapabilities.RtcTime;
     public AgpResultCode AuthenticationResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode TimerResult { get; set; } = AgpResultCode.Success;
+    public AgpResultCode EffectResult { get; set; } = AgpResultCode.Success;
     public byte[] LightStatePacket { get; set; } = Convert.FromHexString("01000200020000000B0100000001323232000000");
     public Action? OnLightStateRead { get; set; }
     public byte[] ProvisionPayload { get; set; } = [0, 0xA1, 0xB2, 0xC3, 0xD4];
@@ -365,6 +366,7 @@ internal sealed class FakeBle
             AgpOpcode.OnOffSet => [0, 1, 0, 0, 0],
             AgpOpcode.TimeSet => Convert.FromHexString("000100B955690100"),
             AgpOpcode.DelayOnSet or AgpOpcode.DelayOffSet => TimerResponse(request),
+            AgpOpcode.EffectSet or AgpOpcode.EffectGet => EffectResponse(request),
             _ => throw new NotSupportedException(request.Opcode.ToString())
         };
         _indicatedValue = AgpCodec.Encode(AgpMessageType.Response, request.Opcode, request.TransactionId, payload);
@@ -385,6 +387,24 @@ internal sealed class FakeBle
         payload[0] = (byte)TimerResult;
         payload[1] = seconds == 0 ? (byte)0 : (byte)1;
         BinaryPrimitives.WriteUInt32LittleEndian(payload.AsSpan(2), seconds);
+        return payload;
+    }
+
+    private byte[] EffectResponse(AgpMessage request)
+    {
+        var payload = new byte[5];
+        payload[0] = (byte)EffectResult;
+        if (request.Opcode == AgpOpcode.EffectSet)
+        {
+            payload[1] = request.Payload.Span[0];
+            BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(2),
+                BinaryPrimitives.ReadUInt16LittleEndian(request.Payload.Span[1..]));
+        }
+        else
+        {
+            payload[1] = (byte)AgpLightMode.Steady;
+        }
+
         return payload;
     }
 }

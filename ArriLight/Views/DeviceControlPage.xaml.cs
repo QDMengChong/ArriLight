@@ -19,6 +19,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     // 真实设备的能力需要通过 BLE 读取。控制页先以亮度控件快速显示，
     // 连接完成后再切换到设备实际支持的控制模型。
     private AgpControlPageKind _controlPageKind;
+    private AgpCapabilities _supportedCapabilities = AgpCapabilities.Lightness;
 
     private string _deviceName = "设备管理";
     private string _deviceAddress = string.Empty;
@@ -35,6 +36,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private CancellationTokenSource? _presetPressCancellation;
     private CancellationTokenSource? _effectPressCancellation;
     private CancellationTokenSource? _lightSettingsCancellation;
+    private Task? _lightSettingsTask;
     private ControlPreset? _pressedPreset;
     private AgpLightMode _effectMode = AgpLightMode.Steady;
     private bool _effectsSupported = true;
@@ -157,6 +159,14 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     protected DeviceControlPage(AgpControlPageKind controlPageKind)
     {
         _controlPageKind = controlPageKind;
+        _supportedCapabilities = controlPageKind switch
+        {
+            AgpControlPageKind.Hsl => AgpCapabilities.Hsl | AgpCapabilities.Lightness16,
+            AgpControlPageKind.Ctl => AgpCapabilities.Ctl | AgpCapabilities.Lightness16,
+            AgpControlPageKind.HslAndCtl =>
+                AgpCapabilities.Hsl | AgpCapabilities.Ctl | AgpCapabilities.Lightness16,
+            _ => AgpCapabilities.Lightness
+        };
         _activeColorModel = controlPageKind == AgpControlPageKind.Ctl
             ? AgpColorModel.Ctl
             : AgpColorModel.Hsl;
@@ -223,6 +233,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _lightSettingsCancellation?.Cancel();
         _lightSettingsCancellation?.Dispose();
         _lightSettingsCancellation = null;
+        _lightSettingsTask = null;
         base.OnDisappearing();
     }
 
@@ -509,6 +520,13 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             var period = mode == AgpLightMode.Steady ? (ushort)0 : periodMilliseconds;
             var response = await _agpLight.SetEffectAsync(DeviceAddress, mode, period);
             _effectMode = response.Mode;
+            if (response.Mode is AgpLightMode.Blink or AgpLightMode.Breathe)
+            {
+                // The device turns the light on before presenting these effects.
+                // Reflect that implicit power change in the master control.
+                _isMasterPowerOn = true;
+                UpdateMasterPowerVisual();
+            }
             RememberEffectPeriod(response.Mode, response.PeriodMilliseconds);
             UpdateEffectVisual();
         }
@@ -567,7 +585,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnSavePresetClicked(object? sender, EventArgs e)
     {
-        if (!IsDeviceOnline)
+        if (!IsDeviceOnline ||
+            (!SupportsBrightness && !SupportsColor && !SupportsTemperature && !SupportsEffect))
             return;
         if (Presets.All(preset => preset.IsSaved))
         {
@@ -593,10 +612,15 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
         Presets[emptyIndex] = ControlPreset.Create(
             name.Trim(),
-            ColorPicker.Hue,
-            ColorPicker.Saturation,
-            ColorPicker.Temperature,
-            BrightnessSlider.Value);
+            SupportsColor ? ColorPicker.Hue : null,
+            SupportsColor ? ColorPicker.Saturation : null,
+            SupportsTemperature ? ColorPicker.Temperature : null,
+            SupportsBrightness ? BrightnessSlider.Value : null,
+            SupportsColor ? ColorPicker.SelectedColor : null,
+            SupportsEffect ? _effectMode : null,
+            SupportsEffect && _effectMode != AgpLightMode.Steady
+                ? GetEffectPeriod(_effectMode)
+                : (ushort?)0);
     }
 
     private void OnPresetPressed(object? sender, EventArgs e)
@@ -689,11 +713,48 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
         }
 
-        ColorPicker.Hue = preset.Hue;
-        ColorPicker.Saturation = preset.Saturation;
-        ColorPicker.Temperature = preset.Temperature;
-        BrightnessSlider.Value = preset.Brightness;
-        QueueLightSettingsCommand();
+        _isApplyingControlState = true;
+        try
+        {
+            if (SupportsColor && preset.HasColor)
+            {
+                ColorPicker.Hue = preset.Hue ?? ColorPicker.Hue;
+                ColorPicker.Saturation = preset.Saturation ?? ColorPicker.Saturation;
+            }
+
+            if (SupportsTemperature && preset.HasTemperature)
+                ColorPicker.Temperature = preset.Temperature!.Value;
+
+            if (SupportsBrightness && preset.HasBrightness)
+                BrightnessSlider.Value = preset.Brightness!.Value;
+        }
+        finally
+        {
+            _isApplyingControlState = false;
+        }
+
+        var hasLightSettings = (SupportsColor && preset.HasColor) ||
+            (SupportsTemperature && preset.HasTemperature) ||
+            (SupportsBrightness && preset.HasBrightness);
+        if (hasLightSettings)
+        {
+            // Light-model writes can reset a running effect. Send them first,
+            // then send the saved effect as the final command in this restore.
+            await StopPendingLightSettingsAsync();
+            await SendLightSettingsAsync(CancellationToken.None, debounce: false);
+        }
+        else if (SupportsEffect && preset.EffectMode is not null)
+        {
+            // A previous slider/color change must not arrive after this effect.
+            await StopPendingLightSettingsAsync();
+        }
+
+        if (SupportsEffect && preset.EffectMode is { } effectMode)
+        {
+            var period = preset.EffectPeriodMilliseconds ??
+                GetEffectPeriod(effectMode);
+            await SetEffectAsync(effectMode, period);
+        }
     }
 
     private void OnPresetDragStarting(object? sender, DragStartingEventArgs e)
@@ -893,18 +954,44 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _lightSettingsCancellation?.Cancel();
         _lightSettingsCancellation?.Dispose();
         _lightSettingsCancellation = new CancellationTokenSource();
-        _ = SendLightSettingsAsync(_lightSettingsCancellation.Token);
+        _lightSettingsTask = SendLightSettingsAsync(_lightSettingsCancellation.Token);
     }
 
-    private async Task SendLightSettingsAsync(CancellationToken cancellationToken)
+    private async Task StopPendingLightSettingsAsync()
     {
-        try
+        var pending = _lightSettingsTask;
+        _lightSettingsCancellation?.Cancel();
+        if (pending is not null)
         {
-            await Task.Delay(LightSettingsDebounce, cancellationToken);
+            try
+            {
+                await pending;
+            }
+            catch (OperationCanceledException)
+            {
+                // A cancelled pending write is intentionally discarded.
+            }
         }
-        catch (OperationCanceledException)
+
+        _lightSettingsTask = null;
+        _lightSettingsCancellation?.Dispose();
+        _lightSettingsCancellation = null;
+    }
+
+    private async Task SendLightSettingsAsync(
+        CancellationToken cancellationToken,
+        bool debounce = true)
+    {
+        if (debounce)
         {
-            return;
+            try
+            {
+                await Task.Delay(LightSettingsDebounce, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
         }
 
         var brightnessPercent = (byte)Math.Clamp(
@@ -950,17 +1037,43 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         }
     }
 
+    private bool SupportsBrightness => _controlPageKind != AgpControlPageKind.Lightness ||
+        _supportedCapabilities.HasFlag(AgpCapabilities.Lightness) ||
+        _supportedCapabilities.HasFlag(AgpCapabilities.Lightness16);
+
+    private bool SupportsColor => _controlPageKind is
+        AgpControlPageKind.Hsl or AgpControlPageKind.HslAndCtl;
+
+    private bool SupportsTemperature => _controlPageKind is
+        AgpControlPageKind.Ctl or AgpControlPageKind.HslAndCtl;
+
+    private bool SupportsEffect => _supportedCapabilities.HasFlag(AgpCapabilities.Effects) &&
+        _effectsSupported;
+
     private void ConfigureControlPage()
     {
         var supportsHsl = _controlPageKind is
             AgpControlPageKind.Hsl or AgpControlPageKind.HslAndCtl;
         var supportsCtl = _controlPageKind is
             AgpControlPageKind.Ctl or AgpControlPageKind.HslAndCtl;
+        var supportsBrightness = SupportsBrightness;
 
         ColorPicker.IsVisible = supportsHsl || supportsCtl;
         ColorPicker.IsColorControlEnabled = supportsHsl;
         ColorPicker.IsTemperatureControlEnabled = supportsCtl;
         ColorTemperatureLegend.IsVisible = supportsCtl;
+        BrightnessControlRow.IsVisible = supportsBrightness;
+        var hasPresetSupport = supportsBrightness || supportsHsl || supportsCtl || SupportsEffect;
+        SavePresetButton.IsVisible = hasPresetSupport;
+        CustomPresetSection.IsVisible = hasPresetSupport;
+        foreach (var preset in Presets)
+        {
+            preset.SetSupportedContent(
+                supportsBrightness,
+                supportsHsl,
+                supportsCtl,
+                SupportsEffect);
+        }
         LightControlDescription.Text = _controlPageKind switch
         {
             AgpControlPageKind.Hsl => "HSL 色彩与亮度控制",
@@ -972,9 +1085,10 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void ApplyControlProfile(AgpDeviceControlProfile profile)
     {
+        _supportedCapabilities = profile.Capabilities;
         _controlPageKind = profile.PageKind;
-        ConfigureControlPage();
         ApplyEffectProfile(profile);
+        ConfigureControlPage();
         ApplyTimerCapabilities(profile.Capabilities);
 
         if (profile.ColorState is null)
@@ -1053,14 +1167,21 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 public sealed class ControlPreset : INotifyPropertyChanged
 {
     private bool _isReorderMode;
+    private bool _supportsBrightness = true;
+    private bool _supportsColor = true;
+    private bool _supportsTemperature = true;
+    private bool _supportsEffect = true;
 
     private ControlPreset(
         string displayName,
         bool isSaved,
-        double hue,
-        double saturation,
-        double temperature,
-        double brightness)
+        double? hue,
+        double? saturation,
+        double? temperature,
+        double? brightness,
+        Color? lightColor,
+        AgpLightMode? effectMode,
+        ushort? effectPeriodMilliseconds)
     {
         DisplayName = displayName;
         IsSaved = isSaved;
@@ -1068,14 +1189,26 @@ public sealed class ControlPreset : INotifyPropertyChanged
         Saturation = saturation;
         Temperature = temperature;
         Brightness = brightness;
+        LightColor = lightColor;
+        EffectMode = effectMode;
+        EffectPeriodMilliseconds = effectPeriodMilliseconds;
     }
 
     public string DisplayName { get; }
     public bool IsSaved { get; }
-    public double Hue { get; }
-    public double Saturation { get; }
-    public double Temperature { get; }
-    public double Brightness { get; }
+    public double? Hue { get; }
+    public double? Saturation { get; }
+    public double? Temperature { get; }
+    public double? Brightness { get; }
+    public Color? LightColor { get; }
+    public AgpLightMode? EffectMode { get; }
+    public ushort? EffectPeriodMilliseconds { get; }
+
+    public bool HasColor => _supportsColor && LightColor is not null;
+    public bool HasTemperature => _supportsTemperature && Temperature is not null;
+    public bool HasBrightness => _supportsBrightness && Brightness is not null;
+    public bool HasEffect => _supportsEffect && EffectMode is
+        AgpLightMode.Blink or AgpLightMode.Breathe;
 
     public bool IsReorderMode
     {
@@ -1094,12 +1227,22 @@ public sealed class ControlPreset : INotifyPropertyChanged
     public string DetailText =>
         IsReorderMode
             ? "拖动调整"
-            : IsSaved
-                ? $"{Brightness:0}%/{Temperature * 100:0}%"
-                : "点击查看";
+            : !IsSaved
+                ? "点击查看"
+                : HasEffect
+                    ? EffectName(EffectMode!.Value)
+                    : HasBrightness || HasTemperature
+                        ? FormatLevels()
+                        : ToRgbHex(PreviewColor);
 
     public Color PreviewColor =>
-        IsSaved ? Color.FromHsla(Hue, Saturation, 0.52) : Color.FromArgb("#DDE3ED");
+        !IsSaved
+            ? Color.FromArgb("#DDE3ED")
+            : HasColor
+                ? LightColor!
+                : CreateTemperatureColor(
+                    HasTemperature ? Temperature : null,
+                    HasBrightness ? Brightness : null);
 
     public static ControlPreset Create(
         string name,
@@ -1107,9 +1250,104 @@ public sealed class ControlPreset : INotifyPropertyChanged
         double saturation,
         double temperature,
         double brightness) =>
-        new(name, true, hue, saturation, temperature, brightness);
+        new(
+            name,
+            true,
+            hue,
+            saturation,
+            temperature,
+            brightness,
+            Color.FromHsla(hue, saturation, 0.52),
+            null,
+            null);
 
-    public static ControlPreset Empty() => new("空配置", false, 0, 0, 0, 0);
+    public static ControlPreset Create(
+        string name,
+        double? hue,
+        double? saturation,
+        double? temperature,
+        double? brightness,
+        Color? lightColor,
+        AgpLightMode? effectMode,
+        ushort? effectPeriodMilliseconds) =>
+        new(
+            name,
+            true,
+            hue,
+            saturation,
+            temperature,
+            brightness,
+            lightColor,
+            effectMode,
+            effectPeriodMilliseconds);
+
+    public static ControlPreset Empty() => new(
+        "空配置", false, null, null, null, null, null, null, null);
+
+    internal void SetSupportedContent(
+        bool supportsBrightness,
+        bool supportsColor,
+        bool supportsTemperature,
+        bool supportsEffect)
+    {
+        _supportsBrightness = supportsBrightness;
+        _supportsColor = supportsColor;
+        _supportsTemperature = supportsTemperature;
+        _supportsEffect = supportsEffect;
+        OnPropertyChanged(nameof(DetailText));
+        OnPropertyChanged(nameof(PreviewColor));
+    }
+
+    private string FormatLevels()
+    {
+        var levels = new List<string>(2);
+        if (HasBrightness)
+            levels.Add($"{Brightness!.Value:0}%");
+        if (HasTemperature)
+            levels.Add($"{Temperature!.Value * 100:0}%");
+        return string.Join('/', levels);
+    }
+
+    private static string EffectName(AgpLightMode mode) => mode switch
+    {
+        AgpLightMode.Blink => "闪烁",
+        AgpLightMode.Breathe => "呼吸灯",
+        _ => "常亮"
+    };
+
+    private static Color CreateTemperatureColor(double? temperature, double? brightness)
+    {
+        // The picker exposes a normalized cool-to-warm range. Map it to the
+        // common 6500 K..2700 K lighting range before applying the standard
+        // Kelvin-to-RGB approximation.
+        var kelvin = 6500 - Math.Clamp(temperature ?? 0.5, 0, 1) * (6500 - 2700);
+        var temperatureHundreds = kelvin / 100;
+        var red = temperatureHundreds <= 66
+            ? 255
+            : 329.698727446 * Math.Pow(temperatureHundreds - 60, -0.1332047592);
+        var green = temperatureHundreds <= 66
+            ? 99.4708025861 * Math.Log(Math.Max(temperatureHundreds, 1)) - 161.1195681661
+            : 288.1221695283 * Math.Pow(temperatureHundreds - 60, -0.0755148492);
+        var blue = temperatureHundreds >= 66
+            ? 255
+            : temperatureHundreds <= 19
+                ? 0
+                : 138.5177312231 * Math.Log(temperatureHundreds - 10) - 305.0447927307;
+        var level = Math.Clamp(brightness ?? 50, 1, 100) / 100;
+        var whiteMix = 0.15 + level * 0.75;
+        var intensity = 0.65 + level * 0.35;
+
+        return Color.FromRgb(
+            (float)Math.Clamp((red / 255 * (1 - whiteMix) + whiteMix) * intensity, 0, 1),
+            (float)Math.Clamp((green / 255 * (1 - whiteMix) + whiteMix) * intensity, 0, 1),
+            (float)Math.Clamp((blue / 255 * (1 - whiteMix) + whiteMix) * intensity, 0, 1));
+    }
+
+    private static string ToRgbHex(Color color) =>
+        $"#{ToByte(color.Red):X2}{ToByte(color.Green):X2}{ToByte(color.Blue):X2}";
+
+    private static int ToByte(float value) =>
+        (int)Math.Round(Math.Clamp(value, 0, 1) * 255);
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

@@ -325,7 +325,16 @@ public sealed class AgpLightControlService : IAsyncDisposable
                     periodMilliseconds,
                     cancellationToken);
                 EnsureSuccess(response.Result);
-                handle.LastState = handle.LastState with { Mode = response.Mode };
+                // PW01 starts the light when a non-steady effect is selected. Keep
+                // the shared light state aligned with that device-side behavior so
+                // the control page's master power button does not remain "开启".
+                handle.LastState = handle.LastState with
+                {
+                    Mode = response.Mode,
+                    IsOn = response.Mode is AgpLightMode.Blink or AgpLightMode.Breathe
+                        ? true
+                        : handle.LastState.IsOn
+                };
                 CacheControlState(handle, response.PeriodMilliseconds);
                 return response;
             },
