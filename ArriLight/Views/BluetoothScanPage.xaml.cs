@@ -4,13 +4,15 @@ namespace ArriLight;
 
 public partial class BluetoothScanPage : ContentPage
 {
-    private static readonly TimeSpan BindingTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan BindingTimeout = AgpLightControlService.BindingTimeout;
 
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly DeviceRepository _repository;
     private readonly AgpLightControlService _agpLight;
     private CancellationTokenSource? _scanCancellation;
     private CancellationTokenSource? _bindingCancellation;
+    private DateTimeOffset _bindingDeadline;
+    private Task? _bindingCountdownTask;
     private bool _isScanning;
     private bool _isAdding;
     private string _scanStatusText = "准备开始搜索";
@@ -20,6 +22,7 @@ public partial class BluetoothScanPage : ContentPage
     // 原生 Dialog 的 DimBehind 会覆盖 Shell 顶栏、底部标签栏和页面内容；
     // XAML 页面内的遮罩只能覆盖当前 ContentPage。
     private Android.App.Dialog? _bindingDialog;
+    private Android.Widget.TextView? _bindingDialogStatus;
     private Android.Widget.TextView? _bindingDialogCountdown;
 #endif
 
@@ -89,7 +92,7 @@ public partial class BluetoothScanPage : ContentPage
     {
         _discoveryService.DeviceFound -= OnDeviceFound;
         _scanCancellation?.Cancel();
-        _bindingCancellation?.Cancel();
+        CancelBinding();
         // 扫描由 BluetoothDiscoveryService 按服务级窗口管理；离开添加页
         // 只取消本页的等待，不停止可能仍被主页使用的后台扫描。
         base.OnDisappearing();
@@ -281,14 +284,16 @@ public partial class BluetoothScanPage : ContentPage
             return;
         }
 
-        using var bindingCancellation = new CancellationTokenSource();
+        using var bindingCancellation = new CancellationTokenSource(BindingTimeout);
         _bindingCancellation = bindingCancellation;
+        _bindingDeadline = DateTimeOffset.UtcNow + BindingTimeout;
         var bindingSucceeded = false;
         try
         {
             await _agpLight.BindAsync(
                 address,
-                ShowBindingCountdownAsync,
+                (stage, cancellationToken) => UpdateBindingProgressAsync(
+                    stage, cancellationToken, bindingCancellation.Token),
                 bindingCancellation.Token);
             bindingSucceeded = true;
         }
@@ -296,7 +301,9 @@ public partial class BluetoothScanPage : ContentPage
             when (bindingCancellation.IsCancellationRequested)
         {
             ToastService.ShowForDuration(
-                "添加失败：超时或已取消，设备未添加。",
+                DateTimeOffset.UtcNow >= _bindingDeadline
+                    ? "配对超时，请确认配对窗口开启且其他手机已断开后重试。"
+                    : "已取消添加，设备未添加。",
                 TimeSpan.FromSeconds(1));
         }
         catch (Exception exception)
@@ -308,7 +315,11 @@ public partial class BluetoothScanPage : ContentPage
         finally
         {
             bindingCancellation.Cancel();
+            // 先关闭提示，再等待倒计时任务收尾。
             await HideBindingPromptAsync();
+            if (_bindingCountdownTask is not null)
+                await _bindingCountdownTask;
+            _bindingCountdownTask = null;
             _bindingCancellation = null;
         }
 
@@ -324,37 +335,64 @@ public partial class BluetoothScanPage : ContentPage
             TimeSpan.FromSeconds(1));
 
         await _discoveryService.StopAsync();
-        await Shell.Current.GoToAsync("..");
     }
 
-    private async Task ShowBindingCountdownAsync(CancellationToken cancellationToken)
+    private async Task UpdateBindingProgressAsync(
+        AgpBindingStage stage,
+        CancellationToken cancellationToken,
+        CancellationToken countdownCancellationToken)
     {
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (stage == AgpBindingStage.Connecting)
+            {
 #if ANDROID
-            ShowBindingDialog();
+                ShowBindingDialog();
 #else
-            BindingPromptOverlay.IsVisible = true;
+                BindingPromptOverlay.IsVisible = true;
 #endif
-            UpdateBindingCountdown((int)BindingTimeout.TotalSeconds);
+                UpdateBindingCountdown((int)BindingTimeout.TotalSeconds);
+            }
+
+            var text = stage switch
+            {
+                AgpBindingStage.Connecting => "正在连接 PW01，请稍候…",
+                AgpBindingStage.WaitingForConnection =>
+                    "暂时无法连接，设备可能正被其他手机占用。\n正在等待并自动重试…",
+                AgpBindingStage.ReceivingToken => "已连接，正在获取配对信息…",
+                _ => string.Empty
+            };
+#if ANDROID
+            if (_bindingDialogStatus is not null)
+                _bindingDialogStatus.Text = text;
+#endif
+            BindingPromptStatus.Text = text;
         });
 
-        _bindingCancellation?.CancelAfter(BindingTimeout);
-        _ = RunBindingCountdownAsync(cancellationToken);
+        if (stage == AgpBindingStage.Connecting)
+        {
+            // 倒计时属于页面，必须使用页面自己的令牌。服务返回时会释放其
+            // 内部关联令牌源，此后页面取消已无法传递给那个关联令牌。
+            _bindingCountdownTask = RunBindingCountdownAsync(countdownCancellationToken);
+        }
     }
 
     private async Task RunBindingCountdownAsync(CancellationToken cancellationToken)
     {
-        var remaining = (int)BindingTimeout.TotalSeconds;
         try
         {
-            while (remaining >= 0 && !cancellationToken.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                var seconds = remaining;
+                var seconds = Math.Max(0,
+                    (int)Math.Ceiling((_bindingDeadline - DateTimeOffset.UtcNow).TotalSeconds));
                 await MainThread.InvokeOnMainThreadAsync(() =>
-                    UpdateBindingCountdown(seconds));
+                {
+                    if (!cancellationToken.IsCancellationRequested)
+                        UpdateBindingCountdown(seconds);
+                });
 
-                if (remaining-- == 0)
+                if (seconds == 0)
                     break;
 
                 await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken);
@@ -366,24 +404,34 @@ public partial class BluetoothScanPage : ContentPage
         }
     }
 
-    private async Task HideBindingPromptAsync() =>
-        await MainThread.InvokeOnMainThreadAsync(() =>
-        {
+    private Task HideBindingPromptAsync() =>
+        MainThread.InvokeOnMainThreadAsync(HideBindingPrompt);
+
+    private void HideBindingPrompt()
+    {
 #if ANDROID
-            _bindingDialog?.Dismiss();
-            _bindingDialog?.Dispose();
-            _bindingDialog = null;
-            _bindingDialogCountdown = null;
+        _bindingDialog?.Dismiss();
+        _bindingDialog?.Dispose();
+        _bindingDialog = null;
+        _bindingDialogStatus = null;
+        _bindingDialogCountdown = null;
 #endif
-            BindingPromptOverlay.IsVisible = false;
-        });
+        BindingPromptOverlay.IsVisible = false;
+    }
+
+    private void CancelBinding()
+    {
+        _bindingCancellation?.Cancel();
+        // 取消按钮和页面离开均在 UI 线程执行，立即收起原生 Dialog/页面遮罩。
+        HideBindingPrompt();
+    }
 
     private void OnCancelBindingClicked(object? sender, EventArgs e) =>
-        _bindingCancellation?.Cancel();
+        CancelBinding();
 
     private void UpdateBindingCountdown(int seconds)
     {
-        var text = $"请在 {seconds} 秒内触摸 PW01\n灯身按键。";
+        var text = $"配对剩余时间：{seconds} 秒";
 #if ANDROID
         if (_bindingDialogCountdown is not null)
         {
@@ -422,15 +470,22 @@ public partial class BluetoothScanPage : ContentPage
 
         var title = CreateDialogText(
             context,
-            "确认绑定设备",
+            "正在配对设备",
             20,
             Android.Graphics.Color.ParseColor("#15213B"));
         title.Typeface = Android.Graphics.Typeface.DefaultBold;
         card.AddView(title, CreateDialogLayoutParams(context, bottomMarginDp: 14));
 
+        _bindingDialogStatus = CreateDialogText(
+            context,
+            string.Empty,
+            14,
+            Android.Graphics.Color.ParseColor("#667085"));
+        card.AddView(_bindingDialogStatus, CreateDialogLayoutParams(context, bottomMarginDp: 14));
+
         var message = CreateDialogText(
             context,
-            "请确认灯具在身边，然后轻触 PW01 灯身按键。",
+            "请保持灯具通电。配对时蓝色指示灯应闪烁，若已停止，请双键长按 1 秒重新开启配对窗口。",
             14,
             Android.Graphics.Color.ParseColor("#667085"));
         card.AddView(message, CreateDialogLayoutParams(context, bottomMarginDp: 18));
@@ -452,7 +507,7 @@ public partial class BluetoothScanPage : ContentPage
         cancel.Background = CreateRoundedBackground(
             Android.Graphics.Color.ParseColor("#2E5CF2"),
             ToPixels(context, 12));
-        cancel.Click += (_, _) => _bindingCancellation?.Cancel();
+        cancel.Click += OnCancelBindingClicked;
         card.AddView(cancel, new Android.Widget.LinearLayout.LayoutParams(
             Android.Views.ViewGroup.LayoutParams.MatchParent,
             ToPixels(context, 52)));

@@ -29,7 +29,9 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
     public string DeviceId => _address;
     public bool HasColorStateCharacteristic { get; private set; }
 
-    public async Task StartAsync(CancellationToken cancellationToken = default)
+    public async Task StartAsync(
+        CancellationToken cancellationToken = default,
+        bool subscribeState = true)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (_started)
@@ -80,24 +82,27 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
         _connectionService.MessageReceived += OnMessageReceived;
         try
         {
-            // AGP 要求先开启 Control Point Indicate，再开启 Light State Notify。
+            // Control Point Indicate 用于响应及自动 ATT 接收确认；配对只需此项。
             await _connectionService.SubscribeAsync(
                 _address,
                 AgpProfile.ServiceId,
                 AgpProfile.ControlPointCharacteristicId,
                 cancellationToken);
-            await _connectionService.SubscribeAsync(
-                _address,
-                AgpProfile.ServiceId,
-                AgpProfile.LightStateCharacteristicId,
-                cancellationToken);
-            if (HasColorStateCharacteristic)
+            if (subscribeState)
             {
                 await _connectionService.SubscribeAsync(
                     _address,
                     AgpProfile.ServiceId,
-                    AgpProfile.ColorStateCharacteristicId,
+                    AgpProfile.LightStateCharacteristicId,
                     cancellationToken);
+                if (HasColorStateCharacteristic)
+                {
+                    await _connectionService.SubscribeAsync(
+                        _address,
+                        AgpProfile.ServiceId,
+                        AgpProfile.ColorStateCharacteristicId,
+                        cancellationToken);
+                }
             }
             _started = true;
         }

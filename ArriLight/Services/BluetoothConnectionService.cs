@@ -260,6 +260,11 @@ public sealed class BluetoothConnectionService
             _diagnostics.Trace(
                 "BLE/RX",
                 $"读取完成，service={serviceId}, characteristic={characteristicId}, result={result.Item2}, length={data.Length}, data={FormatBlePayload(serviceId, characteristicId, data)}");
+            if (serviceId == AgpProfile.ServiceId &&
+                characteristicId == AgpProfile.CapabilitiesCharacteristicId)
+            {
+                LogCapabilitiesRead(address, characteristic.Id, data);
+            }
             return data;
         }
         finally
@@ -421,6 +426,11 @@ public sealed class BluetoothConnectionService
                 $"设备连接成功：{address}，id={device.Id}。");
             return device;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // 配对的单次连接等待和用户取消都属于正常取消，由调用方决定是否重试。
+            throw;
+        }
         catch (Exception exception)
         {
             _diagnostics.Error(
@@ -485,6 +495,30 @@ public sealed class BluetoothConnectionService
                 characteristic.Id,
                 data,
                 DateTimeOffset.Now));
+    }
+
+    private void LogCapabilitiesRead(
+        string address,
+        Guid characteristicId,
+        byte[] data)
+    {
+        _diagnostics.Information(
+            "AGP/Capabilities",
+            $"读取能力原始数据：device={address}, characteristic={characteristicId}, length={data.Length}, raw={BitConverter.ToString(data).Replace('-', ' ')}");
+        try
+        {
+            var capabilities = AgpModelCodec.DecodeCapabilities(AgpCodec.Decode(data));
+            _diagnostics.Information(
+                "AGP/Capabilities",
+                $"解析能力：device={address}, characteristic={characteristicId}, capabilities=0x{(ulong)capabilities:X16}, flags={capabilities}, effectsSupported={capabilities.HasFlag(AgpCapabilities.Effects)}");
+        }
+        catch (AgpProtocolException exception)
+        {
+            // 诊断解析不改变 ReadAsync 返回的数据，由 AGP 客户端处理协议错误。
+            _diagnostics.Warning(
+                "AGP/Capabilities",
+                $"能力解析失败：device={address}, characteristic={characteristicId}, error={exception.Message}");
+        }
     }
 
     private static string FormatBlePayload(

@@ -141,19 +141,22 @@ public partial class MainPage : ContentPage
         {
             var isOnlineDemo = savedDevice.IsDemo &&
                 savedDevice.Address.EndsWith("01", StringComparison.Ordinal);
+            var cachedStatus = savedDevice.IsDemo ? null :
+                _agpLight.GetCachedDeviceStatus(savedDevice.Address);
+            var isOnline = cachedStatus?.IsOnline ?? isOnlineDemo;
 
             Devices.Add(new LightDeviceItem(
                 savedDevice.Name,
                 savedDevice.Address,
-                isOnlineDemo ? "在线" : savedDevice.IsDemo
+                isOnline ? "在线" : savedDevice.IsDemo || cachedStatus is not null
                     ? "离线"
                     : "已保存 · 等待连接",
-                isOnlineDemo
+                isOnline
                     ? Color.FromArgb("#35C987")
-                    : Color.FromArgb("#A9B2C3"),
-                isOn: isOnlineDemo,
+                    : Color.FromArgb(cachedStatus is null ? "#A9B2C3" : "#E65B65"),
+                isOn: cachedStatus?.LightState?.IsOn ?? isOnlineDemo,
                 isDemo: savedDevice.IsDemo,
-                isOnline: isOnlineDemo));
+                isOnline: isOnline));
         }
 
         OnPropertyChanged(nameof(DeviceCountText));
@@ -202,9 +205,7 @@ public partial class MainPage : ContentPage
         _statusQuerySuppressed = true;
         await StopStatusRefreshAsync();
 
-        // 不要在主页等待 BLE 连接、服务发现和能力读取后再导航。
-        // 这些操作可能需要数秒，控制页本身已经会在进入后异步完成连接，
-        // 并在能力读取完成后切换到对应的 HSL/CTL 控件。
+        // 控制页异步连接并认证；已有查询结果直接复用，不重复读取 Light State。
         var route = device.IsDemo
             ? nameof(HslCtlDeviceControlPage)
             : nameof(DeviceControlPage);
@@ -336,8 +337,9 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private static void MarkDeviceOffline(LightDeviceItem device)
+    private void MarkDeviceOffline(LightDeviceItem device)
     {
+        _agpLight.RecordDeviceOffline(device.Address);
         device.IsOnline = false;
         device.Status = "离线";
         device.StatusColor = Color.FromArgb("#E65B65");

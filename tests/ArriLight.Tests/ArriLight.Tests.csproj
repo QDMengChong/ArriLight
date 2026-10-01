@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.0.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
+    <PackageReference Include="Plugin.BLE" Version="3.2.1" />
+    <ProjectReference Include="..\..\..\ArriOpto.BLE\ArriOpto.BLE\ArriOpto.BLE.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Exercise the application services without starting a MAUI platform host. -->
+    <Compile Include="..\..\ArriLight\Services\AgpLightControlService.cs" Link="Services\AgpLightControlService.cs" />
+    <Compile Include="..\..\ArriLight\Services\AgpGattTransport.cs" Link="Services\AgpGattTransport.cs" />
+    <Compile Include="..\..\ArriLight\Services\BluetoothConnectionService.cs" Link="Services\BluetoothConnectionService.cs" />
+    <Compile Include="..\..\ArriLight\Services\DeviceRepository.cs" Link="Services\DeviceRepository.cs" />
+    <Compile Include="..\..\ArriLight\Services\EffectParameters.cs" Link="Services\EffectParameters.cs" />
+    <Compile Include="..\..\ArriLight\Services\SavedDevice.cs" Link="Services\SavedDevice.cs" />
+    <Compile Include="..\..\ArriLight\Views\BluetoothScanPage.xaml.cs" Link="Views\BluetoothScanPage.xaml.cs" />
+    <Compile Include="..\..\ArriLight\Views\DeviceControlPage.EffectSettings.cs" Link="Views\DeviceControlPage.EffectSettings.cs" />
+  </ItemGroup>
+</Project>

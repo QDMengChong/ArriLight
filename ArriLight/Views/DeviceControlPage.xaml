@@ -28,10 +28,17 @@
 
     <ContentPage.ToolbarItems>
         <ToolbarItem
+            Clicked="OnRefreshClicked"
+            IconImageSource="action_refresh.svg"
+            IsEnabled="{Binding CanRefreshStatus}"
+            Order="Primary"
+            Priority="0"
+            Text="刷新" />
+        <ToolbarItem
             Clicked="OnMoreClicked"
             IconImageSource="profile_settings.svg"
             Order="Primary"
-            Priority="0"
+            Priority="1"
             Text="更多" />
     </ContentPage.ToolbarItems>
 
@@ -120,18 +127,11 @@
                 <Border Style="{StaticResource MenuCardStyle}">
                     <VerticalStackLayout Spacing="12">
                         <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Spacing="3">
-                                <Label Style="{StaticResource MenuTitleStyle}" Text="特效" />
-                                <Label
-                                    x:Name="EffectDescription"
-                                    Style="{StaticResource MenuDescriptionStyle}"
-                                    Text="常亮"
-                                    />
-                            </VerticalStackLayout>
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="特效" />
                             <Label
                                 Grid.Column="1"
                                 FontSize="11"
-                                Text="长按设置参数"
+                                Text="长按设置/查看参数"
                                 TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                                 VerticalTextAlignment="Center" />
                         </Grid>
@@ -254,7 +254,10 @@
                     </CollectionView>
                 </VerticalStackLayout>
 
-                <Border Style="{StaticResource MenuCardStyle}">
+                <Border
+                    x:Name="RelativeTimerCard"
+                    Style="{StaticResource MenuCardStyle}"
+                    IsVisible="False">
                     <Grid ColumnDefinitions="112,*,44" ColumnSpacing="10">
                         <VerticalStackLayout Spacing="3" VerticalOptions="Center">
                             <Picker
@@ -316,7 +319,10 @@
                     </Grid>
                 </Border>
 
-                <Border Style="{StaticResource MenuCardStyle}">
+                <Border
+                    x:Name="ScheduleSettingsCard"
+                    Style="{StaticResource MenuCardStyle}"
+                    IsVisible="False">
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Tapped="OnScheduleTapped" />
                     </Border.GestureRecognizers>
@@ -377,5 +383,61 @@
                 </HorizontalStackLayout>
             </Border>
         </Border>
+        <Grid
+            x:Name="EffectSettingsOverlay"
+            Grid.RowSpan="2"
+            BackgroundColor="#88000000"
+            IsVisible="False"
+            Padding="28"
+            ZIndex="10">
+            <Border
+                Padding="28,22"
+                BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                MaximumWidthRequest="420"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 20"
+                VerticalOptions="Center">
+                <VerticalStackLayout Spacing="14">
+                    <Label
+                        x:Name="EffectSettingsTitle"
+                        FontFamily="OpenSansSemibold"
+                        FontSize="20"
+                        HorizontalTextAlignment="Center"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    <Label
+                        FontSize="14"
+                        HorizontalTextAlignment="Center"
+                        Text="调整周期（200～10000 ms）"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    <Label
+                        x:Name="EffectSettingsPeriodLabel"
+                        FontSize="16"
+                        HorizontalTextAlignment="Center"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    <Slider
+                        x:Name="EffectSettingsPeriodSlider"
+                        Maximum="10000"
+                        Minimum="200"
+                        MaximumTrackColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                        MinimumTrackColor="{StaticResource Primary}"
+                        ThumbColor="{StaticResource Primary}"
+                        Value="1000"
+                        ValueChanged="OnEffectSettingsPeriodChanged" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                        <Button
+                            BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                            Clicked="OnEffectSettingsCancelClicked"
+                            Text="取消"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <Button
+                            Grid.Column="1"
+                            BackgroundColor="{StaticResource Primary}"
+                            Clicked="OnEffectSettingsApplyClicked"
+                            Text="应用"
+                            TextColor="White" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 </ContentPage>

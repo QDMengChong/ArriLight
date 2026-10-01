@@ -109,6 +109,12 @@ public sealed class DeviceRepository
     public bool ClearToken(string address) =>
         Update(address, device => device with { Token = null });
 
+    public bool SetBlinkEffectParameters(string address, BlinkEffectParameters parameters) =>
+        Update(address, device => device with { BlinkEffectParameters = parameters });
+
+    public bool SetBreatheEffectParameters(string address, BreatheEffectParameters parameters) =>
+        Update(address, device => device with { BreatheEffectParameters = parameters });
+
     public bool Remove(string address)
     {
         var removed = false;

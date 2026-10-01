@@ -224,17 +224,17 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     private async void OnAddScheduleConfirmClicked(object? sender, EventArgs e)
     {
-        if (Schedules.Count >= AgpModelCodec.MaximumScheduleSlots - 1)
+        if (Schedules.Count >= AgpModelCodec.MaximumScheduleSlots)
         {
             await DisplayAlertAsync(
                 "日程已满",
-                "当前可用 7 个 AGP 日程槽，最后一个槽保留给延时开灯。",
+                $"当前可用 {AgpModelCodec.MaximumScheduleSlots} 个 AGP 日程槽。",
                 "知道了");
             return;
         }
 
         var time = ScheduleTimePicker.Time ?? DateTime.Now.TimeOfDay;
-        var index = (byte)(Schedules.Count % (AgpModelCodec.MaximumScheduleSlots - 1));
+        var index = (byte)(Schedules.Count % AgpModelCodec.MaximumScheduleSlots);
         var register = BuildRegister(index, time, _isActionOn);
         if (!await TrySendScheduleAsync(register))
         {

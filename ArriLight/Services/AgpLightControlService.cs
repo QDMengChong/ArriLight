@@ -1,4 +1,7 @@
+using System.Diagnostics;
+using System.Collections.Concurrent;
 using ArriOpto.BLE.Agp;
+using Plugin.BLE.Abstractions.Exceptions;
 
 namespace ArriLight;
 
@@ -10,12 +13,20 @@ public enum AgpControlPageKind
     HslAndCtl
 }
 
+public enum AgpBindingStage
+{
+    Connecting,
+    WaitingForConnection,
+    ReceivingToken
+}
+
 public sealed record AgpDeviceControlProfile(
     AgpCapabilities Capabilities,
     AgpColorStatus? ColorState,
     AgpCtlRange CtlRange,
     AgpLightMode EffectMode = AgpLightMode.Steady,
-    ushort? EffectPeriodMilliseconds = null)
+    ushort? EffectPeriodMilliseconds = null,
+    AgpLightState? LightState = null)
 {
     public AgpControlPageKind PageKind
     {
@@ -45,16 +56,34 @@ public sealed class AgpAuthenticationRequiredException : InvalidOperationExcepti
     public string Address { get; }
 }
 
+public sealed record DeviceStatusSnapshot(
+    bool IsOnline,
+    AgpLightState? LightState,
+    AgpDeviceControlProfile? Profile,
+    DateTimeOffset QueriedAt);
+
 /// <summary>通过 AGP 私有 GATT 协议执行直连灯控；当前版本不使用 Mesh。</summary>
 public sealed class AgpLightControlService : IAsyncDisposable
 {
-    private const byte TimerScheduleSlot = AgpModelCodec.MaximumScheduleSlots - 1;
+    public static readonly TimeSpan BindingTimeout = TimeSpan.FromSeconds(60);
+    private static readonly TimeSpan BindingRetryInterval = TimeSpan.FromMilliseconds(500);
 
     private readonly BluetoothConnectionService _connectionService;
     private readonly AppDiagnosticService _diagnostics;
     private readonly DeviceRepository _repository;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private AgpClientHandle? _handle;
+    private readonly ConcurrentDictionary<string, DeviceStatusSnapshot> _deviceStatuses =
+        new(StringComparer.OrdinalIgnoreCase);
+
+    public DeviceStatusSnapshot? GetCachedDeviceStatus(string address) =>
+        _deviceStatuses.GetValueOrDefault(address);
+
+    public DeviceStatusSnapshot RecordDeviceOffline(string address) =>
+        _deviceStatuses.AddOrUpdate(
+            address,
+            _ => new DeviceStatusSnapshot(false, null, null, DateTimeOffset.UtcNow),
+            (_, previous) => previous with { IsOnline = false, QueriedAt = DateTimeOffset.UtcNow });
 
     public AgpLightControlService(
         BluetoothConnectionService connectionService,
@@ -66,63 +95,120 @@ public sealed class AgpLightControlService : IAsyncDisposable
         _repository = repository;
     }
 
-    /// <summary>用户明确发起首次绑定时调用，允许进入物理确认流程。</summary>
+    /// <summary>用户明确发起绑定时调用，在设备配对窗口内获取并保存 Token。</summary>
     public async Task BindAsync(
         string address,
         CancellationToken cancellationToken = default)
         => await BindAsync(
             address,
-            bindingPrompt: null,
+            bindingProgress: null,
             cancellationToken: cancellationToken);
 
     /// <summary>
-    /// 用户明确发起首次绑定时调用，允许由调用方提供带倒计时的物理确认提示。
-    /// 提示回调返回后才会发送 AuthGetToken 请求，设备可在等待期间完成物理触摸。
+    /// 连接暂时不可用时每隔 500 ms 重试；收到成功 Token 响应并保存后完成绑定。
+    /// ATT Indication 接收确认由手机 BLE 栈完成，PW01 随后主动断开供其他 APP 配对。
     /// </summary>
     public async Task BindAsync(
         string address,
-        Func<CancellationToken, Task>? bindingPrompt,
+        Func<AgpBindingStage, CancellationToken, Task>? bindingProgress,
         CancellationToken cancellationToken = default)
     {
-        // 先显示宿主提供的确认提示，再等待 AGP 操作锁；这样页面不会被
-        // 既有 BLE 数据交换阻塞，用户点击“保存”后可以立即看到提示。
-        var bindingPromptAlreadyShown = bindingPrompt is not null;
-        if (bindingPrompt is not null)
-            await bindingPrompt(cancellationToken);
+        if (string.IsNullOrWhiteSpace(address))
+            throw new ArgumentException("设备地址不能为空。", nameof(address));
 
-        await _operationLock.WaitAsync(cancellationToken);
+        using var bindingCancellation =
+            CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        bindingCancellation.CancelAfter(BindingTimeout);
+        var token = bindingCancellation.Token;
+
+        // 先显示进度，再等待操作锁，用户保存名称后立即看到连接提示。
+        if (bindingProgress is not null)
+            await bindingProgress(AgpBindingStage.Connecting, token);
+
+        await _operationLock.WaitAsync(token);
         try
         {
             await DisposeHandleAsync();
-            await GetOrCreateClientAsync(
-                address,
-                cancellationToken,
-                allowProvisioning: true,
-                bindingPromptAlreadyShown: bindingPromptAlreadyShown);
-        }
-        catch
-        {
-            // 绑定超时或用户取消后，不保留半开的 GATT 会话，避免下一次添加
-            // 误复用上一次未完成认证的连接。
-            await DisposeHandleAsync();
-            try
+            while (true)
             {
-                await _connectionService.DisconnectAsync();
-            }
-            catch
-            {
-                // 保留原始绑定异常，清理失败不覆盖它。
+                token.ThrowIfCancellationRequested();
+                var attemptStarted = Stopwatch.GetTimestamp();
+                using var attemptCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
+                // 被其他手机占用时，原生连接可能长时间没有结果。取消本轮
+                // 原生连接后再重试，避免它占满整个配对等待时间，也不并发建连。
+                attemptCancellation.CancelAfter(BindingRetryInterval);
+                try
+                {
+                    await _connectionService.ConnectAsync(address, attemptCancellation.Token);
+                    break;
+                }
+                catch (Exception exception) when (
+                    !token.IsCancellationRequested &&
+                    exception is DeviceConnectionException or IOException or
+                        TimeoutException or OperationCanceledException)
+                {
+                    // BLE 连接失败不能确定是占用还是链路问题。只重试连接，
+                    // 不重试已连接后的协议拒绝、无效 Token 或权限错误。
+                    _diagnostics.Warning(
+                        "AGP/Binding",
+                        $"设备 {address} 暂时无法连接，按 500 ms 间隔重试：{exception.Message}");
+                    if (bindingProgress is not null)
+                        await bindingProgress(AgpBindingStage.WaitingForConnection, token);
+                    var retryDelay = BindingRetryInterval - Stopwatch.GetElapsedTime(attemptStarted);
+                    if (retryDelay > TimeSpan.Zero)
+                        await Task.Delay(retryDelay, token);
+                }
             }
 
-            throw;
+            if (bindingProgress is not null)
+                await bindingProgress(AgpBindingStage.ReceivingToken, token);
+
+            await using var transport = new AgpGattTransport(_connectionService, address);
+            await transport.StartAsync(token, subscribeState: false);
+            await using var client = new AgpClient(transport);
+            var capabilities = await client.ReadCapabilitiesAsync(token);
+            if (!capabilities.HasFlag(AgpCapabilities.SecureControl))
+                throw new NotSupportedException("设备不支持 Token 配对。");
+
+            var provision = await client.GetProvisionTokenAsync(cancellationToken: token);
+            if (provision.Result == AgpResultCode.NotAuthorized)
+            {
+                throw new InvalidOperationException(
+                    "设备配对窗口已关闭，请双键长按 1 秒，待蓝色指示灯闪烁后重新添加。");
+            }
+            EnsureSuccess(provision.Result);
+            if (provision.Token is not { Length: 4 } provisionedToken)
+                throw new InvalidOperationException("设备返回的 AGP Token 格式无效。");
+            if (!_repository.SetToken(address, provisionedToken))
+            {
+                throw new InvalidOperationException(
+                    "设备已返回 Token，但本地设备记录不存在，无法保存绑定信息。");
+            }
+
+            // Token 已保存即配对成功；原连接会被设备断开，不能在这里继续
+            // AUTH_TOKEN、读取灯状态或校时，也不能因断开而删除已保存的 Token。
+            _diagnostics.Information("AGP/Binding", $"设备 {address} 的 Token 已保存，配对完成。");
         }
         finally
         {
-            _operationLock.Release();
+            try
+            {
+                // 新固件会主动断开；同时兼容仍保持连接的设备。清理异常不改变配对结果。
+                using var cleanupCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+                await _connectionService.DisconnectAsync(cleanupCancellation.Token);
+            }
+            catch (Exception exception)
+            {
+                _diagnostics.Warning("AGP/Binding", $"配对连接清理失败：{exception.Message}");
+            }
+            finally
+            {
+                _operationLock.Release();
+            }
         }
     }
 
-    /// <summary>清除本机绑定后重新执行一次物理确认流程。</summary>
+    /// <summary>清除本机绑定后，在设备配对窗口内重新获取 Token。</summary>
     public async Task RebindAsync(
         string address,
         CancellationToken cancellationToken = default)
@@ -149,6 +235,8 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 EnsureSuccess(await handle.Client.SetOnOffAsync(
                     isOn,
                     cancellationToken: cancellationToken));
+                handle.LastState = handle.LastState with { IsOn = isOn };
+                CacheControlState(handle);
             },
             cancellationToken);
 
@@ -238,13 +326,16 @@ public sealed class AgpLightControlService : IAsyncDisposable
                     cancellationToken);
                 EnsureSuccess(response.Result);
                 handle.LastState = handle.LastState with { Mode = response.Mode };
+                CacheControlState(handle, response.PeriodMilliseconds);
                 return response;
             },
             cancellationToken);
 
     public Task<AgpDeviceControlProfile> GetControlProfileAsync(
         string address,
-        CancellationToken cancellationToken = default) =>
+        CancellationToken cancellationToken = default,
+        bool useCachedLightState = false,
+        bool refreshLightState = false) =>
         WithClientAsync(
             address,
             async handle =>
@@ -300,14 +391,19 @@ public sealed class AgpLightControlService : IAsyncDisposable
                     }
                 }
 
-                return new AgpDeviceControlProfile(
+                cancellationToken.ThrowIfCancellationRequested();
+                var profile = new AgpDeviceControlProfile(
                     handle.Capabilities,
                     handle.LastColorState,
                     handle.CtlRange ?? DefaultCtlRange,
                     effectMode,
-                    effectPeriodMilliseconds);
+                    effectPeriodMilliseconds,
+                    handle.LastState);
+                _deviceStatuses[address] = new DeviceStatusSnapshot(
+                    true, handle.LastState, profile, DateTimeOffset.UtcNow);
+                return profile;
             },
-            cancellationToken);
+            cancellationToken, useCachedLightState, refreshLightState);
 
     public Task<bool?> GetOnOffStateAsync(
         string address,
@@ -317,15 +413,15 @@ public sealed class AgpLightControlService : IAsyncDisposable
             async handle =>
             {
                 handle.LastState = await handle.Client.ReadLightStateAsync(cancellationToken);
+                CacheControlState(handle);
                 return handle.LastState.IsOn;
             },
             cancellationToken);
 
     /// <summary>
-    /// 快速读取 Light State，只建立 GATT 连接并读取公开状态特征，不读取能力位，
-    /// 也不执行 AGP Token 认证。主页状态轮询使用此方法，避免轮询阻塞在授权流程。
+    /// 读取公开 Light State 并缓存，供主页和控制页复用，不执行 Token 认证。
     /// </summary>
-    public async Task<bool> GetOnOffStateWithoutAuthorizationAsync(
+    public async Task<DeviceStatusSnapshot> QueryDeviceStatusAsync(
         string address,
         CancellationToken cancellationToken = default)
     {
@@ -344,7 +440,18 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 cancellationToken);
             var state = AgpModelCodec.DecodeLightState(
                 AgpCodec.Decode(packet.AsSpan()));
-            return state.IsOn;
+            cancellationToken.ThrowIfCancellationRequested();
+            var previousProfile = GetCachedDeviceStatus(address)?.Profile;
+            var profile = previousProfile is null ? null : previousProfile with
+            {
+                EffectMode = state.Mode,
+                EffectPeriodMilliseconds = previousProfile.EffectMode == state.Mode
+                    ? previousProfile.EffectPeriodMilliseconds : null,
+                LightState = state
+            };
+            var snapshot = new DeviceStatusSnapshot(true, state, profile, DateTimeOffset.UtcNow);
+            _deviceStatuses[address] = snapshot;
+            return snapshot;
         }
         finally
         {
@@ -364,42 +471,35 @@ public sealed class AgpLightControlService : IAsyncDisposable
         }
     }
 
+    public async Task<bool> GetOnOffStateWithoutAuthorizationAsync(
+        string address, CancellationToken cancellationToken = default) =>
+        (await QueryDeviceStatusAsync(address, cancellationToken)).LightState!.IsOn;
+
     public Task SetTimerAsync(
         string address,
         TimeSpan delay,
         bool turnOn,
         CancellationToken cancellationToken = default)
     {
-        if (delay <= TimeSpan.Zero || delay.TotalSeconds > AgpModelCodec.MaximumDelayOffSeconds)
+        if (delay < TimeSpan.Zero || delay.TotalSeconds > AgpModelCodec.MaximumDelaySeconds)
             throw new ArgumentOutOfRangeException(nameof(delay));
 
         return WithClientAsync(
             address,
             async handle =>
             {
-                if (!turnOn)
+                RequireCapability(handle.Capabilities, AgpCapabilities.RelativeTimer);
+                var seconds = checked((uint)Math.Ceiling(delay.TotalSeconds));
+                if (turnOn)
                 {
-                    RequireCapability(handle.Capabilities, AgpCapabilities.RelativeTimer);
-                    var response = await handle.Client.SetDelayOffAsync(
-                        checked((uint)Math.Ceiling(delay.TotalSeconds)),
-                        cancellationToken);
+                    var response = await handle.Client.SetDelayOnAsync(seconds, cancellationToken);
                     EnsureSuccess(response.Result);
-                    return;
                 }
-
-                RequireCapability(handle.Capabilities, AgpCapabilities.Scheduler);
-                RequireCapability(handle.Capabilities, AgpCapabilities.RtcTime);
-                var executeAt = DateTimeOffset.UtcNow.Add(delay).ToUnixTimeSeconds();
-                var brightness = handle.LastState.LastNonzeroBrightness is >= 1 and <= 100
-                    ? handle.LastState.LastNonzeroBrightness
-                    : (byte)100;
-                var schedule = AgpSchedule.Once(
-                    TimerScheduleSlot,
-                    isEnabled: true,
-                    AgpScheduleAction.On,
-                    brightness,
-                    checked((uint)executeAt));
-                EnsureSuccess(await handle.Client.SetScheduleAsync(schedule, cancellationToken));
+                else
+                {
+                    var response = await handle.Client.SetDelayOffAsync(seconds, cancellationToken);
+                    EnsureSuccess(response.Result);
+                }
             },
             cancellationToken);
     }
@@ -463,7 +563,9 @@ public sealed class AgpLightControlService : IAsyncDisposable
     private async Task<T> WithClientAsync<T>(
         string address,
         Func<AgpClientHandle, Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool useCachedLightState = false,
+        bool refreshLightState = false)
     {
         if (string.IsNullOrWhiteSpace(address))
             throw new ArgumentException("设备地址不能为空。", nameof(address));
@@ -471,9 +573,14 @@ public sealed class AgpLightControlService : IAsyncDisposable
         await _operationLock.WaitAsync(cancellationToken);
         try
         {
-            var handle = await GetOrCreateClientAsync(address, cancellationToken);
+            var previousHandle = _handle;
+            var handle = await GetOrCreateClientAsync(
+                address, cancellationToken, useCachedLightState && !refreshLightState);
             try
             {
+                // New clients already read state once unless explicitly seeded from cache.
+                if (refreshLightState && ReferenceEquals(previousHandle, handle))
+                    handle.LastState = await handle.Client.ReadLightStateAsync(cancellationToken);
                 return await operation(handle);
             }
             catch
@@ -491,8 +598,7 @@ public sealed class AgpLightControlService : IAsyncDisposable
     private async Task<AgpClientHandle> GetOrCreateClientAsync(
         string address,
         CancellationToken cancellationToken,
-        bool allowProvisioning = false,
-        bool bindingPromptAlreadyShown = false)
+        bool useCachedLightState = false)
     {
         if (_handle is not null &&
             string.Equals(_handle.Address, address, StringComparison.OrdinalIgnoreCase) &&
@@ -518,31 +624,7 @@ public sealed class AgpLightControlService : IAsyncDisposable
             {
                 var token = _repository.GetTokenBytes(address);
                 if (token is null)
-                {
-                    if (!allowProvisioning)
-                        throw new AgpAuthenticationRequiredException(address);
-
-                    if (!bindingPromptAlreadyShown)
-                        await ShowBindingPromptAsync(address);
-                    _diagnostics.Information(
-                        "AGP/Binding",
-                        $"等待设备 {address} 的物理触摸确认，绑定窗口 {TimeSpan.FromSeconds(60).TotalSeconds:0} 秒。发送 AuthGetToken 请求。");
-                    var provision = await client.GetProvisionTokenAsync(
-                        cancellationToken: cancellationToken);
-                    EnsureSuccess(provision.Result);
-                    if (provision.Token is not { Length: 4 } provisionedToken)
-                    {
-                        throw new InvalidOperationException(
-                            "设备返回的 AGP Token 格式无效。");
-                    }
-
-                    if (!_repository.SetToken(address, provisionedToken))
-                    {
-                        throw new InvalidOperationException(
-                            "设备已返回 Token，但本地设备记录不存在，无法保存绑定信息。");
-                    }
-                    token = provisionedToken;
-                }
+                    throw new AgpAuthenticationRequiredException(address);
 
                 var authentication = await client.AuthenticateAsync(
                     token,
@@ -550,7 +632,12 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 EnsureSuccess(authentication.Result);
             }
 
-            var state = await client.ReadLightStateAsync(cancellationToken);
+            var cachedState = useCachedLightState
+                ? GetCachedDeviceStatus(address) : null;
+            var state = cachedState is { IsOnline: true, LightState: { } knownState }
+                ? knownState : await client.ReadLightStateAsync(cancellationToken);
+            if (cachedState is { IsOnline: true, LightState: not null })
+                _diagnostics.Debug("BLE/Status", $"控制页复用已查询灯状态：{address}。");
             if (capabilities.HasFlag(AgpCapabilities.RtcTime))
             {
                 var time = await client.SetTimeAsync(DateTimeOffset.UtcNow, cancellationToken);
@@ -559,11 +646,20 @@ public sealed class AgpLightControlService : IAsyncDisposable
 
             var handle = new AgpClientHandle(
                 address, client, capabilities, state, isAuthorized);
-            client.LightStateChanged += (_, value) => handle.LastState = value;
-            client.ColorStateChanged += (_, value) => handle.LastColorState = value;
+            client.LightStateChanged += (_, value) =>
+            {
+                handle.LastState = value;
+                CacheControlState(handle);
+            };
+            client.ColorStateChanged += (_, value) =>
+            {
+                handle.LastColorState = value;
+                CacheControlState(handle);
+            };
             client.InvalidPacketReceived += (_, args) =>
                 _diagnostics.Warning("AGP/RX", $"忽略无效 AGP 数据包：{args.Exception.Message}");
             _handle = handle;
+            CacheControlState(handle);
             _diagnostics.Information(
                 "AGP/Connection",
                 $"AGP 客户端已就绪：device={address}，capabilities=0x{(ulong)capabilities:X}。");
@@ -584,12 +680,19 @@ public sealed class AgpLightControlService : IAsyncDisposable
             await handle.Client.DisposeAsync();
     }
 
-    private static Task ShowBindingPromptAsync(string address) =>
-        MainThread.InvokeOnMainThreadAsync(() =>
-            Shell.Current.DisplayAlertAsync(
-                "确认绑定设备",
-                $"请确认这是要绑定的灯具（{address}），然后轻触灯身按键。\n\n设备指示灯闪烁后，App 将完成绑定。",
-                "等待触摸"));
+    private void CacheControlState(AgpClientHandle handle, ushort? effectPeriod = null)
+    {
+        var previous = GetCachedDeviceStatus(handle.Address)?.Profile;
+        var profile = new AgpDeviceControlProfile(
+            handle.Capabilities, handle.LastColorState ?? previous?.ColorState,
+            handle.CtlRange ?? previous?.CtlRange ?? DefaultCtlRange,
+            handle.LastState.Mode,
+            effectPeriod ?? (previous?.EffectMode == handle.LastState.Mode
+                ? previous.EffectPeriodMilliseconds : null),
+            handle.LastState);
+        _deviceStatuses[handle.Address] = new DeviceStatusSnapshot(
+            true, handle.LastState, profile, DateTimeOffset.UtcNow);
+    }
 
     private static void RequireCapability(
         AgpCapabilities available,

@@ -9,7 +9,6 @@ namespace ArriLight;
 public partial class DeviceControlPage : ContentPage, IQueryAttributable
 {
     private const int LongPressMilliseconds = 650;
-    private const ushort DefaultEffectPeriodMilliseconds = 1_000;
     private static readonly TimeSpan LightSettingsDebounce = TimeSpan.FromMilliseconds(250);
 
     private readonly DeviceRepository _repository;
@@ -38,16 +37,17 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private CancellationTokenSource? _lightSettingsCancellation;
     private ControlPreset? _pressedPreset;
     private AgpLightMode _effectMode = AgpLightMode.Steady;
-    private ushort _effectPeriodMilliseconds = DefaultEffectPeriodMilliseconds;
     private bool _effectsSupported = true;
     private bool _effectLongPressTriggered;
     private bool _suppressEffectClick;
-    private bool _isEffectSettingsOpen;
     private AgpColorModel _activeColorModel;
     private AgpCtlRange _ctlRange = new(
         AgpColorModelCodec.MinimumCtlTemperatureKelvin,
         AgpColorModelCodec.MaximumCtlTemperatureKelvin);
     private bool _isApplyingControlState;
+    private bool _isInitializingConnection;
+    private CancellationTokenSource? _connectionInitializationCancellation;
+    private Task? _connectionInitializationTask;
 
     public string DeviceName
     {
@@ -64,8 +64,15 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     public string DeviceAddress
     {
         get => _deviceAddress;
-        private set => _deviceAddress = value;
+        private set
+        {
+            _deviceAddress = value;
+            OnPropertyChanged(nameof(CanRefreshStatus));
+        }
     }
+
+    public bool CanRefreshStatus =>
+        !_isDemo && !_isInitializingConnection && !string.IsNullOrWhiteSpace(DeviceAddress);
 
     public string ConnectionStatusText
     {
@@ -166,6 +173,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             TimerModePicker.SelectedIndex = 0;
         UpdateMasterPowerVisual();
         ConfigureControlPage();
+        UpdateEffectVisual();
         _isReady = true;
     }
 
@@ -183,7 +191,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             _repository.GetByAddress(DeviceAddress) is { } device)
         {
             _isDemo = device.IsDemo;
+            OnPropertyChanged(nameof(CanRefreshStatus));
             DeviceName = device.Name;
+            LoadEffectParameters();
             if (device.IsDemo)
             {
                 ConnectionStatusText = "演示设备不执行真实蓝牙连接";
@@ -192,6 +202,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             }
             else
             {
+                if (_agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState is { } cachedState)
+                    ApplyLightState(cachedState);
                 ApplyConnectionSnapshot(_connectionService.Snapshot);
                 await EnsureConnectedAsync(showError: false);
             }
@@ -200,6 +212,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     protected override void OnDisappearing()
     {
+        _connectionInitializationCancellation?.Cancel();
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged -= OnRequestedThemeChanged;
         _connectionService.StateChanged -= OnConnectionStateChanged;
@@ -234,22 +247,50 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private async void OnConnectClicked(object? sender, EventArgs e) =>
         await EnsureConnectedAsync(showError: true);
 
-    private async Task EnsureConnectedAsync(bool showError)
+    private async void OnRefreshClicked(object? sender, EventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(DeviceAddress))
+        if (CanRefreshStatus)
+            await EnsureConnectedAsync(showError: true, refreshStatus: true);
+    }
+
+    private async Task EnsureConnectedAsync(bool showError, bool refreshStatus = false)
+    {
+        if (_isInitializingConnection &&
+            _connectionInitializationCancellation?.IsCancellationRequested == true &&
+            _connectionInitializationTask is { } previousInitialization)
+        {
+            await previousInitialization;
+        }
+        if (string.IsNullOrWhiteSpace(DeviceAddress) || _isInitializingConnection)
             return;
 
+        var initialization = InitializeControlSessionAsync(showError, refreshStatus);
+        _connectionInitializationTask = initialization;
+        await initialization;
+    }
+
+    private async Task InitializeControlSessionAsync(bool showError, bool refreshStatus)
+    {
+        _isInitializingConnection = true;
+        OnPropertyChanged(nameof(CanRefreshStatus));
+        using var initializationCancellation = new CancellationTokenSource();
+        _connectionInitializationCancellation = initializationCancellation;
         try
         {
-            await _connectionService.ConnectAsync(DeviceAddress);
-            var profile = await _agpLight.GetControlProfileAsync(DeviceAddress);
+            var profile = await _agpLight.GetControlProfileAsync(
+                DeviceAddress, initializationCancellation.Token,
+                useCachedLightState: !refreshStatus,
+                refreshLightState: refreshStatus);
+            initializationCancellation.Token.ThrowIfCancellationRequested();
+            if (profile.LightState is { } state)
+                ApplyLightState(state);
             ApplyControlProfile(profile);
-            var state = await _agpLight.GetOnOffStateAsync(DeviceAddress);
-            if (state is { } onOff)
-            {
-                _isMasterPowerOn = onOff;
-                UpdateMasterPowerVisual();
-            }
+            if (refreshStatus)
+                ToastService.Show("设备状态已刷新");
+        }
+        catch (OperationCanceledException) when (initializationCancellation.IsCancellationRequested)
+        {
+            // Leaving the page cancels initialization without replacing a known status.
         }
         catch (Exception exception)
         {
@@ -273,6 +314,29 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             {
                 // 原始 AGP 连接异常更有诊断价值，断开清理失败不覆盖它。
             }
+        }
+        finally
+        {
+            _connectionInitializationCancellation = null;
+            _isInitializingConnection = false;
+            OnPropertyChanged(nameof(CanRefreshStatus));
+        }
+    }
+
+    private void ApplyLightState(AgpLightState state)
+    {
+        _isApplyingControlState = true;
+        try
+        {
+            _isMasterPowerOn = state.IsOn;
+            BrightnessSlider.Value = Math.Clamp(
+                state.IsOn && state.PresentBrightness > 0
+                    ? (int)state.PresentBrightness : state.LastNonzeroBrightness, 1, 100);
+            UpdateMasterPowerVisual();
+        }
+        finally
+        {
+            _isApplyingControlState = false;
         }
     }
 
@@ -326,6 +390,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private void OnRequestedThemeChanged(object? sender, AppThemeChangedEventArgs e)
     {
         UpdateMasterPowerVisual();
+        UpdateEffectVisual();
     }
 
     private void OnColorPickerSelectionChanged(object? sender, EventArgs e)
@@ -381,7 +446,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
         }
 
-        await SetEffectAsync(mode, _effectPeriodMilliseconds);
+        await SetEffectAsync(mode, GetEffectPeriod(mode));
     }
 
     private async Task DetectEffectLongPressAsync(
@@ -396,11 +461,24 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
             _effectLongPressTriggered = true;
             if (mode is AgpLightMode.Blink or AgpLightMode.Breathe)
+            {
+                _diagnostics.Debug(
+                    "Light/EffectSettings",
+                    $"特效长按已触发：device={DeviceAddress}, mode={mode}。");
                 await ShowEffectSettingsAsync(mode);
+            }
         }
         catch (OperationCanceledException)
         {
             // Short press cancels long-press detection.
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Error(
+                "Light/EffectSettings",
+                $"特效参数设置失败：device={DeviceAddress}, mode={mode}。",
+                exception);
+            ToastService.Show("无法打开特效参数设置，请重试");
         }
     }
 
@@ -421,100 +499,6 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         return true;
     }
 
-    private async Task ShowEffectSettingsAsync(AgpLightMode mode)
-    {
-        if (_isEffectSettingsOpen)
-            return;
-
-        _isEffectSettingsOpen = true;
-        try
-        {
-            var period = _effectPeriodMilliseconds;
-            var title = mode == AgpLightMode.Blink ? "闪烁参数" : "呼吸灯参数";
-            var valueLabel = new Label
-            {
-                FontSize = 16,
-                HorizontalTextAlignment = TextAlignment.Center,
-                TextColor = (Color)Resources["TextPrimary"]
-            };
-            var slider = new Slider
-            {
-                Minimum = AgpModelCodec.MinimumEffectPeriodMilliseconds,
-                Maximum = AgpModelCodec.MaximumEffectPeriodMilliseconds,
-                Value = period
-            };
-            void UpdateValueLabel(double value) =>
-                valueLabel.Text = $"周期长度：{(int)Math.Round(value / 100) * 100} ms";
-            slider.ValueChanged += (_, args) =>
-            {
-                var snapped = Math.Clamp(
-                    Math.Round(args.NewValue / 100) * 100,
-                    AgpModelCodec.MinimumEffectPeriodMilliseconds,
-                    AgpModelCodec.MaximumEffectPeriodMilliseconds);
-                if (Math.Abs(slider.Value - snapped) > 0.1)
-                    slider.Value = snapped;
-                UpdateValueLabel(snapped);
-            };
-            UpdateValueLabel(period);
-
-            var completion = new TaskCompletionSource<ushort?>(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            var page = new ContentPage
-            {
-                Title = title,
-                Content = new VerticalStackLayout
-                {
-                    Padding = new Thickness(24, 18),
-                    Spacing = 20,
-                    Children =
-                    {
-                        new Label
-                        {
-                            Text = "调整周期（200～10000 ms）",
-                            FontSize = 14,
-                            TextColor = (Color)Resources["TextSecondary"]
-                        },
-                        valueLabel,
-                        slider,
-                        new HorizontalStackLayout
-                        {
-                            HorizontalOptions = LayoutOptions.End,
-                            Spacing = 12,
-                            Children =
-                            {
-                                new Button
-                                {
-                                    Text = "取消",
-                                    Command = new Command(() => completion.TrySetResult(null))
-                                },
-                                new Button
-                                {
-                                    Text = "应用",
-                                    Command = new Command(() => completion.TrySetResult(
-                                        (ushort)(Math.Round(slider.Value / 100) * 100)))
-                                }
-                            }
-                        }
-                    }
-                }
-            };
-            page.Disappearing += (_, _) => completion.TrySetResult(null);
-            await Navigation.PushModalAsync(page);
-            var result = await completion.Task;
-            if (page.Navigation.ModalStack.Contains(page))
-                await Navigation.PopModalAsync();
-            if (result is { } selectedPeriod)
-            {
-                _effectPeriodMilliseconds = selectedPeriod;
-                await SetEffectAsync(mode, selectedPeriod);
-            }
-        }
-        finally
-        {
-            _isEffectSettingsOpen = false;
-        }
-    }
-
     private async Task SetEffectAsync(AgpLightMode mode, ushort periodMilliseconds)
     {
         if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
@@ -525,8 +509,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             var period = mode == AgpLightMode.Steady ? (ushort)0 : periodMilliseconds;
             var response = await _agpLight.SetEffectAsync(DeviceAddress, mode, period);
             _effectMode = response.Mode;
-            if (response.Mode is AgpLightMode.Blink or AgpLightMode.Breathe)
-                _effectPeriodMilliseconds = response.PeriodMilliseconds;
+            RememberEffectPeriod(response.Mode, response.PeriodMilliseconds);
             UpdateEffectVisual();
         }
         catch (Exception exception)
@@ -540,8 +523,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     {
         _effectsSupported = profile.Capabilities.HasFlag(AgpCapabilities.Effects);
         _effectMode = profile.EffectMode;
-        if (profile.EffectPeriodMilliseconds is { } period && period >= AgpModelCodec.MinimumEffectPeriodMilliseconds)
-            _effectPeriodMilliseconds = period;
+        if (profile.EffectPeriodMilliseconds is { } period)
+            RememberEffectPeriod(profile.EffectMode, period);
         UpdateEffectAvailability();
         UpdateEffectVisual();
     }
@@ -556,25 +539,23 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void UpdateEffectVisual()
     {
-        if (EffectDescription is null)
-            return;
-        var name = _effectMode switch
-        {
-            AgpLightMode.Blink => "闪烁",
-            AgpLightMode.Breathe => "呼吸灯",
-            _ => "常亮"
-        };
-        EffectDescription.Text = !_effectsSupported
-            ? "设备不支持特效"
-            : _effectMode == AgpLightMode.Steady
-                ? "常亮"
-                : $"{name}（周期 {_effectPeriodMilliseconds} ms）";
+        var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
+        var selectedBackground = Color.FromArgb("#3157E8");
+        var inactiveBackground = Color.FromArgb(isDark ? "#263652" : "#EDF3FF");
+        var inactiveText = Color.FromArgb(isDark ? "#F3F6FC" : "#17233D");
+
         SteadyEffectButton.BackgroundColor = _effectMode == AgpLightMode.Steady
-            ? Color.FromArgb("#DDE7FF") : Colors.Transparent;
+            ? selectedBackground : inactiveBackground;
+        SteadyEffectButton.TextColor = _effectMode == AgpLightMode.Steady
+            ? Colors.White : inactiveText;
         BlinkEffectButton.BackgroundColor = _effectMode == AgpLightMode.Blink
-            ? Color.FromArgb("#DDE7FF") : Colors.Transparent;
+            ? selectedBackground : inactiveBackground;
+        BlinkEffectButton.TextColor = _effectMode == AgpLightMode.Blink
+            ? Colors.White : inactiveText;
         BreatheEffectButton.BackgroundColor = _effectMode == AgpLightMode.Breathe
-            ? Color.FromArgb("#DDE7FF") : Colors.Transparent;
+            ? selectedBackground : inactiveBackground;
+        BreatheEffectButton.TextColor = _effectMode == AgpLightMode.Breathe
+            ? Colors.White : inactiveText;
     }
 
     private void CancelEffectPress()
@@ -582,11 +563,6 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _effectPressCancellation?.Cancel();
         _effectPressCancellation?.Dispose();
         _effectPressCancellation = null;
-    }
-
-    private void CloseEffectSettings()
-    {
-        _isEffectSettingsOpen = false;
     }
 
     private async void OnSavePresetClicked(object? sender, EventArgs e)
@@ -790,7 +766,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnTimerSendClicked(object? sender, EventArgs e)
     {
-        if (!IsDeviceOnline)
+        if (!IsDeviceOnline || !RelativeTimerCard.IsVisible)
             return;
         if (!int.TryParse(DelaySecondsEntry.Text, out var seconds) || seconds is < 1 or > 86400)
         {
@@ -820,7 +796,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
             return false;
 
-        // AGP 延时关使用 Relative Timer；延时开使用一次性 Scheduler。
+        // 延时开/关均使用 Relative Timer，分别发送 DELAY_ON_SET / DELAY_OFF_SET。
         await _agpLight.SetTimerAsync(
             DeviceAddress,
             TimeSpan.FromSeconds(seconds),
@@ -828,10 +804,29 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         return true;
     }
 
-    private async void OnScheduleTapped(object? sender, TappedEventArgs e) =>
+    private void ApplyTimerCapabilities(AgpCapabilities capabilities)
+    {
+        ScheduleSettingsCard.IsVisible = capabilities.HasFlag(AgpCapabilities.RtcTime);
+        RelativeTimerCard.IsVisible = capabilities.HasFlag(AgpCapabilities.RelativeTimer);
+
+        var wasTimedOn = TimerModePicker.SelectedIndex == 1;
+        var supportsTimedOn = capabilities.HasFlag(AgpCapabilities.RelativeTimer);
+        TimerModePicker.Items.Clear();
+        TimerModePicker.Items.Add("计时关灯");
+        if (supportsTimedOn)
+            TimerModePicker.Items.Add("计时开灯");
+        TimerModePicker.SelectedIndex = supportsTimedOn && wasTimedOn ? 1 : 0;
+    }
+
+    private async void OnScheduleTapped(object? sender, TappedEventArgs e)
+    {
+        if (!IsDeviceOnline || !ScheduleSettingsCard.IsVisible)
+            return;
+
         await Shell.Current.GoToAsync(
             $"{nameof(SchedulePage)}?name={Uri.EscapeDataString(DeviceName)}" +
             $"&address={Uri.EscapeDataString(DeviceAddress)}");
+    }
 
     private async void OnMasterPowerTapped(object? sender, TappedEventArgs e)
     {
@@ -980,6 +975,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _controlPageKind = profile.PageKind;
         ConfigureControlPage();
         ApplyEffectProfile(profile);
+        ApplyTimerCapabilities(profile.Capabilities);
 
         if (profile.ColorState is null)
         {

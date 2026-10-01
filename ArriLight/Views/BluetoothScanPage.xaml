@@ -135,13 +135,19 @@
                         FontFamily="OpenSansSemibold"
                         FontSize="20"
                         HorizontalTextAlignment="Center"
-                        Text="确认绑定设备"
+                        Text="正在配对设备"
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    <Label
+                        x:Name="BindingPromptStatus"
+                        FontSize="14"
+                        HorizontalTextAlignment="Center"
+                        LineBreakMode="WordWrap"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     <Label
                         FontSize="14"
                         HorizontalTextAlignment="Center"
                         LineBreakMode="WordWrap"
-                        Text="请确认灯具在身边，然后轻触 PW01 灯身按键。"
+                        Text="请保持灯具通电。配对时蓝色指示灯应闪烁，若已停止，请双键长按 1 秒重新开启配对窗口。"
                         TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     <Label
                         x:Name="BindingPromptCountdown"
