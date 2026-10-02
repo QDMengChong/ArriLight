@@ -1,4 +1,17 @@
+using ArriOpto.BLE.Agp;
+
 namespace ArriLight;
+
+public sealed record SavedControlPreset(
+    int Slot,
+    string DisplayName,
+    double? Hue,
+    double? Saturation,
+    double? Temperature,
+    double? Brightness,
+    string? LightColorHex,
+    AgpLightMode? EffectMode,
+    ushort? EffectPeriodMilliseconds);
 
 public sealed record SavedDevice(
     string Name,
@@ -9,4 +22,6 @@ public sealed record SavedDevice(
     bool IsDemo = false,
     string? Token = null,
     BlinkEffectParameters? BlinkEffectParameters = null,
-    BreatheEffectParameters? BreatheEffectParameters = null);
+    BreatheEffectParameters? BreatheEffectParameters = null,
+    IReadOnlyList<SavedControlPreset>? CustomPresets = null,
+    int TimerSeconds = 60);

@@ -295,6 +295,7 @@
                                     x:Name="DelaySecondsEntry"
                                     FontSize="14"
                                     Focused="OnDelaySecondsFocused"
+                                    TextChanged="OnDelaySecondsTextChanged"
                                     HorizontalTextAlignment="Center"
                                     Keyboard="Numeric"
                                     MaxLength="5"

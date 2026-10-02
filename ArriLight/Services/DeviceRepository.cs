@@ -115,6 +115,36 @@ public sealed class DeviceRepository
     public bool SetBreatheEffectParameters(string address, BreatheEffectParameters parameters) =>
         Update(address, device => device with { BreatheEffectParameters = parameters });
 
+    public IReadOnlyList<SavedControlPreset> GetCustomPresets(string address) =>
+        GetByAddress(address)?.CustomPresets ?? [];
+
+    public bool SetCustomPresets(
+        string address,
+        IEnumerable<SavedControlPreset> presets)
+    {
+        ArgumentNullException.ThrowIfNull(presets);
+        var normalized = presets
+            .Where(preset => preset.Slot is >= 0 and < 6)
+            .GroupBy(preset => preset.Slot)
+            .Select(group => group.First())
+            .OrderBy(preset => preset.Slot)
+            .ToArray();
+        return Update(address, device => device with { CustomPresets = normalized });
+    }
+
+    public int GetTimerSeconds(string address) =>
+        GetByAddress(address)?.TimerSeconds is { } seconds && seconds is >= 1 and <= 86400
+            ? seconds
+            : 60;
+
+    public bool SetTimerSeconds(string address, int seconds)
+    {
+        if (seconds is < 1 or > 86400)
+            return false;
+
+        return Update(address, device => device with { TimerSeconds = seconds });
+    }
+
     public bool Remove(string address)
     {
         var removed = false;

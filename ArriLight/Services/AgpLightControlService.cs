@@ -208,15 +208,6 @@ public sealed class AgpLightControlService : IAsyncDisposable
         }
     }
 
-    /// <summary>清除本机绑定后，在设备配对窗口内重新获取 Token。</summary>
-    public async Task RebindAsync(
-        string address,
-        CancellationToken cancellationToken = default)
-    {
-        _repository.ClearToken(address);
-        await BindAsync(address, cancellationToken);
-    }
-
     /// <summary>确保当前 AGP 会话已完成 Token 认证，供 OTA 前置检查使用。</summary>
     public Task EnsureAuthorizedAsync(
         string address,

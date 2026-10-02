@@ -143,8 +143,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     public ObservableCollection<ControlPreset> Presets { get; } =
     [
-        ControlPreset.Create("观影", 0.08, 0.82, 0.30, 35),
-        ControlPreset.Create("阅读", 0.12, 0.30, 0.62, 82),
+        ControlPreset.Empty(),
+        ControlPreset.Empty(),
         ControlPreset.Empty(),
         ControlPreset.Empty(),
         ControlPreset.Empty(),
@@ -200,10 +200,12 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
             _repository.GetByAddress(DeviceAddress) is { } device)
         {
+            DelaySecondsEntry.Text = _repository.GetTimerSeconds(DeviceAddress).ToString();
             _isDemo = device.IsDemo;
             OnPropertyChanged(nameof(CanRefreshStatus));
             DeviceName = device.Name;
             LoadEffectParameters();
+            LoadCustomPresets();
             if (device.IsDemo)
             {
                 ConnectionStatusText = "演示设备不执行真实蓝牙连接";
@@ -583,6 +585,36 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _effectPressCancellation = null;
     }
 
+    private void LoadCustomPresets()
+    {
+        for (var index = 0; index < Presets.Count; index++)
+            Presets[index] = ControlPreset.Empty();
+
+        foreach (var saved in _repository.GetCustomPresets(DeviceAddress))
+        {
+            if (saved.Slot is < 0 or >= 6)
+                continue;
+
+            Presets[saved.Slot] = ControlPreset.FromSaved(saved);
+        }
+
+        ConfigureControlPage();
+    }
+
+    private void PersistCustomPresets()
+    {
+        if (string.IsNullOrWhiteSpace(DeviceAddress))
+            return;
+
+        _repository.SetCustomPresets(
+            DeviceAddress,
+            Presets
+                .Select((preset, slot) => preset.IsSaved
+                    ? preset.ToSaved(slot)
+                    : null)
+                .OfType<SavedControlPreset>());
+    }
+
     private async void OnSavePresetClicked(object? sender, EventArgs e)
     {
         if (!IsDeviceOnline ||
@@ -621,6 +653,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             SupportsEffect && _effectMode != AgpLightMode.Steady
                 ? GetEffectPeriod(_effectMode)
                 : (ushort?)0);
+        PersistCustomPresets();
     }
 
     private void OnPresetPressed(object? sender, EventArgs e)
@@ -690,7 +723,10 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
             var index = Presets.IndexOf(preset);
             if (confirmed && index >= 0)
+            {
                 Presets[index] = ControlPreset.Empty();
+                PersistCustomPresets();
+            }
         }
         else if (action == "调整位置")
         {
@@ -792,6 +828,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
         Presets[sourceIndex] = target;
         Presets[targetIndex] = source;
+        PersistCustomPresets();
         SetReorderMode(false);
     }
 
@@ -822,6 +859,16 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             DelaySecondsEntry.CursorPosition = 0;
             DelaySecondsEntry.SelectionLength = DelaySecondsEntry.Text?.Length ?? 0;
         });
+    }
+
+    private void OnDelaySecondsTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (!_isReady || string.IsNullOrWhiteSpace(DeviceAddress) ||
+            !int.TryParse(e.NewTextValue, out var seconds) || seconds is < 1 or > 86400)
+            return;
+
+        if (_repository.GetTimerSeconds(DeviceAddress) != seconds)
+            _repository.SetTimerSeconds(DeviceAddress, seconds);
     }
 
 
@@ -1283,6 +1330,44 @@ public sealed class ControlPreset : INotifyPropertyChanged
 
     public static ControlPreset Empty() => new(
         "空配置", false, null, null, null, null, null, null, null);
+
+    internal SavedControlPreset ToSaved(int slot) => new(
+        slot,
+        DisplayName,
+        Hue,
+        Saturation,
+        Temperature,
+        Brightness,
+        HasColor ? ToRgbHex(LightColor!) : null,
+        EffectMode,
+        EffectPeriodMilliseconds);
+
+    internal static ControlPreset FromSaved(SavedControlPreset saved)
+    {
+        Color? lightColor = null;
+        if (!string.IsNullOrWhiteSpace(saved.LightColorHex))
+        {
+            try
+            {
+                lightColor = Color.FromArgb(saved.LightColorHex);
+            }
+            catch (Exception exception) when (exception is ArgumentException or FormatException)
+            {
+                // Keep the remaining preset values when an older color value is invalid.
+            }
+        }
+
+        return new(
+            string.IsNullOrWhiteSpace(saved.DisplayName) ? "未命名配置" : saved.DisplayName,
+            true,
+            saved.Hue,
+            saved.Saturation,
+            saved.Temperature,
+            saved.Brightness,
+            lightColor,
+            saved.EffectMode,
+            saved.EffectPeriodMilliseconds);
+    }
 
     internal void SetSupportedContent(
         bool supportsBrightness,

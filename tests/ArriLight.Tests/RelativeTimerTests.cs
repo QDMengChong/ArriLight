@@ -5,6 +5,50 @@ namespace ArriLight.Tests;
 
 public sealed class RelativeTimerTests
 {
+    [Fact]
+    public void TimerSecondsArePersistedPerSavedDevice()
+    {
+        Preferences.Default.Clear();
+        var repository = new DeviceRepository();
+        Assert.Equal(60, repository.GetTimerSeconds("02:00:00:00:00:01"));
+
+        Assert.True(repository.SetTimerSeconds("02:00:00:00:00:01", 135));
+        var reloaded = new DeviceRepository();
+
+        Assert.Equal(135, reloaded.GetTimerSeconds("02:00:00:00:00:01"));
+        Assert.Equal(60, reloaded.GetTimerSeconds("02:00:00:00:00:02"));
+        Assert.Equal(60, reloaded.GetTimerSeconds("missing"));
+    }
+
+    [Fact]
+    public void LegacyDeviceRecordsDefaultTo60SecondsAndNoCustomPresets()
+    {
+        Preferences.Default.Clear();
+        Preferences.Default.Set("saved_bluetooth_devices_v1", """
+            [{"Name":"旧设备","Address":"AA:BB:CC:DD:EE:01"}]
+            """);
+        var repository = new DeviceRepository();
+
+        Assert.Equal(60, repository.GetTimerSeconds("AA:BB:CC:DD:EE:01"));
+        Assert.Empty(repository.GetCustomPresets("AA:BB:CC:DD:EE:01"));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    [InlineData(86401)]
+    public void InvalidTimerSecondsDoNotOverwriteTheRememberedValue(int seconds)
+    {
+        Preferences.Default.Clear();
+        var repository = new DeviceRepository();
+        const string address = "02:00:00:00:00:01";
+        Assert.True(repository.SetTimerSeconds(address, 135));
+
+        Assert.False(repository.SetTimerSeconds(address, seconds));
+
+        Assert.Equal(135, new DeviceRepository().GetTimerSeconds(address));
+    }
+
     [Theory]
     [InlineData(true, AgpOpcode.DelayOnSet)]
     [InlineData(false, AgpOpcode.DelayOffSet)]
