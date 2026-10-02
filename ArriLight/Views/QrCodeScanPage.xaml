@@ -35,7 +35,7 @@
                 FontFamily="OpenSansSemibold"
                 FontSize="18"
                 HorizontalTextAlignment="Center"
-                Text="将蓝牙地址二维码放入框内"
+                Text="将设备分享二维码放入框内"
                 TextColor="White" />
             <Label
                 FontSize="13"

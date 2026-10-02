@@ -476,6 +476,8 @@ public sealed class BluetoothConnectionService
                 "GATT.NativeRead", address, $"characteristic={characteristicId}",
                 () => characteristic.ReadAsync(cancellationToken),
                 value => $"{(value.Item2 == 0 ? "ok" : "failed")}:gatt={value.Item2},length={value.Item1?.Length ?? 0}");
+            if (result.Item2 != 0)
+                throw new InvalidOperationException($"设备读取失败（GATT 状态：{result.Item2}）。");
             var data = result.Item1 ?? [];
             _diagnostics.Trace(
                 "BLE/RX",
@@ -580,6 +582,10 @@ public sealed class BluetoothConnectionService
                 "BLE/Version",
                 $"设备通过标准 Firmware Revision 特征返回版本：{value}。");
             return value;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception exception)
         {

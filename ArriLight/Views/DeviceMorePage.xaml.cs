@@ -122,7 +122,7 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
 
     private async void OnShareTapped(object? sender, TappedEventArgs e) =>
         await Shell.Current.GoToAsync(
-            $"{nameof(DeviceSharePage)}?address={Uri.EscapeDataString(DeviceId)}&name={Uri.EscapeDataString(DeviceName)}");
+            $"{nameof(DeviceSharePage)}?address={Uri.EscapeDataString(DeviceId)}");
 
     private void OnPinnedToggled(object? sender, ToggledEventArgs e)
     {

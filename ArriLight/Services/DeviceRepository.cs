@@ -22,10 +22,26 @@ public sealed class DeviceRepository
 
     public bool Contains(string address) => GetByAddress(address) is not null;
 
-    public bool TryAdd(string name, string address)
+    public bool TryAdd(string name, string address) =>
+        TryAddDevice(new SavedDevice(name, address, DateTimeOffset.Now));
+
+    public bool TryAddShared(DeviceShareContent content) =>
+        TryAddDevice(new SavedDevice(
+            content.Name,
+            content.Address,
+            DateTimeOffset.Now,
+            FirmwareVersion: "未知",
+            Token: content.Token,
+            BlinkEffectParameters: new(),
+            BreatheEffectParameters: new(),
+            CustomPresets: [],
+            Capabilities: content.Capabilities));
+
+    private bool TryAddDevice(SavedDevice device)
     {
-        var normalizedName = name.Trim();
-        var normalizedAddress = address.Trim().ToUpperInvariant();
+        ArgumentNullException.ThrowIfNull(device);
+        var normalizedName = device.Name.Trim();
+        var normalizedAddress = device.Address.Trim().ToUpperInvariant();
 
         if (string.IsNullOrWhiteSpace(normalizedName) ||
             string.IsNullOrWhiteSpace(normalizedAddress))
@@ -43,10 +59,12 @@ public sealed class DeviceRepository
                 return false;
             }
 
-            devices.Add(new SavedDevice(
-                normalizedName,
-                normalizedAddress,
-                DateTimeOffset.Now));
+            devices.Add(device with
+            {
+                Name = normalizedName,
+                Address = normalizedAddress,
+                AddedAt = device.AddedAt == default ? DateTimeOffset.Now : device.AddedAt
+            });
             SaveDevicesUnsafe(devices);
         }
 

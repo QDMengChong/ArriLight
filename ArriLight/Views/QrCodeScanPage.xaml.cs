@@ -10,6 +10,7 @@ public partial class QrCodeScanPage : ContentPage
     private bool _isTorchOn;
     private bool _hasCameraPermission;
     private bool _hasShownCameraPermissionMessage;
+    private CancellationTokenSource? _deviceInformationCancellation;
 
     public QrCodeScanPage()
     {
@@ -44,6 +45,12 @@ public partial class QrCodeScanPage : ContentPage
 
     protected override void OnDisappearing()
     {
+        if (_deviceInformationCancellation is { } cancellation)
+        {
+            cancellation.Cancel();
+            _deviceInformationCancellation = null;
+            Interlocked.Exchange(ref _isHandlingCode, 0);
+        }
         BarcodeReader.IsDetecting = false;
         BarcodeReader.IsTorchOn = false;
         base.OnDisappearing();
@@ -65,16 +72,17 @@ public partial class QrCodeScanPage : ContentPage
     {
         BarcodeReader.IsDetecting = false;
 
-        if (!BluetoothAddressParser.TryNormalize(value, out var address))
+        if (!DeviceShareCode.TryParse(value, out var content))
         {
             await DisplayAlertAsync(
                 "二维码无效",
-                "二维码内容不是有效的蓝牙地址，请确认后重新扫描。",
+                "二维码不是有效的设备分享码，请使用设备信息页重新生成分享二维码。",
                 "重新扫描");
             ResumeScanning();
             return;
         }
 
+        var address = content.Address;
         if (_repository.Contains(address))
         {
             await DisplayAlertAsync(
@@ -87,11 +95,12 @@ public partial class QrCodeScanPage : ContentPage
 
         var name = await DisplayPromptAsync(
             "命名设备",
-            $"设备地址：{address}",
+            $"设备地址：{address}\n将保存设备名称、地址、绑定授权和能力，并连接设备读取其他资料。",
             accept: "保存",
             cancel: "取消",
             placeholder: "例如：客厅主灯",
-            maxLength: 24);
+            maxLength: Math.Max(24, content.Name.Length),
+            initialValue: content.Name);
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -99,7 +108,7 @@ public partial class QrCodeScanPage : ContentPage
             return;
         }
 
-        if (!_repository.TryAdd(name, address))
+        if (!_repository.TryAddShared(content with { Name = name.Trim() }))
         {
             await DisplayAlertAsync(
                 "保存失败",
@@ -109,16 +118,31 @@ public partial class QrCodeScanPage : ContentPage
             return;
         }
 
+        ToastService.Show("设备已保存，正在读取设备资料…");
+        using var informationCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(12));
+        _deviceInformationCancellation = informationCancellation;
         try
         {
-            await _agpLight.BindAsync(address);
+            await _agpLight.GetControlProfileAsync(
+                address, informationCancellation.Token, refreshLightState: true);
         }
         catch (Exception exception)
         {
+            // Leaving the page preserves the already saved device without another dialog.
+            if (!ReferenceEquals(_deviceInformationCancellation, informationCancellation))
+                return;
+
             await DisplayAlertAsync(
-                "绑定未完成",
-                $"设备已保存，但尚未完成物理确认：{exception.Message}",
+                "资料暂未读取",
+                exception is OperationCanceledException
+                    ? "设备已添加，读取资料超时。打开设备控制页后可重新读取。"
+                    : $"设备已添加，暂未读到设备资料：{exception.Message}。打开设备控制页后可重试。",
                 "知道了");
+        }
+        finally
+        {
+            if (ReferenceEquals(_deviceInformationCancellation, informationCancellation))
+                _deviceInformationCancellation = null;
         }
 
         await Shell.Current.GoToAsync("..");
@@ -142,7 +166,7 @@ public partial class QrCodeScanPage : ContentPage
             var photos = await MediaPicker.Default.PickPhotosAsync(
                 new MediaPickerOptions
                 {
-                    Title = "选择蓝牙设备二维码",
+                    Title = "选择设备分享二维码",
                     SelectionLimit = 1
                 });
             var photo = photos.FirstOrDefault();

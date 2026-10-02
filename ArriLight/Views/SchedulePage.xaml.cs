@@ -9,6 +9,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 {
     private readonly AppDiagnosticService _diagnostics;
     private readonly AgpLightControlService _agpLight;
+    private readonly DeviceRepository _repository;
     private readonly HashSet<int> _weeklySelections = [];
     private readonly HashSet<int> _monthlySelections = [];
     private string _deviceName = "灯光设备";
@@ -18,6 +19,12 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private int _confirmedRepeatIndex = 1;
     private bool _isInitializing = true;
     private bool _isActionOn = true;
+    private CancellationTokenSource? _scheduleLoadCancellation;
+    private bool _isLoadingSchedules;
+    private bool _hasLoadedSchedules;
+    private bool _supportsSchedules;
+    private int _maximumScheduleSlots = AgpModelCodec.MaximumScheduleSlots;
+    private string? _scheduleStatusText;
 
     public string DeviceName
     {
@@ -37,24 +44,21 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         private set => SetField(ref _repeatSelectionDisplayText, value);
     }
 
-    public string ScheduleCountText => $"{Schedules.Count} 个计划";
+    public string ScheduleCountText => _scheduleStatusText ?? $"{Schedules.Count} 个计划";
 
     public IReadOnlyList<string> RepeatModes { get; } =
         ["仅一次", "每天", "每周", "每月"];
 
     public ObservableCollection<RepeatOptionItem> RepeatOptions { get; } = [];
 
-    public ObservableCollection<LightScheduleItem> Schedules { get; } =
-    [
-        new("07:30", "定时开", "工作日", true),
-        new("23:00", "定时关", "每天", true)
-    ];
+    public ObservableCollection<LightScheduleItem> Schedules { get; } = [];
 
     public SchedulePage()
     {
         InitializeComponent();
         _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
+        _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
         BindingContext = this;
         Schedules.CollectionChanged += (_, _) => OnPropertyChanged(nameof(ScheduleCountText));
 
@@ -64,6 +68,74 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         UpdateRepeatSummary();
         _isInitializing = false;
     }
+
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        _scheduleLoadCancellation?.Cancel();
+        var cancellation = new CancellationTokenSource();
+        _scheduleLoadCancellation = cancellation;
+        _isLoadingSchedules = true;
+        _hasLoadedSchedules = false;
+        _scheduleStatusText = "正在读取设备日程…";
+        OnPropertyChanged(nameof(ScheduleCountText));
+
+        try
+        {
+            var device = _repository.GetByAddress(_deviceAddress) ??
+                throw new InvalidOperationException("设备记录不存在，请重新添加设备。");
+            var schedules = device.IsDemo
+                ? Array.Empty<AgpSchedule>()
+                : await _agpLight.GetSchedulesAsync(_deviceAddress, cancellation.Token);
+            cancellation.Token.ThrowIfCancellationRequested();
+            if (!ReferenceEquals(_scheduleLoadCancellation, cancellation))
+                return;
+
+            _supportsSchedules = !device.IsDemo &&
+                _repository.GetCapabilities(_deviceAddress) is { } capabilities &&
+                capabilities.HasFlag(AgpCapabilities.Scheduler);
+            _maximumScheduleSlots = _agpLight.GetCachedScheduleSlotCount(_deviceAddress);
+            var items = schedules.Select(CreateScheduleItem).ToArray();
+            Schedules.Clear();
+            foreach (var item in items)
+                Schedules.Add(item);
+            _hasLoadedSchedules = true;
+            _scheduleStatusText = device.IsDemo ? "演示设备无日程" :
+                _supportsSchedules ? null : "设备不支持日程";
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
+        {
+            // A page that has been left must not apply an unfinished read.
+        }
+        catch (Exception exception)
+        {
+            if (!ReferenceEquals(_scheduleLoadCancellation, cancellation) ||
+                cancellation.IsCancellationRequested)
+                return;
+            _scheduleStatusText = "设备日程尚未读取";
+            _diagnostics.Error("Light/Schedule", $"读取设备日程失败：{DeviceName}。", exception);
+            await DisplayAlertAsync("读取日程失败", exception.Message, "知道了");
+        }
+        finally
+        {
+            if (ReferenceEquals(_scheduleLoadCancellation, cancellation))
+            {
+                _scheduleLoadCancellation = null;
+                _isLoadingSchedules = false;
+                OnPropertyChanged(nameof(ScheduleCountText));
+            }
+            cancellation.Dispose();
+        }
+    }
+
+    protected override void OnDisappearing()
+    {
+        _scheduleLoadCancellation?.Cancel();
+        AddScheduleOverlay.IsVisible = false;
+        RepeatPopupOverlay.IsVisible = false;
+        base.OnDisappearing();
+    }
+
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("name", out var value) && value is not null)
@@ -211,6 +283,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     /// <summary>标题栏“+ 添加”：打开添加定时弹层。</summary>
     private void OnAddScheduleClicked(object? sender, EventArgs e)
     {
+        if (!CanModifySchedules())
+            return;
         _isInitializing = true;
         RepeatModePicker.SelectedIndex = _confirmedRepeatIndex;
         ScheduleTimePicker.Time = new TimeSpan(7, 30, 0);
@@ -224,36 +298,36 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     private async void OnAddScheduleConfirmClicked(object? sender, EventArgs e)
     {
-        if (Schedules.Count >= AgpModelCodec.MaximumScheduleSlots)
+        if (!CanModifySchedules())
+            return;
+        var occupiedSlots = Schedules.Select(schedule => schedule.Register.Slot).ToHashSet();
+        var index = Enumerable.Range(0, _maximumScheduleSlots)
+            .FirstOrDefault(slot => !occupiedSlots.Contains((byte)slot), -1);
+        if (index < 0)
         {
             await DisplayAlertAsync(
                 "日程已满",
-                $"当前可用 {AgpModelCodec.MaximumScheduleSlots} 个 AGP 日程槽。",
+                $"当前可用 {_maximumScheduleSlots} 个 AGP 日程槽。",
                 "知道了");
             return;
         }
 
         var time = ScheduleTimePicker.Time ?? DateTime.Now.TimeOfDay;
-        var index = (byte)(Schedules.Count % AgpModelCodec.MaximumScheduleSlots);
-        var register = BuildRegister(index, time, _isActionOn);
+        var register = BuildRegister((byte)index, time, _isActionOn);
         if (!await TrySendScheduleAsync(register))
         {
             await DisplayAlertAsync("发送失败", "无法发送定时指令，请确认设备已连接。", "知道了");
             return;
         }
 
-        Schedules.Add(new(
-            $"{time.Hours:00}:{time.Minutes:00}",
-            _isActionOn ? "定时开" : "定时关",
-            RepeatSelectionSummary,
-            true,
-            register));
+        Schedules.Add(CreateScheduleItem(register));
         AddScheduleOverlay.IsVisible = false;
     }
 
     private async void OnDeleteScheduleClicked(object? sender, EventArgs e)
     {
-        if (sender is not BindableObject { BindingContext: LightScheduleItem schedule })
+        if (sender is not BindableObject { BindingContext: LightScheduleItem schedule } ||
+            !CanModifySchedules())
             return;
 
         var confirmed = await DisplayAlertAsync(
@@ -265,8 +339,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         if (!confirmed)
             return;
 
-        var slot = schedule.Register?.Slot ??
-            (byte)Math.Max(0, Schedules.IndexOf(schedule));
+        var slot = schedule.Register.Slot;
         try
         {
             await _agpLight.DeleteScheduleAsync(_deviceAddress, slot);
@@ -285,21 +358,22 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
     private async void OnScheduleEnabledToggled(object? sender, ToggledEventArgs e)
     {
-        if (sender is not Switch { BindingContext: LightScheduleItem schedule } ||
+        if (sender is not Switch { BindingContext: LightScheduleItem schedule } toggle ||
             schedule.IsEnabled == e.Value)
         {
             return;
         }
+        if (!CanModifySchedules())
+        {
+            toggle.IsToggled = schedule.IsEnabled;
+            return;
+        }
 
-        var index = schedule.Register?.Slot ??
-            (byte)Math.Max(0, Schedules.IndexOf(schedule));
-        var register = schedule.Register ?? BuildRegister(
-            index,
-            TimeSpan.Parse(schedule.TimeText),
-            schedule.ActionText == "定时开");
-        register = register with { IsEnabled = e.Value };
+        var register = schedule.Register with { IsEnabled = e.Value };
         if (await TrySendScheduleAsync(register))
             schedule.IsEnabled = e.Value;
+        else
+            toggle.IsToggled = schedule.IsEnabled;
     }
 
     private async Task<bool> TrySendScheduleAsync(AgpSchedule register)
@@ -360,6 +434,59 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
                 brightness,
                 utcTime.SecondsOfDay)
         };
+    }
+
+    private bool CanModifySchedules()
+    {
+        if (_isLoadingSchedules)
+            ToastService.Show("请等待设备日程读取完成");
+        else if (!_hasLoadedSchedules)
+            ToastService.Show("请重新进入此页读取设备日程后再操作");
+        else if (!_supportsSchedules)
+            ToastService.Show("当前设备不支持日程");
+        else
+            return true;
+        return false;
+    }
+
+    private static LightScheduleItem CreateScheduleItem(AgpSchedule schedule)
+    {
+        var utcDate = DateTime.SpecifyKind(DateTime.Today, DateTimeKind.Utc);
+        var utc = schedule.Type == AgpScheduleType.Once
+            ? DateTimeOffset.FromUnixTimeSeconds(schedule.TimeValue)
+            : new DateTimeOffset(utcDate.AddSeconds(schedule.TimeValue));
+        var local = utc.ToLocalTime();
+        var dayShift = (local.Date - utc.Date).Days;
+        var repeatText = schedule.Type switch
+        {
+            AgpScheduleType.Once => $"仅一次（{local:yyyy-MM-dd}）",
+            AgpScheduleType.Daily => "每天",
+            AgpScheduleType.Weekly => string.Join("、", Enumerable.Range(0, 7)
+                .Where(day => (schedule.Selector & (1 << day)) != 0)
+                .Select(day => ((day + dayShift + 7) % 7) + 1)
+                .Order()
+                .Select(WeeklyLabel)),
+            AgpScheduleType.Monthly => FormatMonthlyRepeat(schedule.Selector, dayShift),
+            _ => throw new InvalidOperationException("设备返回的日程重复类型无效。")
+        };
+        return new LightScheduleItem(
+            local.ToString("HH:mm"),
+            schedule.Action == AgpScheduleAction.On ? "定时开" : "定时关",
+            repeatText,
+            schedule.IsEnabled,
+            schedule);
+    }
+
+    private static string FormatMonthlyRepeat(byte utcDay, int localDayShift)
+    {
+        if (localDayShift < 0 && utcDay == 1)
+            return "每月最后一天";
+        // A UTC date near the end of a month can become either the following
+        // local date or the first of the next month. Retain the UTC rule rather
+        // than misrepresenting it as a single fixed local day of the month.
+        if (localDayShift > 0 && utcDay >= 28)
+            return $"UTC 每月 {utcDay} 日（本地次日）";
+        return $"每月 {utcDay + localDayShift} 日";
     }
 
     private static uint ToNextExecutionUtc(TimeSpan time)
@@ -472,7 +599,7 @@ public sealed class LightScheduleItem : INotifyPropertyChanged
         string actionText,
         string repeatText,
         bool isEnabled,
-        AgpSchedule? register = null)
+        AgpSchedule register)
     {
         TimeText = timeText;
         ActionText = actionText;
@@ -484,7 +611,7 @@ public sealed class LightScheduleItem : INotifyPropertyChanged
     public string TimeText { get; }
     public string ActionText { get; }
     public string RepeatText { get; }
-    public AgpSchedule? Register { get; }
+    public AgpSchedule Register { get; }
 
     public bool IsEnabled
     {

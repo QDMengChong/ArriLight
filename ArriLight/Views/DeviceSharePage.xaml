@@ -12,16 +12,16 @@
         <VerticalStackLayout Padding="24,36" Spacing="18" HorizontalOptions="Center">
             <Label FontFamily="OpenSansSemibold" FontSize="22" HorizontalTextAlignment="Center" Text="{Binding DeviceName}" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
             <Label FontSize="14" HorizontalTextAlignment="Center" Text="让对方使用 ArriLight 首页的扫码按钮添加设备" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-            <Border Padding="20" BackgroundColor="White" Stroke="#E2E7EF" StrokeShape="RoundRectangle 24" StrokeThickness="1">
+            <Border Padding="20" BackgroundColor="White" IsVisible="{Binding HasShareCode}" Stroke="#E2E7EF" StrokeShape="RoundRectangle 24" StrokeThickness="1">
                 <zxing:BarcodeGeneratorView
                     Format="QrCode"
                     HeightRequest="260"
                     HorizontalOptions="Center"
-                    Value="{Binding DeviceAddress}"
+                    Value="{Binding ShareCode}"
                     WidthRequest="260" />
             </Border>
             <Label FontFamily="OpenSansSemibold" FontSize="13" HorizontalTextAlignment="Center" Text="{Binding DeviceAddress}" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-            <Label FontSize="12" HorizontalTextAlignment="Center" Text="二维码包含设备 ID，不包含个人信息。" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            <Label FontSize="12" HorizontalTextAlignment="Center" Text="{Binding ShareMessage}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

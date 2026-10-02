@@ -72,7 +72,7 @@ internal sealed record SuspendedConnection(
     bool WasLongLived);
 
 /// <summary>通过 AGP 私有 GATT 协议执行直连灯控；当前版本不使用 Mesh。</summary>
-public sealed class AgpLightControlService : IAsyncDisposable
+public sealed partial class AgpLightControlService : IAsyncDisposable
 {
     public static readonly TimeSpan BindingTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan BindingRetryInterval = TimeSpan.FromMilliseconds(500);
@@ -667,6 +667,27 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
+                // The QR carries no firmware or effect settings. Populate these
+                // from the device both after import and on later control-page retries.
+                var savedDevice = _repository.GetByAddress(address);
+                if (savedDevice?.FirmwareVersion == "未知")
+                {
+                    var firmware = await _connectionService.TryReadFirmwareRevisionAsync(address, cancellationToken);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!string.IsNullOrWhiteSpace(firmware))
+                        _repository.SetFirmwareVersion(address, firmware);
+                }
+                if (effectPeriodMilliseconds is { } period &&
+                    period >= AgpModelCodec.MinimumEffectPeriodMilliseconds &&
+                    period <= AgpModelCodec.MaximumEffectPeriodMilliseconds)
+                {
+                    if (effectMode == AgpLightMode.Blink &&
+                        savedDevice?.BlinkEffectParameters?.PeriodMilliseconds != period)
+                        _repository.SetBlinkEffectParameters(address, new(period));
+                    else if (effectMode == AgpLightMode.Breathe &&
+                        savedDevice?.BreatheEffectParameters?.PeriodMilliseconds != period)
+                        _repository.SetBreatheEffectParameters(address, new(period));
+                }
                 var profile = new AgpDeviceControlProfile(
                     handle.Capabilities,
                     handle.LastColorState,

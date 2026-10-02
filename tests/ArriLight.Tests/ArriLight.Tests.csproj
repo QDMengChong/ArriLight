@@ -16,12 +16,15 @@
   <ItemGroup>
     <!-- Exercise the application services without starting a MAUI platform host. -->
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.cs" Link="Services\AgpLightControlService.cs" />
+    <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Schedules.cs" Link="Services\AgpLightControlService.Schedules.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpGattTransport.cs" Link="Services\AgpGattTransport.cs" />
     <Compile Include="..\..\ArriLight\Services\BleTimingScope.cs" Link="Services\BleTimingScope.cs" />
     <Compile Include="..\..\ArriLight\Services\CancellationDispatch.cs" Link="Services\CancellationDispatch.cs" />
     <Compile Include="..\..\ArriLight\Services\DebugOperationTiming.cs" Link="Services\DebugOperationTiming.cs" />
     <Compile Include="..\..\ArriLight\Services\BluetoothConnectionService.cs" Link="Services\BluetoothConnectionService.cs" />
+    <Compile Include="..\..\ArriLight\Services\BluetoothAddressParser.cs" Link="Services\BluetoothAddressParser.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceRepository.cs" Link="Services\DeviceRepository.cs" />
+    <Compile Include="..\..\ArriLight\Services\DeviceShareCode.cs" Link="Services\DeviceShareCode.cs" />
     <Compile Include="..\..\ArriLight\Services\EffectParameters.cs" Link="Services\EffectParameters.cs" />
     <Compile Include="..\..\ArriLight\Services\SavedDevice.cs" Link="Services\SavedDevice.cs" />
     <Compile Include="..\..\ArriLight\Views\BluetoothScanPage.xaml.cs" Link="Views\BluetoothScanPage.xaml.cs" />

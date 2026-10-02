@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Diagnostics;
 using System.Reflection;
+using System.Text;
 using ArriOpto.BLE.Agp;
 using Plugin.BLE.Abstractions;
 using Plugin.BLE.Abstractions.Contracts;
@@ -275,10 +276,16 @@ internal sealed class PairingFixture : IAsyncDisposable
 // Deterministic radio boundary: real Plugin.BLE contracts/events with no hardware.
 internal sealed class FakeBle
 {
+    public static readonly Guid DeviceInformationServiceId =
+        Guid.Parse("0000180a-0000-1000-8000-00805f9b34fb");
+    public static readonly Guid FirmwareRevisionCharacteristicId =
+        Guid.Parse("00002a26-0000-1000-8000-00805f9b34fb");
     private readonly Dictionary<Guid, FakeBle> _radios;
     private DeviceState _state = DeviceState.Disconnected;
     private readonly Guid _deviceId = Guid.NewGuid();
     private readonly IService _service;
+    private readonly IService _deviceInformationService;
+    private readonly ICharacteristic _firmwareRevisionCharacteristic;
     private readonly Dictionary<Guid, ICharacteristic> _characteristics = [];
     private byte[] _indicatedValue = [];
     private int _concurrentAttempts;
@@ -300,6 +307,15 @@ internal sealed class FakeBle
     public AgpResultCode AuthenticationResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode TimerResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode EffectResult { get; set; } = AgpResultCode.Success;
+    public AgpLightMode CurrentEffectMode { get; set; } = AgpLightMode.Steady;
+    public ushort CurrentEffectPeriodMilliseconds { get; set; }
+    public string? FirmwareRevision { get; set; }
+    public Exception? FirmwareReadFailure { get; set; }
+    public int FirmwareReadResult { get; set; }
+    public byte ScheduleMaximumSlots { get; set; } = AgpModelCodec.MaximumScheduleSlots;
+    public AgpResultCode ScheduleListResult { get; set; } = AgpResultCode.Success;
+    public Dictionary<byte, AgpSchedule> Schedules { get; } = [];
+    public Dictionary<byte, AgpResultCode> ScheduleReadResults { get; } = [];
     public byte[] LightStatePacket { get; set; } = Convert.FromHexString("01000200020000000B0100000001323232000000");
     public Action? OnLightStateRead { get; set; }
     public Action<AgpMessage>? BeforeControlResponse { get; set; }
@@ -321,13 +337,35 @@ internal sealed class FakeBle
         AddCharacteristic(AgpProfile.CapabilitiesCharacteristicId, CharacteristicPropertyType.Read);
         AddCharacteristic(AgpProfile.ControlPointCharacteristicId, CharacteristicPropertyType.Write | CharacteristicPropertyType.Indicate);
         AddCharacteristic(AgpProfile.LightStateCharacteristicId, CharacteristicPropertyType.Read | CharacteristicPropertyType.Notify);
+        _deviceInformationService = InterfaceProxy.Create<IService>((name, args) => name switch
+        {
+            "get_Id" => DeviceInformationServiceId,
+            "get_Name" => "Device Information",
+            "get_IsPrimary" => true,
+            "GetCharacteristicsAsync" => Task.FromResult<IReadOnlyList<ICharacteristic>>([_firmwareRevisionCharacteristic!]),
+            "GetCharacteristicAsync" => Task.FromResult(
+                (Guid)args[0]! == FirmwareRevisionCharacteristicId ? _firmwareRevisionCharacteristic : null!),
+            _ => throw new NotSupportedException(name)
+        });
+        _firmwareRevisionCharacteristic = InterfaceProxy.Create<ICharacteristic>((name, args) => name switch
+        {
+            "get_Id" => FirmwareRevisionCharacteristicId,
+            "get_Name" => "Firmware Revision",
+            "get_Service" => _deviceInformationService,
+            "get_Properties" => CharacteristicPropertyType.Read,
+            "ReadAsync" => ReadAsync(FirmwareRevisionCharacteristicId),
+            _ => throw new NotSupportedException(name)
+        });
         Device = InterfaceProxy.Create<IDevice>((name, args) => name switch
         {
             "get_Id" => _deviceId,
             "get_Name" => "PW01",
             "get_State" => _state,
-            "GetServicesAsync" => Task.FromResult<IReadOnlyList<IService>>([_service]),
-            "GetServiceAsync" => Task.FromResult(_service),
+            "GetServicesAsync" => Task.FromResult<IReadOnlyList<IService>>(
+                HasFirmwareRevision ? [_service, _deviceInformationService] : [_service]),
+            "GetServiceAsync" => Task.FromResult((Guid)args[0]! == DeviceInformationServiceId
+                ? HasFirmwareRevision ? _deviceInformationService : null!
+                : _service),
             _ => throw new NotSupportedException(name)
         });
         _radios = parent?._radios ?? [];
@@ -341,6 +379,8 @@ internal sealed class FakeBle
     }
 
     public FakeBle CreatePeer() => new(this);
+
+    private bool HasFirmwareRevision => FirmwareRevision is not null || FirmwareReadFailure is not null;
 
     public void NotifyLightState(byte[] packet)
     {
@@ -414,6 +454,12 @@ internal sealed class FakeBle
     private Task<(byte[], int)> ReadAsync(Guid id)
     {
         Reads.Add(id);
+        if (id == FirmwareRevisionCharacteristicId)
+        {
+            return FirmwareReadFailure is { } failure
+                ? Task.FromException<(byte[], int)>(failure)
+                : Task.FromResult((Encoding.UTF8.GetBytes(FirmwareRevision ?? string.Empty), FirmwareReadResult));
+        }
         if (id == AgpProfile.CapabilitiesCharacteristicId)
         {
             var payload = new byte[8];
@@ -449,6 +495,8 @@ internal sealed class FakeBle
             AgpOpcode.TimeSet => Convert.FromHexString("000100B955690100"),
             AgpOpcode.DelayOnSet or AgpOpcode.DelayOffSet => TimerResponse(request),
             AgpOpcode.EffectSet or AgpOpcode.EffectGet => EffectResponse(request),
+            AgpOpcode.ScheduleListGet => ScheduleListResponse(),
+            AgpOpcode.ScheduleGet => ScheduleResponse(request.Payload.Span[0]),
             _ => throw new NotSupportedException(request.Opcode.ToString())
         };
         BeforeControlResponse?.Invoke(request);
@@ -484,9 +532,32 @@ internal sealed class FakeBle
         }
         else
         {
-            payload[1] = (byte)AgpLightMode.Steady;
+            payload[1] = (byte)CurrentEffectMode;
+            BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(2), CurrentEffectPeriodMilliseconds);
         }
 
+        return payload;
+    }
+
+    private byte[] ScheduleListResponse()
+    {
+        byte enabledMask = 0;
+        foreach (var schedule in Schedules.Values.Where(schedule => schedule.IsEnabled))
+            enabledMask |= (byte)(1 << schedule.Slot);
+        return [(byte)ScheduleListResult, ScheduleMaximumSlots, enabledMask];
+    }
+
+    private byte[] ScheduleResponse(byte slot)
+    {
+        if (ScheduleReadResults.TryGetValue(slot, out var result) && result != AgpResultCode.Success)
+            return [(byte)result];
+
+        if (!Schedules.TryGetValue(slot, out var schedule))
+            return [0, slot, 0, 0, 0, 0, 0, 0, 0, 0];
+
+        var encoded = AgpModelCodec.EncodeSchedule(schedule);
+        var payload = new byte[encoded.Length + 1];
+        encoded.CopyTo(payload, 1);
         return payload;
     }
 }
