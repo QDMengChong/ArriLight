@@ -43,6 +43,11 @@ public sealed class AppDiagnosticService
     public AppDiagnosticService()
     {
         _ = Task.Run(WriteFileQueueAsync);
+#if DEBUG
+        Information(
+            "BLE/Test",
+            $"BLE 实体测试环境：app={AppInfo.Current.VersionString}，build={AppInfo.Current.BuildString}，platform={DeviceInfo.Current.Platform}，os={DeviceInfo.Current.VersionString}，manufacturer={DeviceInfo.Current.Manufacturer}，model={DeviceInfo.Current.Model}。计时使用单调时钟；所有 BLE/Timing 日志自动显示在调试输出中。");
+#endif
         if (IsEnabled)
         {
             Write(
@@ -73,6 +78,16 @@ public sealed class AppDiagnosticService
 
     public string LogFilePath =>
         Path.Combine(FileSystem.AppDataDirectory, "arrilight_debug.txt");
+
+    public BleTimingScope BeginBleTiming(
+        string stage, string? address = null, string? detail = null)
+    {
+#if DEBUG
+        return new(this, stage, address, detail);
+#else
+        return BleTimingScope.Disabled;
+#endif
+    }
 
     public void Trace(string source, string message) =>
         Write(AppDiagnosticLevel.Trace, source, message);

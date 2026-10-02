@@ -6,7 +6,7 @@ namespace ArriLight.Tests;
 public sealed class DeviceStatusTests
 {
     [Fact]
-    public async Task HomeQueryCachesCompleteLightStateWithoutAuthenticatingAndReleasesConnection()
+    public async Task HomeQueryCachesCompleteLightStateWithoutAuthenticatingAndRetainsConnectionBriefly()
     {
         await using var fixture = new PairingFixture();
         var state = await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
@@ -19,7 +19,7 @@ public sealed class DeviceStatusTests
         Assert.Equal([AgpProfile.LightStateCharacteristicId], fixture.Ble.Reads);
         Assert.Empty(fixture.Ble.Requests);
         Assert.Empty(fixture.Ble.Subscriptions);
-        Assert.False(fixture.Connection.Snapshot.IsConnected);
+        Assert.True(fixture.Connection.Snapshot.IsConnected);
     }
 
     [Fact]
@@ -35,7 +35,7 @@ public sealed class DeviceStatusTests
 
         Assert.Equal(home.LightState, profile.LightState);
         Assert.Equal(1, StateReadCount(fixture));
-        Assert.Equal(2, fixture.Ble.ConnectAttempts.Count);
+        Assert.Single(fixture.Ble.ConnectAttempts);
         Assert.Contains(AgpOpcode.AuthToken, fixture.Ble.Requests);
         Assert.True(fixture.Connection.Snapshot.IsConnected);
     }
@@ -69,7 +69,7 @@ public sealed class DeviceStatusTests
 
         Assert.False(profile.LightState!.IsOn);
         Assert.Equal(2, StateReadCount(fixture));
-        Assert.Equal(2, fixture.Ble.ConnectAttempts.Count);
+        Assert.Single(fixture.Ble.ConnectAttempts);
         Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.AuthToken);
         Assert.Equal(profile.LightState, fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState);
     }
@@ -89,7 +89,7 @@ public sealed class DeviceStatusTests
 
         Assert.False(profile.LightState!.IsOn);
         Assert.Equal(2, StateReadCount(fixture));
-        Assert.Equal(3, fixture.Ble.ConnectAttempts.Count);
+        Assert.Equal(2, fixture.Ble.ConnectAttempts.Count);
         Assert.Equal(2, fixture.Ble.Requests.Count(opcode => opcode == AgpOpcode.AuthToken));
     }
 
@@ -149,6 +149,55 @@ public sealed class DeviceStatusTests
         await fixture.Service.SetOnOffAsync(fixture.Address, false);
 
         Assert.False(fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState!.IsOn);
+    }
+
+    [Fact]
+    public async Task BackgroundSuspendDisconnectsAndForegroundResumeReauthenticatesThePreviousDevice()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+        await fixture.Service.GetControlProfileAsync(fixture.Address, useCachedLightState: true);
+        await fixture.Service.SuspendForBackgroundAsync();
+
+        Assert.False(fixture.Connection.Snapshot.IsConnected);
+        Assert.Equal(1, fixture.Ble.DisconnectAttempts);
+
+        await fixture.Service.ResumeAfterBackgroundAsync();
+
+        Assert.True(fixture.Connection.Snapshot.IsConnected);
+        Assert.Equal(2, fixture.Ble.ConnectAttempts.Count);
+        Assert.Contains(AgpOpcode.AuthToken, fixture.Ble.Requests);
+    }
+
+    [Fact]
+    public async Task BackgroundResumeOfHomeOnlyConnectionRestartsItsShortLease()
+    {
+        await using var fixture = new PairingFixture();
+
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+        await fixture.Service.SuspendForBackgroundAsync();
+        await fixture.Service.ResumeAfterBackgroundAsync();
+
+        Assert.True(fixture.Connection.Snapshot.IsConnected);
+        Assert.True(fixture.Connection.HasActiveConnectionLease);
+        Assert.DoesNotContain(AgpOpcode.AuthToken, fixture.Ble.Requests);
+    }
+
+    [Fact]
+    public async Task ClosingApplicationReleasesConnectionWithoutLeavingResumeTarget()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+        await fixture.Service.DisconnectForApplicationCloseAsync();
+        await fixture.Service.ResumeAfterBackgroundAsync();
+
+        Assert.False(fixture.Connection.Snapshot.IsConnected);
+        Assert.Equal(1, fixture.Ble.DisconnectAttempts);
+        Assert.Single(fixture.Ble.ConnectAttempts);
     }
 
     [Theory]

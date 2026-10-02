@@ -359,7 +359,7 @@ public partial class BluetoothScanPage : ContentPage
             {
                 AgpBindingStage.Connecting => "正在连接 PW01，请稍候…",
                 AgpBindingStage.WaitingForConnection =>
-                    "暂时无法连接，设备可能正被其他手机占用。\n正在等待并自动重试…",
+                    "连接未完成，正在恢复蓝牙连接并自动重试…",
                 AgpBindingStage.ReceivingToken => "已连接，正在获取配对信息…",
                 _ => string.Empty
             };

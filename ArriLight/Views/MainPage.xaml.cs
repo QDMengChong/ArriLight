@@ -11,6 +11,11 @@ public partial class MainPage : ContentPage
         // 和公开状态读取完整的 5 秒窗口，避免 300ms 内被提前取消。
         TimeSpan.FromSeconds(5);
 
+    // Let an immediately tapped device take the connection before the passive
+    // home refresh starts a public-state GATT query.
+    private static readonly TimeSpan StatusQueryCollectionDelay =
+        TimeSpan.FromMilliseconds(1500);
+
     private readonly DeviceRepository _repository;
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly AgpLightControlService _agpLight;
@@ -167,23 +172,41 @@ public partial class MainPage : ContentPage
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Home.Power", device.Address,
+            $"desiredOn={!device.IsOn}; isDemo={device.IsDemo}; isChecking={device.IsChecking}");
+        if (!device.IsDemo)
+            _agpLight.PromoteConnectionToLongLived(device.Address);
         // 状态轮询不应抢占用户针对某台设备发起的授权控制操作。
         _statusQuerySuppressed = true;
-        await StopStatusRefreshAsync();
+        try
+        {
+            await StopStatusRefreshAsync();
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult($"cleanup-failed:{exception.GetType().Name}");
+            throw;
+        }
+        timing.Mark($"后台状态查询已收尾; desiredOn={!device.IsOn}");
 
         try
         {
             if (device.IsDemo)
             {
                 device.IsOn = !device.IsOn;
+                timing.SetResult("demo");
                 return;
             }
 
             device.IsOn = !device.IsOn;
+            timing.Mark($"提交开关操作; desiredOn={device.IsOn}");
             await _agpLight.SetOnOffAsync(device.Address, device.IsOn);
+            timing.SetResult("success");
         }
         catch (Exception exception)
         {
+            timing.SetResult($"failed:{exception.GetType().Name}");
             device.IsOn = !device.IsOn;
             _diagnostics.Error(
                 "Light/Power",
@@ -202,17 +225,36 @@ public partial class MainPage : ContentPage
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Home.OpenControl", device.Address, $"isDemo={device.IsDemo}");
+        if (!device.IsDemo)
+            _agpLight.PromoteConnectionToLongLived(device.Address);
         _statusQuerySuppressed = true;
-        await StopStatusRefreshAsync();
+        try
+        {
+            await StopStatusRefreshAsync();
+            timing.Mark("后台状态查询已收尾，开始导航");
 
-        // 控制页异步连接并认证；已有查询结果直接复用，不重复读取 Light State。
-        var route = device.IsDemo
-            ? nameof(HslCtlDeviceControlPage)
-            : nameof(DeviceControlPage);
+            // 控制页异步连接并认证；已有查询结果直接复用，不重复读取 Light State。
+            var route = device.IsDemo
+                ? nameof(HslCtlDeviceControlPage)
+                : nameof(DeviceControlPage);
 
-        await Shell.Current.GoToAsync(
-            $"{route}?name={Uri.EscapeDataString(device.Name)}" +
-            $"&address={Uri.EscapeDataString(device.Address)}");
+            using (var navigation = _diagnostics.BeginBleTiming(
+                       "UI.Home.NavigateControl", device.Address, $"route={route}"))
+            {
+                await Shell.Current.GoToAsync(
+                    $"{route}?name={Uri.EscapeDataString(device.Name)}" +
+                    $"&address={Uri.EscapeDataString(device.Address)}");
+                navigation.SetResult("success");
+            }
+            timing.SetResult("success");
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult($"failed:{exception.GetType().Name}");
+            throw;
+        }
     }
 
     private async Task StartStatusRefreshAsync()
@@ -245,9 +287,9 @@ public partial class MainPage : ContentPage
             while (!cancellationToken.IsCancellationRequested &&
                    !_statusQuerySuppressed)
             {
-                // 给同一轮扫描中的多个广播留出一个很短的收集窗口，
-                // 使查询顺序更稳定地按 RSSI 从强到弱排列。
-                await Task.Delay(200, cancellationToken);
+                // 给同一轮扫描中的多个广播留出收集窗口，也给用户在设备
+                // 刚出现时点击开关/进入控制页的操作留出优先机会。
+                await Task.Delay(StatusQueryCollectionDelay, cancellationToken);
                 var candidates = TakePendingStatusQueries();
                 if (candidates.Count == 0)
                     return;
@@ -347,19 +389,33 @@ public partial class MainPage : ContentPage
 
     private async Task StopStatusRefreshAsync()
     {
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Home.StopStatusRefresh", detail:
+            $"hasCancellation={_statusRefreshCancellation is not null}; hasTask={_statusRefreshTask is not null}; taskCompleted={_statusRefreshTask?.IsCompleted}");
         _statusRefreshCancellation?.Cancel();
         lock (_statusQueueSync)
             _pendingStatusQueries.Clear();
+        timing.Mark("已请求取消并清空待查询队列");
         if (_statusRefreshTask is not { } refreshTask)
+        {
+            timing.SetResult("no-task");
             return;
+        }
 
         try
         {
             await refreshTask;
+            timing.SetResult("success");
         }
         catch (OperationCanceledException)
         {
+            timing.SetResult("canceled");
             // 用户操作取消轮询是正常流程。
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult($"failed:{exception.GetType().Name}");
+            throw;
         }
     }
 

@@ -59,13 +59,26 @@ public sealed class PairingTests
             try { await Task.Delay(Timeout.InfiniteTimeSpan, token); }
             catch (OperationCanceledException) { firstCancelled = true; throw; }
         };
-        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromSeconds(5));
 
         await fixture.Service.BindAsync(fixture.Address, fixture.ReportProgress, cancellation.Token);
 
         Assert.True(firstCancelled);
         Assert.Equal(2, fixture.Ble.ConnectAttempts.Count);
         Assert.Equal(1, fixture.Ble.MaximumConcurrentAttempts);
+        Assert.Equal("A1B2C3D4", fixture.Repository.GetToken(fixture.Address));
+    }
+
+    [Fact]
+    public async Task HealthyNativeConnectionLongerThan500MillisecondsIsNotSelfCancelled()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Ble.OnConnect = (_, token) => Task.Delay(700, token);
+
+        await fixture.Service.BindAsync(fixture.Address, fixture.ReportProgress);
+
+        Assert.Single(fixture.Ble.ConnectAttempts);
+        Assert.DoesNotContain(AgpBindingStage.WaitingForConnection, fixture.Stages);
         Assert.Equal("A1B2C3D4", fixture.Repository.GetToken(fixture.Address));
     }
 
@@ -252,6 +265,8 @@ internal sealed class FakeBle
     public List<AgpMessage> RequestMessages { get; } = [];
     public List<Guid> Reads { get; } = [];
     public List<Guid> Subscriptions { get; } = [];
+    public List<Guid> StoppedSubscriptions { get; } = [];
+    public int DisconnectAttempts { get; private set; }
     public Func<int, CancellationToken, Task>? OnConnect { get; set; }
     public bool DisconnectAfterToken { get; set; }
     public bool FailDisconnect { get; set; }
@@ -310,6 +325,7 @@ internal sealed class FakeBle
 
     private Task DisconnectAsync()
     {
+        DisconnectAttempts++;
         if (FailDisconnect)
             return Task.FromException(new IOException("cleanup failed"));
         _state = DeviceState.Disconnected;
@@ -329,7 +345,7 @@ internal sealed class FakeBle
             "set_WriteType" => null,
             "ReadAsync" => ReadAsync(id),
             "StartUpdatesAsync" => SubscribeAsync(id),
-            "StopUpdatesAsync" => Task.CompletedTask,
+            "StopUpdatesAsync" => StopUpdatesAsync(id),
             "WriteAsync" => WriteAsync((byte[])args[0]!),
             _ => throw new NotSupportedException(name)
         });
@@ -351,6 +367,12 @@ internal sealed class FakeBle
     private Task SubscribeAsync(Guid id)
     {
         Subscriptions.Add(id);
+        return Task.CompletedTask;
+    }
+
+    private Task StopUpdatesAsync(Guid id)
+    {
+        StoppedSubscriptions.Add(id);
         return Task.CompletedTask;
     }
 

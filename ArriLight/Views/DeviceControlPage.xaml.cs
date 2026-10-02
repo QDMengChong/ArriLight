@@ -190,9 +190,20 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Control.Appearing", DeviceAddress);
         // 控制页需要独占扫描之外的 BLE 资源，避免后台广播扫描影响
         // 当前设备的连接、授权和灯控操作。
-        await _discoveryService.StopAsync();
+        try
+        {
+            await _discoveryService.StopAsync();
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult($"stop-scan-failed:{exception.GetType().Name}");
+            throw;
+        }
+        timing.Mark("后台扫描已停止");
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged += OnRequestedThemeChanged;
         _connectionService.StateChanged += OnConnectionStateChanged;
@@ -202,6 +213,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         {
             DelaySecondsEntry.Text = _repository.GetTimerSeconds(DeviceAddress).ToString();
             _isDemo = device.IsDemo;
+            timing.Mark($"载入控制页; isDemo={_isDemo}");
             OnPropertyChanged(nameof(CanRefreshStatus));
             DeviceName = device.Name;
             LoadEffectParameters();
@@ -214,11 +226,20 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             }
             else
             {
+                // Entering the control page takes over a successful home-query
+                // lease and keeps the authenticated session alive for controls.
+                _agpLight.PromoteConnectionToLongLived(DeviceAddress);
+                timing.Mark("控制页接管持续连接");
                 if (_agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState is { } cachedState)
                     ApplyLightState(cachedState);
                 ApplyConnectionSnapshot(_connectionService.Snapshot);
                 await EnsureConnectedAsync(showError: false);
             }
+            timing.SetResult(device.IsDemo ? "demo" : "initialization-finished");
+        }
+        else
+        {
+            timing.SetResult("device-not-found");
         }
     }
 
@@ -284,6 +305,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async Task InitializeControlSessionAsync(bool showError, bool refreshStatus)
     {
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Control.Initialize", DeviceAddress,
+            $"refreshStatus={refreshStatus}; useCachedLightState={!refreshStatus}");
         _isInitializingConnection = true;
         OnPropertyChanged(nameof(CanRefreshStatus));
         using var initializationCancellation = new CancellationTokenSource();
@@ -294,19 +318,24 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 DeviceAddress, initializationCancellation.Token,
                 useCachedLightState: !refreshStatus,
                 refreshLightState: refreshStatus);
+            timing.Mark("完整控制资料已取得");
             initializationCancellation.Token.ThrowIfCancellationRequested();
             if (profile.LightState is { } state)
                 ApplyLightState(state);
             ApplyControlProfile(profile);
+            timing.Mark("控制资料已应用到页面，控制初始化完成");
+            timing.SetResult("ready");
             if (refreshStatus)
                 ToastService.Show("设备状态已刷新");
         }
         catch (OperationCanceledException) when (initializationCancellation.IsCancellationRequested)
         {
+            timing.SetResult("canceled");
             // Leaving the page cancels initialization without replacing a known status.
         }
         catch (Exception exception)
         {
+            timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error(
                 "BLE/Connection",
                 $"设备控制页连接失败：{DeviceAddress}。",
@@ -514,8 +543,14 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async Task SetEffectAsync(AgpLightMode mode, ushort periodMilliseconds)
     {
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Control.Effect", DeviceAddress,
+            $"mode={mode}; periodMs={periodMilliseconds}; initializing={_isInitializingConnection}; isDemo={_isDemo}");
         if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
+        {
+            timing.SetResult("skipped");
             return;
+        }
 
         try
         {
@@ -531,9 +566,11 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             }
             RememberEffectPeriod(response.Mode, response.PeriodMilliseconds);
             UpdateEffectVisual();
+            timing.SetResult("success");
         }
         catch (Exception exception)
         {
+            timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error("Light/Effect", $"发送特效指令失败：{DeviceName}。", exception);
             ToastService.Show("特效指令发送失败");
         }
@@ -938,23 +975,38 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnMasterPowerTapped(object? sender, TappedEventArgs e)
     {
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Control.Power", DeviceAddress,
+            $"desiredOn={!_isMasterPowerOn}; initializing={_isInitializingConnection}; isOnline={IsDeviceOnline}; isDemo={_isDemo}");
         if (!IsDeviceOnline)
+        {
+            timing.SetResult("ignored-not-online");
             return;
+        }
         _isMasterPowerOn = !_isMasterPowerOn;
         UpdateMasterPowerVisual();
 
         if (!_isReady)
+        {
+            timing.SetResult("ignored-ui-not-ready");
             return;
+        }
 
         if (_isDemo || string.IsNullOrWhiteSpace(DeviceAddress))
+        {
+            timing.SetResult("skipped");
             return;
+        }
 
         try
         {
+            timing.Mark($"提交开关操作; desiredOn={_isMasterPowerOn}; initializing={_isInitializingConnection}");
             await _agpLight.SetOnOffAsync(DeviceAddress, _isMasterPowerOn);
+            timing.SetResult("success");
         }
         catch (Exception exception)
         {
+            timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error(
                 "Light/Power",
                 $"发送总开关指令失败：{DeviceName} = {_isMasterPowerOn}。",
@@ -1029,6 +1081,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         CancellationToken cancellationToken,
         bool debounce = true)
     {
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Control.LightSettings", DeviceAddress,
+            $"debounce={debounce}; debounceMs={LightSettingsDebounce.TotalMilliseconds:0}; initializing={_isInitializingConnection}; pageKind={_controlPageKind}; colorModel={_activeColorModel}");
         if (debounce)
         {
             try
@@ -1037,14 +1092,17 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             }
             catch (OperationCanceledException)
             {
+                timing.SetResult("debounce-canceled");
                 return;
             }
+            timing.Mark("灯光设置防抖等待结束");
         }
 
         var brightnessPercent = (byte)Math.Clamp(
             Math.Round(BrightnessSlider.Value),
             0,
             AgpModelCodec.MaximumBrightnessPercent);
+        timing.Mark($"提交灯光设置; brightnessPercent={brightnessPercent}");
         try
         {
             if (_controlPageKind == AgpControlPageKind.Hsl ||
@@ -1074,9 +1132,11 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                     brightnessPercent,
                     cancellationToken);
             }
+            timing.SetResult("success");
         }
         catch (Exception exception)
         {
+            timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error(
                 "Light/Settings",
                 $"发送灯光设置失败：{DeviceName}。",

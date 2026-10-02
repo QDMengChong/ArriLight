@@ -3,12 +3,14 @@ namespace ArriLight;
 public partial class DeviceMorePage : ContentPage, IQueryAttributable
 {
     private readonly DeviceRepository _repository;
+    private readonly AgpLightControlService _agpLight;
     private string _deviceId = string.Empty;
     private string _deviceName = string.Empty;
     private string _addedAtText = string.Empty;
     private string _firmwareVersion = "1.0.0";
     private bool _isPinned;
     private bool _isLoading;
+    private bool _isUnbinding;
 
     public string DeviceId
     {
@@ -64,6 +66,7 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
     {
         InitializeComponent();
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
+        _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         BindingContext = this;
     }
 
@@ -132,16 +135,38 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
 
     private async void OnUnbindClicked(object? sender, EventArgs e)
     {
-        var confirmed = await DisplayAlertAsync(
-            "解除绑定",
-            $"确定从设备列表删除“{DeviceName}”吗？",
-            "解除绑定",
-            "取消");
-
-        if (!confirmed)
+        if (_isUnbinding)
             return;
 
-        _repository.Remove(DeviceId);
-        await Shell.Current.GoToAsync("//DevicesPage");
+        _isUnbinding = true;
+        try
+        {
+            var confirmed = await DisplayAlertAsync(
+                "解除绑定",
+                $"确定从设备列表删除“{DeviceName}”吗？",
+                "解除绑定",
+                "取消");
+            if (!confirmed)
+                return;
+
+            try
+            {
+                await _agpLight.RemoveDeviceAsync(DeviceId);
+            }
+            catch (Exception)
+            {
+                await DisplayAlertAsync(
+                    "解除绑定失败",
+                    "未能释放设备连接，设备记录已保留。请重试。",
+                    "知道了");
+                return;
+            }
+
+            await Shell.Current.GoToAsync("//DevicesPage");
+        }
+        finally
+        {
+            _isUnbinding = false;
+        }
     }
 }

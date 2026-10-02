@@ -10,6 +10,7 @@ namespace ArriLight;
 public sealed class BluetoothDiscoveryService(IDevice device)
 {
     public Exception? Failure { get; set; }
+    public List<string> InvalidatedAddresses { get; } = [];
     public event EventHandler<DiscoveredBluetoothDevice>? DeviceFound;
 
     public Task<IDevice> FindDeviceAsync(string address, CancellationToken cancellationToken = default)
@@ -18,7 +19,7 @@ public sealed class BluetoothDiscoveryService(IDevice device)
         return Failure is null ? Task.FromResult(device) : Task.FromException<IDevice>(Failure);
     }
 
-    public void InvalidateCachedDevice(string address) { }
+    public void InvalidateCachedDevice(string address) => InvalidatedAddresses.Add(address);
     public Task ScanAsync(CancellationToken token) => Task.Delay(Timeout.InfiniteTimeSpan, token);
     public Task StopAsync() => Task.CompletedTask;
     public void Advertise(DiscoveredBluetoothDevice value) => DeviceFound?.Invoke(this, value);
@@ -29,8 +30,21 @@ public sealed class BluetoothDiscoveryException(string message) : Exception(mess
 
 public sealed class AppDiagnosticService
 {
+    public List<(string Area, string Message)> Entries { get; } = [];
+    public BleTimingScope BeginBleTiming(
+        string stage, string? address = null, string? detail = null)
+    {
+#if DEBUG
+        return new(this, stage, address, detail);
+#else
+        return BleTimingScope.Disabled;
+#endif
+    }
     public void Debug(string area, string message) { }
-    public void Information(string area, string message) { }
+    public void Information(string area, string message)
+    {
+        lock (Entries) Entries.Add((area, message));
+    }
     public void Warning(string area, string message) { }
     public void Error(string area, string message, Exception? exception = null) { }
     public void Trace(string area, string message) { }

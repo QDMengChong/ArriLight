@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Collections.Concurrent;
+using System.Runtime.CompilerServices;
 using ArriOpto.BLE.Agp;
 using Plugin.BLE.Abstractions.Exceptions;
 
@@ -62,28 +63,202 @@ public sealed record DeviceStatusSnapshot(
     AgpDeviceControlProfile? Profile,
     DateTimeOffset QueriedAt);
 
+internal sealed record SuspendedConnection(
+    string Address,
+    bool IsControlSession,
+    bool HadShortLease);
+
 /// <summary>通过 AGP 私有 GATT 协议执行直连灯控；当前版本不使用 Mesh。</summary>
 public sealed class AgpLightControlService : IAsyncDisposable
 {
     public static readonly TimeSpan BindingTimeout = TimeSpan.FromSeconds(60);
     private static readonly TimeSpan BindingRetryInterval = TimeSpan.FromMilliseconds(500);
+    // Android may take more than 500 ms to complete a normal GATT connection.
+    // The previous value cancelled healthy attempts and then retried while the
+    // native stack was still unwinding the cancelled connection.
+    private static readonly TimeSpan BindingAttemptTimeout = TimeSpan.FromSeconds(3);
 
     private readonly BluetoothConnectionService _connectionService;
     private readonly AppDiagnosticService _diagnostics;
     private readonly DeviceRepository _repository;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
+    private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
+    private readonly object _applicationSync = new();
+    private CancellationTokenSource _applicationCancellation = new();
     private AgpClientHandle? _handle;
+    private SuspendedConnection? _backgroundConnection;
+    private bool _wantsForeground = true;
+    private bool _applicationClosing;
+    private volatile bool _applicationSuspended;
     private readonly ConcurrentDictionary<string, DeviceStatusSnapshot> _deviceStatuses =
         new(StringComparer.OrdinalIgnoreCase);
 
     public DeviceStatusSnapshot? GetCachedDeviceStatus(string address) =>
         _deviceStatuses.GetValueOrDefault(address);
 
+    public bool IsApplicationSuspended => _applicationSuspended;
+
     public DeviceStatusSnapshot RecordDeviceOffline(string address) =>
         _deviceStatuses.AddOrUpdate(
             address,
             _ => new DeviceStatusSnapshot(false, null, null, DateTimeOffset.UtcNow),
             (_, previous) => previous with { IsOnline = false, QueriedAt = DateTimeOffset.UtcNow });
+
+    /// <summary>
+    /// Entering the control page or issuing a control command takes ownership
+    /// of the connection retained by a successful home query.
+    /// </summary>
+    public void PromoteConnectionToLongLived(string address) =>
+        _connectionService.PromoteConnectionToLongLived(address);
+
+    /// <summary>
+    /// Stop the authenticated AGP session when the application is backgrounded,
+    /// remembering the connected device so it can be restored on resume.
+    /// </summary>
+    public Task SuspendForBackgroundAsync(
+        CancellationToken cancellationToken = default) =>
+        SuspendApplicationConnectionAsync(
+            rememberForResume: true, cancellationToken: cancellationToken);
+
+    /// <summary>
+    /// Release the session when the application is closing. A closing window
+    /// must not leave a pending resume target behind.
+    /// </summary>
+    public Task DisconnectForApplicationCloseAsync(
+        CancellationToken cancellationToken = default) =>
+        SuspendApplicationConnectionAsync(
+            rememberForResume: false, cancellationToken: cancellationToken);
+
+    /// <summary>
+    /// Reconnect the device that was disconnected by a background transition;
+    /// an existing control session is authenticated again, while a home-only
+    /// lease is restarted. Failure is logged and retained for a later resume
+    /// attempt rather than being surfaced from a lifecycle callback.
+    /// </summary>
+    public async Task ResumeAfterBackgroundAsync(
+        CancellationToken cancellationToken = default)
+    {
+        lock (_applicationSync)
+        {
+            if (_applicationClosing)
+                return;
+            _wantsForeground = true;
+        }
+        await _lifecycleLock.WaitAsync(cancellationToken);
+        try
+        {
+            using var resumeCancellation = PrepareResumeCancellation(cancellationToken);
+            if (resumeCancellation is null)
+                return;
+            var token = resumeCancellation.Token;
+            await _operationLock.WaitAsync(token);
+            try
+            {
+                SuspendedConnection? previous;
+                lock (_applicationSync)
+                    previous = _backgroundConnection;
+                if (previous is null)
+                    return;
+                var address = previous.Address;
+                if (!_repository.Contains(address))
+                {
+                    _diagnostics.Information("BLE/Lifecycle", $"恢复目标已删除，放弃恢复：device={address}。");
+                    lock (_applicationSync)
+                        _backgroundConnection = null;
+                    return;
+                }
+
+                _diagnostics.Information(
+                    "BLE/Lifecycle",
+                    $"应用回到前台，立即恢复后台断开的设备：device={address}。");
+                using var timing = _diagnostics.BeginBleTiming("AGP.Lifecycle.Resume", address);
+                if (previous.IsControlSession)
+                {
+                    await GetOrCreateClientAsync(address, token);
+                    _connectionService.PromoteConnectionToLongLived(address);
+                }
+                else
+                {
+                    await _connectionService.ConnectAsync(address, token);
+                    if (previous.HadShortLease)
+                        _connectionService.RetainConnectionFor(address);
+                }
+                token.ThrowIfCancellationRequested();
+                lock (_applicationSync)
+                {
+                    if (ReferenceEquals(_backgroundConnection, previous))
+                        _backgroundConnection = null;
+                }
+                timing.SetResult("restored");
+                _diagnostics.Information(
+                    "BLE/Lifecycle",
+                    $"后台断开的设备已恢复：device={address}，authenticated={previous.IsControlSession}，shortLease={previous.HadShortLease}。");
+            }
+            catch (Exception exception)
+            {
+                await DisposeHandleAsync();
+                try { await _connectionService.DisconnectAsync(CancellationToken.None); }
+                catch (Exception cleanupException)
+                {
+                    _diagnostics.Warning("BLE/Lifecycle", $"恢复失败后的连接清理失败：{cleanupException.Message}");
+                }
+                _diagnostics.Warning(
+                    "BLE/Lifecycle",
+                    $"前台恢复未完成，保留目标供下次恢复：{exception.Message}");
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            finally
+            {
+                lock (_applicationSync)
+                {
+                    if (_wantsForeground && !_applicationClosing && !token.IsCancellationRequested)
+                        _applicationSuspended = false;
+                }
+                _operationLock.Release();
+            }
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
+
+    private CancellationTokenSource? PrepareResumeCancellation(CancellationToken cancellationToken)
+    {
+        lock (_applicationSync)
+        {
+            if (!_wantsForeground || _applicationClosing)
+                return null;
+            _applicationCancellation.Dispose();
+            _applicationCancellation = new CancellationTokenSource();
+            _applicationSuspended = false;
+            _connectionService.SetApplicationSuspended(false);
+            return CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, _applicationCancellation.Token);
+        }
+    }
+
+    private void EnsureApplicationForeground()
+    {
+        if (_applicationSuspended || _applicationClosing)
+            throw new OperationCanceledException(
+                "应用不在前台，停止 BLE 操作。",
+                new CancellationToken(true));
+    }
+
+    private CancellationTokenSource LinkApplicationCancellation(
+        CancellationToken cancellationToken)
+    {
+        lock (_applicationSync)
+        {
+            if (_applicationSuspended || _applicationClosing)
+                throw new OperationCanceledException(
+                    "应用不在前台，停止 BLE 操作。",
+                    new CancellationToken(true));
+            return CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, _applicationCancellation.Token);
+        }
+    }
 
     public AgpLightControlService(
         BluetoothConnectionService connectionService,
@@ -93,6 +268,44 @@ public sealed class AgpLightControlService : IAsyncDisposable
         _connectionService = connectionService;
         _diagnostics = diagnostics;
         _repository = repository;
+    }
+
+    /// <summary>Disconnect a forgotten device before deleting its local record and credentials.</summary>
+    public async Task<bool> RemoveDeviceAsync(
+        string address, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(address);
+        using var timing = _diagnostics.BeginBleTiming("AGP.RemoveDevice", address);
+        _diagnostics.Information("BLE/Removal", $"开始解除绑定：device={address}。");
+        await MeasureAsync("AGP.RemoveDevice.Lock", address,
+            () => _operationLock.WaitAsync(cancellationToken));
+        try
+        {
+            if (_handle is not null &&
+                string.Equals(_handle.Address, address, StringComparison.OrdinalIgnoreCase))
+            {
+                await DisposeHandleAsync();
+            }
+
+            // Keep the saved record if the native disconnect fails, so removal can be retried.
+            await _connectionService.DisconnectDeviceAsync(address, cancellationToken);
+            _deviceStatuses.TryRemove(address, out _);
+            var removed = _repository.Remove(address);
+            _diagnostics.Information(
+                "BLE/Removal", $"解除绑定完成：device={address}，removed={removed}，目标连接已释放，状态与扫描缓存已清理。");
+            timing.SetResult(removed ? "removed" : "already-absent");
+            return removed;
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult(TimingResult(exception));
+            _diagnostics.Error("BLE/Removal", $"解除绑定未完成：device={address}，保留本地记录供重试。", exception);
+            throw;
+        }
+        finally
+        {
+            _operationLock.Release();
+        }
     }
 
     /// <summary>用户明确发起绑定时调用，在设备配对窗口内获取并保存 Token。</summary>
@@ -116,6 +329,9 @@ public sealed class AgpLightControlService : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(address))
             throw new ArgumentException("设备地址不能为空。", nameof(address));
 
+        EnsureApplicationForeground();
+        using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
+        cancellationToken = applicationCancellation.Token;
         using var bindingCancellation =
             CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         bindingCancellation.CancelAfter(BindingTimeout);
@@ -134,9 +350,9 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 token.ThrowIfCancellationRequested();
                 var attemptStarted = Stopwatch.GetTimestamp();
                 using var attemptCancellation = CancellationTokenSource.CreateLinkedTokenSource(token);
-                // 被其他手机占用时，原生连接可能长时间没有结果。取消本轮
-                // 原生连接后再重试，避免它占满整个配对等待时间，也不并发建连。
-                attemptCancellation.CancelAfter(BindingRetryInterval);
+                // 只在一次完整的 Android 连接窗口内没有结果时取消本轮；
+                // 500 ms 只用于两轮之间的退避，不能作为原生建连超时。
+                attemptCancellation.CancelAfter(BindingAttemptTimeout);
                 try
                 {
                     await _connectionService.ConnectAsync(address, attemptCancellation.Token);
@@ -149,9 +365,12 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 {
                     // BLE 连接失败不能确定是占用还是链路问题。只重试连接，
                     // 不重试已连接后的协议拒绝、无效 Token 或权限错误。
+                    var reason = exception is OperationCanceledException
+                        ? $"本轮连接超过 {BindingAttemptTimeout.TotalSeconds:0.#} 秒"
+                        : exception.Message;
                     _diagnostics.Warning(
                         "AGP/Binding",
-                        $"设备 {address} 暂时无法连接，按 500 ms 间隔重试：{exception.Message}");
+                        $"设备 {address} 连接未完成，按 {BindingRetryInterval.TotalMilliseconds:0} ms 间隔重试：{reason}");
                     if (bindingProgress is not null)
                         await bindingProgress(AgpBindingStage.WaitingForConnection, token);
                     var retryDelay = BindingRetryInterval - Stopwatch.GetElapsedTime(attemptStarted);
@@ -223,9 +442,13 @@ public sealed class AgpLightControlService : IAsyncDisposable
             async handle =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.OnOff);
-                EnsureSuccess(await handle.Client.SetOnOffAsync(
-                    isOn,
-                    cancellationToken: cancellationToken));
+                await MeasureAsync("AGP.Command.OnOff", address, async () =>
+                {
+                    var response = await handle.Client.SetOnOffAsync(
+                        isOn, cancellationToken: cancellationToken);
+                    BleTimingScope.Current?.Mark($"desiredOn={isOn} protocolResult={response.Result}");
+                    EnsureSuccess(response);
+                }, $"desiredOn={isOn}");
                 handle.LastState = handle.LastState with { IsOn = isOn };
                 CacheControlState(handle);
             },
@@ -344,8 +567,9 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 {
                     try
                     {
-                        handle.LastColorState = await handle.Client.ReadColorStateAsync(
-                            cancellationToken);
+                        handle.LastColorState = await MeasureAsync(
+                            "AGP.Profile.ReadColorState", address,
+                            () => handle.Client.ReadColorStateAsync(cancellationToken));
                     }
                     catch (Exception exception)
                     {
@@ -360,7 +584,9 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 {
                     try
                     {
-                        var response = await handle.Client.GetCtlRangeAsync(cancellationToken);
+                        var response = await MeasureAsync(
+                            "AGP.Profile.GetCtlRange", address,
+                            () => handle.Client.GetCtlRangeAsync(cancellationToken));
                         if (response.IsSuccess && response.Value is not null)
                             handle.CtlRange = response.Value.Value;
                     }
@@ -378,7 +604,9 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 {
                     try
                     {
-                        var effect = await handle.Client.GetEffectAsync(cancellationToken);
+                        var effect = await MeasureAsync(
+                            "AGP.Profile.GetEffect", address,
+                            () => handle.Client.GetEffectAsync(cancellationToken));
                         EnsureSuccess(effect.Result);
                         effectMode = effect.Mode;
                         effectPeriodMilliseconds = effect.PeriodMilliseconds;
@@ -428,11 +656,24 @@ public sealed class AgpLightControlService : IAsyncDisposable
         if (string.IsNullOrWhiteSpace(address))
             throw new ArgumentException("设备地址不能为空。", nameof(address));
 
-        await _operationLock.WaitAsync(cancellationToken);
+        EnsureApplicationForeground();
+        using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
+        cancellationToken = applicationCancellation.Token;
+        _connectionService.ResetConnectionLeaseOwnership(address);
+        using var timing = _diagnostics.BeginBleTiming("AGP.Home.PublicState", address);
+        await MeasureAsync("AGP.Home.Lock", address,
+            () => _operationLock.WaitAsync(cancellationToken));
+        var queryStarted = false;
+        var querySucceeded = false;
         try
         {
+            EnsureApplicationForeground();
+            if (!_repository.Contains(address))
+                throw new InvalidOperationException("设备已从列表删除，请重新添加后再操作。");
+
+            queryStarted = true;
             // 主页轮询不应复用控制页留下的已授权 AGP 客户端。
-            await DisposeHandleAsync();
+            await MeasureAsync("AGP.Home.DisposePrevious", address, DisposeHandleAsync);
             var packet = await _connectionService.ReadAsync(
                 address,
                 AgpProfile.ServiceId,
@@ -451,23 +692,55 @@ public sealed class AgpLightControlService : IAsyncDisposable
             };
             var snapshot = new DeviceStatusSnapshot(true, state, profile, DateTimeOffset.UtcNow);
             _deviceStatuses[address] = snapshot;
+            querySucceeded = true;
+            timing.SetResult("success");
             return snapshot;
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult(TimingResult(exception));
+            throw;
         }
         finally
         {
-            await DisposeHandleAsync();
             try
             {
-                // 每台设备的快速查询结束后立即释放连接，避免下一台设备查询
-                // 复用前一台的会话，也让用户操作可以获得干净的连接。
-                await _connectionService.DisconnectAsync(CancellationToken.None);
+                // A rejected query for a removed device must leave another device's session intact.
+                if (queryStarted)
+                {
+                    await DisposeHandleAsync();
+                    if (querySucceeded &&
+                        _connectionService.Snapshot.IsConnected &&
+                        string.Equals(
+                            _connectionService.Snapshot.Address,
+                            address,
+                            StringComparison.OrdinalIgnoreCase))
+                    {
+                        // 保留一个很短的同设备连接租约，让主页刚完成查询后
+                        // 的控制操作直接接管连接；租约到期仍会释放唯一连接。
+                        _connectionService.RetainConnectionFor(address);
+                        _diagnostics.Information(
+                            "BLE/Connection",
+                            $"主页查询成功，暂时保留设备 {address} 的连接供后续控制操作接管。");
+                    }
+                    else
+                    {
+                        try
+                        {
+                            await MeasureAsync("AGP.Home.Disconnect", address,
+                                () => _connectionService.DisconnectAsync(CancellationToken.None));
+                        }
+                        catch
+                        {
+                            // 保留查询本身的异常，断开清理失败不覆盖它。
+                        }
+                    }
+                }
             }
-            catch
+            finally
             {
-                // 保留查询本身的异常，断开清理失败不覆盖它。
+                _operationLock.Release();
             }
-
-            _operationLock.Release();
         }
     }
 
@@ -533,22 +806,90 @@ public sealed class AgpLightControlService : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await _operationLock.WaitAsync();
         try
         {
-            await DisposeHandleAsync();
+            await DisconnectForApplicationCloseAsync();
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Warning(
+                "BLE/Lifecycle",
+                $"释放应用关闭时的 AGP 会话失败：{exception.Message}");
+        }
+
+        _lifecycleLock.Dispose();
+        _operationLock.Dispose();
+        _applicationCancellation.Dispose();
+    }
+
+    private async Task SuspendApplicationConnectionAsync(
+        bool rememberForResume,
+        CancellationToken cancellationToken)
+    {
+        var hadShortLease = _connectionService.HasActiveConnectionLease;
+        lock (_applicationSync)
+        {
+            _wantsForeground = false;
+            _applicationSuspended = true;
+            if (!rememberForResume)
+            {
+                _applicationClosing = true;
+                _backgroundConnection = null;
+            }
+            _applicationCancellation.Cancel();
+        }
+        _connectionService.SetApplicationSuspended(true);
+        await _lifecycleLock.WaitAsync(cancellationToken);
+        try
+        {
+            await _operationLock.WaitAsync(cancellationToken);
+            try
+            {
+                var snapshot = _connectionService.Snapshot;
+                if (rememberForResume && snapshot.IsConnected &&
+                    !string.IsNullOrWhiteSpace(snapshot.Address))
+                {
+                    lock (_applicationSync)
+                    {
+                        _backgroundConnection = new SuspendedConnection(
+                            snapshot.Address,
+                            _handle is not null &&
+                            string.Equals(
+                                _handle.Address,
+                                snapshot.Address,
+                                StringComparison.OrdinalIgnoreCase),
+                            hadShortLease);
+                    }
+                    _diagnostics.Information(
+                        "BLE/Lifecycle",
+                        $"应用进入后台，记录待恢复设备：device={snapshot.Address}。");
+                }
+
+                await DisposeHandleAsync();
+                if (_connectionService.Snapshot.IsConnected)
+                {
+                    await _connectionService.DisconnectAsync(CancellationToken.None);
+                    _diagnostics.Information(
+                        "BLE/Lifecycle",
+                        $"应用生命周期切换释放 BLE 连接：reason={(rememberForResume ? "background" : "closing")}。");
+                }
+            }
+            finally
+            {
+                _operationLock.Release();
+            }
         }
         finally
         {
-            _operationLock.Release();
-            _operationLock.Dispose();
+            _lifecycleLock.Release();
         }
     }
 
     private async Task WithClientAsync(
         string address,
         Func<AgpClientHandle, Task> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        [CallerMemberName] string operationName = "")
     {
         await WithClientAsync<object?>(
             address,
@@ -557,7 +898,7 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 await operation(handle);
                 return null;
             },
-            cancellationToken);
+            cancellationToken, operationName: operationName);
     }
 
     private async Task<T> WithClientAsync<T>(
@@ -565,14 +906,27 @@ public sealed class AgpLightControlService : IAsyncDisposable
         Func<AgpClientHandle, Task<T>> operation,
         CancellationToken cancellationToken,
         bool useCachedLightState = false,
-        bool refreshLightState = false)
+        bool refreshLightState = false,
+        [CallerMemberName] string operationName = "")
     {
         if (string.IsNullOrWhiteSpace(address))
             throw new ArgumentException("设备地址不能为空。", nameof(address));
 
-        await _operationLock.WaitAsync(cancellationToken);
+        EnsureApplicationForeground();
+        using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
+        cancellationToken = applicationCancellation.Token;
+        _connectionService.PromoteConnectionToLongLived(address);
+        using var timing = _diagnostics.BeginBleTiming(
+            $"AGP.Operation.{operationName}", address,
+            $"useCachedLightState={useCachedLightState} refreshLightState={refreshLightState}");
+        await MeasureAsync("AGP.Operation.Lock", address,
+            () => _operationLock.WaitAsync(cancellationToken));
         try
         {
+            // A command queued by the old control page must not reconnect a device after removal.
+            if (!_repository.Contains(address))
+                throw new InvalidOperationException("设备已从列表删除，请重新添加后再操作。");
+
             var previousHandle = _handle;
             var handle = await GetOrCreateClientAsync(
                 address, cancellationToken, useCachedLightState && !refreshLightState);
@@ -580,14 +934,22 @@ public sealed class AgpLightControlService : IAsyncDisposable
             {
                 // New clients already read state once unless explicitly seeded from cache.
                 if (refreshLightState && ReferenceEquals(previousHandle, handle))
-                    handle.LastState = await handle.Client.ReadLightStateAsync(cancellationToken);
-                return await operation(handle);
+                    handle.LastState = await MeasureAsync("AGP.ReadLightState.Refresh", address,
+                        () => handle.Client.ReadLightStateAsync(cancellationToken));
+                var result = await operation(handle);
+                timing.SetResult("success");
+                return result;
             }
             catch
             {
                 await DisposeHandleAsync();
                 throw;
             }
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult(TimingResult(exception));
+            throw;
         }
         finally
         {
@@ -600,6 +962,8 @@ public sealed class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken,
         bool useCachedLightState = false)
     {
+        EnsureApplicationForeground();
+        using var timing = _diagnostics.BeginBleTiming("AGP.Session.Prepare", address);
         if (_handle is not null &&
             string.Equals(_handle.Address, address, StringComparison.OrdinalIgnoreCase) &&
             _connectionService.Snapshot.IsConnected &&
@@ -608,39 +972,53 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 address,
                 StringComparison.OrdinalIgnoreCase))
         {
+            timing.SetResult("reused");
             return _handle;
         }
 
-        await DisposeHandleAsync();
+        timing.Mark("reused=false");
+        await MeasureAsync("AGP.Session.DisposePrevious", address, DisposeHandleAsync);
         await _connectionService.ConnectAsync(address, cancellationToken);
         var transport = new AgpGattTransport(_connectionService, address);
         await transport.StartAsync(cancellationToken);
         var client = new AgpClient(transport);
         try
         {
-            var capabilities = await client.ReadCapabilitiesAsync(cancellationToken);
+            var capabilities = await MeasureAsync("AGP.ReadCapabilities", address,
+                () => client.ReadCapabilitiesAsync(cancellationToken));
+            timing.Mark($"capabilities=0x{(ulong)capabilities:X} secureControl={capabilities.HasFlag(AgpCapabilities.SecureControl)}");
             var isAuthorized = true;
             if (capabilities.HasFlag(AgpCapabilities.SecureControl))
             {
-                var token = _repository.GetTokenBytes(address);
+                byte[]? token;
+                using (var tokenTiming = _diagnostics.BeginBleTiming("AGP.TokenLookup", address))
+                {
+                    token = _repository.GetTokenBytes(address);
+                    tokenTiming.SetResult(token is null ? "missing" : "present");
+                }
                 if (token is null)
                     throw new AgpAuthenticationRequiredException(address);
 
-                var authentication = await client.AuthenticateAsync(
-                    token,
-                    cancellationToken);
-                EnsureSuccess(authentication.Result);
+                await MeasureAsync("AGP.Authenticate", address, async () =>
+                {
+                    var authentication = await client.AuthenticateAsync(token, cancellationToken);
+                    BleTimingScope.Current?.Mark($"protocolResult={authentication.Result}");
+                    EnsureSuccess(authentication.Result);
+                });
             }
 
             var cachedState = useCachedLightState
                 ? GetCachedDeviceStatus(address) : null;
             var state = cachedState is { IsOnline: true, LightState: { } knownState }
-                ? knownState : await client.ReadLightStateAsync(cancellationToken);
+                ? knownState : await MeasureAsync("AGP.ReadLightState.Initial", address,
+                    () => client.ReadLightStateAsync(cancellationToken));
+            timing.Mark($"lightStateCacheUsed={cachedState is { IsOnline: true, LightState: not null }} isOn={state.IsOn}");
             if (cachedState is { IsOnline: true, LightState: not null })
                 _diagnostics.Debug("BLE/Status", $"控制页复用已查询灯状态：{address}。");
             if (capabilities.HasFlag(AgpCapabilities.RtcTime))
             {
-                var time = await client.SetTimeAsync(DateTimeOffset.UtcNow, cancellationToken);
+                var time = await MeasureAsync("AGP.SetTime", address,
+                    () => client.SetTimeAsync(DateTimeOffset.UtcNow, cancellationToken));
                 EnsureSuccess(time.Result);
             }
 
@@ -663,10 +1041,12 @@ public sealed class AgpLightControlService : IAsyncDisposable
             _diagnostics.Information(
                 "AGP/Connection",
                 $"AGP 客户端已就绪：device={address}，capabilities=0x{(ulong)capabilities:X}。");
+            timing.SetResult("ready");
             return handle;
         }
-        catch
+        catch (Exception exception)
         {
+            timing.SetResult(TimingResult(exception));
             await client.DisposeAsync();
             throw;
         }
@@ -679,6 +1059,41 @@ public sealed class AgpLightControlService : IAsyncDisposable
         if (handle is not null)
             await handle.Client.DisposeAsync();
     }
+
+    private async Task MeasureAsync(
+        string stage, string address, Func<Task> action, string? detail = null)
+    {
+        using var timing = _diagnostics.BeginBleTiming(stage, address, detail);
+        try
+        {
+            await action();
+            timing.SetResult("completed");
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult(TimingResult(exception));
+            throw;
+        }
+    }
+
+    private async Task<T> MeasureAsync<T>(string stage, string address, Func<Task<T>> action)
+    {
+        using var timing = _diagnostics.BeginBleTiming(stage, address);
+        try
+        {
+            var result = await action();
+            timing.SetResult("returned");
+            return result;
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult(TimingResult(exception));
+            throw;
+        }
+    }
+
+    private static string TimingResult(Exception exception) =>
+        $"{(exception is OperationCanceledException ? "cancelled" : "failed")}:{exception.GetType().Name}";
 
     private void CacheControlState(AgpClientHandle handle, ushort? effectPeriod = null)
     {
