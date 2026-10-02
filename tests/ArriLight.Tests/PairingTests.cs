@@ -228,13 +228,13 @@ internal sealed class PairingFixture : IAsyncDisposable
     public string Address => Ble.Device.Id.ToString("D").ToUpperInvariant();
     public List<AgpBindingStage> Stages { get; } = [];
 
-    public PairingFixture()
+    public PairingFixture(TimeProvider? timeProvider = null)
     {
         Preferences.Default.Clear();
         Assert.True(Repository.TryAdd("PW01", Address));
         var diagnostics = new AppDiagnosticService();
         Discovery = new BluetoothDiscoveryService(Ble.Device);
-        Connection = new BluetoothConnectionService(Ble.Adapter, Discovery, diagnostics);
+        Connection = new BluetoothConnectionService(Ble.Adapter, Discovery, diagnostics, timeProvider);
         Service = new AgpLightControlService(Connection, diagnostics, Repository);
     }
 
@@ -245,12 +245,21 @@ internal sealed class PairingFixture : IAsyncDisposable
         return Task.CompletedTask;
     }
 
+    public FakeBle AddDevice()
+    {
+        var peer = Ble.CreatePeer();
+        Discovery.RegisterDevice(peer.Device);
+        Repository.TryAdd("Other PW01", peer.Address);
+        return peer;
+    }
+
     public ValueTask DisposeAsync() => Service.DisposeAsync();
 }
 
 // Deterministic radio boundary: real Plugin.BLE contracts/events with no hardware.
 internal sealed class FakeBle
 {
+    private readonly Dictionary<Guid, FakeBle> _radios;
     private DeviceState _state = DeviceState.Disconnected;
     private readonly Guid _deviceId = Guid.NewGuid();
     private readonly IService _service;
@@ -259,6 +268,7 @@ internal sealed class FakeBle
     private int _concurrentAttempts;
     public IDevice Device { get; }
     public IAdapter Adapter { get; }
+    public string Address => Device.Id.ToString("D").ToUpperInvariant();
     public List<long> ConnectAttempts { get; } = [];
     public int MaximumConcurrentAttempts { get; private set; }
     public List<AgpOpcode> Requests { get; } = [];
@@ -276,9 +286,12 @@ internal sealed class FakeBle
     public AgpResultCode EffectResult { get; set; } = AgpResultCode.Success;
     public byte[] LightStatePacket { get; set; } = Convert.FromHexString("01000200020000000B0100000001323232000000");
     public Action? OnLightStateRead { get; set; }
+    public Action<AgpMessage>? BeforeControlResponse { get; set; }
     public byte[] ProvisionPayload { get; set; } = [0, 0xA1, 0xB2, 0xC3, 0xD4];
 
-    public FakeBle()
+    public FakeBle() : this(null) { }
+
+    private FakeBle(FakeBle? parent)
     {
         _service = InterfaceProxy.Create<IService>((name, args) => name switch
         {
@@ -301,12 +314,32 @@ internal sealed class FakeBle
             "GetServiceAsync" => Task.FromResult(_service),
             _ => throw new NotSupportedException(name)
         });
-        Adapter = InterfaceProxy.Create<IAdapter>((name, args) => name switch
+        _radios = parent?._radios ?? [];
+        Adapter = parent?.Adapter ?? InterfaceProxy.Create<IAdapter>((name, args) => name switch
         {
-            "ConnectToDeviceAsync" => ConnectAsync((CancellationToken)args[2]!),
-            "DisconnectDeviceAsync" => DisconnectAsync(),
+            "ConnectToDeviceAsync" => _radios[((IDevice)args[0]!).Id].ConnectAsync((CancellationToken)args[2]!),
+            "DisconnectDeviceAsync" => _radios[((IDevice)args[0]!).Id].DisconnectAsync(),
             _ => throw new NotSupportedException(name)
         });
+        _radios[_deviceId] = this;
+    }
+
+    public FakeBle CreatePeer() => new(this);
+
+    public void NotifyLightState(byte[] packet)
+    {
+        _indicatedValue = packet;
+        var characteristic = _characteristics[AgpProfile.LightStateCharacteristicId];
+        InterfaceProxy.From(characteristic).Raise("ValueUpdated", characteristic,
+            new CharacteristicUpdatedEventArgs(characteristic));
+    }
+
+    public void IndicateControlResponse(byte[] packet)
+    {
+        _indicatedValue = packet;
+        var characteristic = _characteristics[AgpProfile.ControlPointCharacteristicId];
+        InterfaceProxy.From(characteristic).Raise("ValueUpdated", characteristic,
+            new CharacteristicUpdatedEventArgs(characteristic));
     }
 
     private async Task ConnectAsync(CancellationToken token)
@@ -341,6 +374,8 @@ internal sealed class FakeBle
             Adapter,
             new DeviceErrorEventArgs { Device = Device, ErrorMessage = "link lost" });
     }
+
+    public void SetDisconnectedBeforeEvent() => _state = DeviceState.Disconnected;
 
     private void AddCharacteristic(Guid id, CharacteristicPropertyType properties)
     {
@@ -400,9 +435,9 @@ internal sealed class FakeBle
             AgpOpcode.EffectSet or AgpOpcode.EffectGet => EffectResponse(request),
             _ => throw new NotSupportedException(request.Opcode.ToString())
         };
-        _indicatedValue = AgpCodec.Encode(AgpMessageType.Response, request.Opcode, request.TransactionId, payload);
-        var controlPoint = _characteristics[AgpProfile.ControlPointCharacteristicId];
-        InterfaceProxy.From(controlPoint).Raise("ValueUpdated", controlPoint, new CharacteristicUpdatedEventArgs(controlPoint));
+        BeforeControlResponse?.Invoke(request);
+        IndicateControlResponse(AgpCodec.Encode(
+            AgpMessageType.Response, request.Opcode, request.TransactionId, payload));
         if (DisconnectAfterToken && request.Opcode == AgpOpcode.AuthGetToken)
         {
             _state = DeviceState.Disconnected;

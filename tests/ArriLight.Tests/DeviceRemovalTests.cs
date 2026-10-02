@@ -46,8 +46,8 @@ public sealed class DeviceRemovalTests
     public async Task RemovingOtherDevicePreservesCurrentAuthenticatedSessionAndSubscriptions()
     {
         await using var fixture = new PairingFixture();
-        var otherAddress = Guid.NewGuid().ToString("D").ToUpperInvariant();
-        fixture.Repository.TryAdd("Other PW01", otherAddress);
+        var other = fixture.AddDevice();
+        var otherAddress = other.Address;
         await fixture.Service.QueryDeviceStatusAsync(otherAddress);
         fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
         await fixture.Service.EnsureAuthorizedAsync(fixture.Address);
@@ -64,6 +64,7 @@ public sealed class DeviceRemovalTests
         Assert.True(fixture.Connection.Snapshot.IsConnected);
         Assert.Equal(fixture.Address, fixture.Connection.Snapshot.Address);
         Assert.Equal(disconnects, fixture.Ble.DisconnectAttempts);
+        Assert.Equal(1, other.DisconnectAttempts);
         Assert.Equal(requests, fixture.Ble.Requests.Count);
         Assert.Equal(subscriptions, fixture.Ble.Subscriptions.Count);
         Assert.Equal(stoppedSubscriptions, fixture.Ble.StoppedSubscriptions.Count);
@@ -172,13 +173,13 @@ public sealed class DeviceRemovalTests
     public async Task LateControlOfRemovedDevicePreservesAnotherCurrentDevice()
     {
         await using var fixture = new PairingFixture();
-        var otherAddress = Guid.NewGuid().ToString("D").ToUpperInvariant();
-        fixture.Repository.TryAdd("Other PW01", otherAddress);
+        var other = fixture.AddDevice();
+        var otherAddress = other.Address;
         fixture.Repository.SetToken(otherAddress, [5, 6, 7, 8]);
         await fixture.Service.RemoveDeviceAsync(fixture.Address);
         await fixture.Service.EnsureAuthorizedAsync(otherAddress);
-        var requests = fixture.Ble.Requests.Count;
-        var subscriptions = fixture.Ble.Subscriptions.Count;
+        var requests = other.Requests.Count;
+        var subscriptions = other.Subscriptions.Count;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             fixture.Service.EnsureAuthorizedAsync(fixture.Address));
@@ -186,11 +187,12 @@ public sealed class DeviceRemovalTests
 
         Assert.True(fixture.Connection.Snapshot.IsConnected);
         Assert.Equal(otherAddress, fixture.Connection.Snapshot.Address);
-        Assert.Single(fixture.Ble.ConnectAttempts);
-        Assert.Equal(0, fixture.Ble.DisconnectAttempts);
-        Assert.Equal(requests, fixture.Ble.Requests.Count);
-        Assert.Equal(subscriptions, fixture.Ble.Subscriptions.Count);
-        Assert.Empty(fixture.Ble.StoppedSubscriptions);
+        Assert.Single(other.ConnectAttempts);
+        Assert.Equal(0, other.DisconnectAttempts);
+        Assert.Equal(requests, other.Requests.Count);
+        Assert.Equal(subscriptions, other.Subscriptions.Count);
+        Assert.Empty(other.StoppedSubscriptions);
+        Assert.Empty(fixture.Ble.ConnectAttempts);
     }
 
     [Fact]
@@ -211,14 +213,14 @@ public sealed class DeviceRemovalTests
         Assert.Null(fixture.Service.GetCachedDeviceStatus(fixture.Address));
         Assert.False(fixture.Connection.Snapshot.IsConnected);
 
-        var otherAddress = Guid.NewGuid().ToString("D").ToUpperInvariant();
-        fixture.Repository.TryAdd("Other PW01", otherAddress);
+        var other = fixture.AddDevice();
+        var otherAddress = other.Address;
         fixture.Repository.SetToken(otherAddress, [5, 6, 7, 8]);
         await fixture.Service.EnsureAuthorizedAsync(otherAddress);
         connects = fixture.Ble.ConnectAttempts.Count;
-        var requests = fixture.Ble.Requests.Count;
-        var subscriptions = fixture.Ble.Subscriptions.Count;
-        var stoppedSubscriptions = fixture.Ble.StoppedSubscriptions.Count;
+        var requests = other.Requests.Count;
+        var subscriptions = other.Subscriptions.Count;
+        var stoppedSubscriptions = other.StoppedSubscriptions.Count;
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             fixture.Service.QueryDeviceStatusAsync(fixture.Address));
@@ -228,9 +230,9 @@ public sealed class DeviceRemovalTests
         Assert.Equal(otherAddress, fixture.Connection.Snapshot.Address);
         Assert.Equal(connects, fixture.Ble.ConnectAttempts.Count);
         Assert.Equal(disconnects, fixture.Ble.DisconnectAttempts);
-        Assert.Equal(requests, fixture.Ble.Requests.Count);
-        Assert.Equal(subscriptions, fixture.Ble.Subscriptions.Count);
-        Assert.Equal(stoppedSubscriptions, fixture.Ble.StoppedSubscriptions.Count);
+        Assert.Equal(requests, other.Requests.Count);
+        Assert.Equal(subscriptions, other.Subscriptions.Count);
+        Assert.Equal(stoppedSubscriptions, other.StoppedSubscriptions.Count);
         Assert.Null(fixture.Service.GetCachedDeviceStatus(fixture.Address));
     }
 

@@ -14,9 +14,9 @@ public partial class DeviceControlPage
     private Android.App.Dialog? _effectSettingsDialog;
 #endif
 
-    private void LoadEffectParameters()
+    private void LoadEffectParameters(SavedDevice? device = null)
     {
-        var device = _repository.GetByAddress(DeviceAddress);
+        device ??= _repository.GetByAddress(DeviceAddress);
         _blinkEffectParameters = device?.BlinkEffectParameters is { } blink &&
             IsValidEffectPeriod(blink.PeriodMilliseconds) ? blink : new();
         _breatheEffectParameters = device?.BreatheEffectParameters is { } breathe &&

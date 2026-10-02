@@ -19,6 +19,7 @@ public partial class MainPage : ContentPage
     private readonly DeviceRepository _repository;
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly AgpLightControlService _agpLight;
+    private readonly BluetoothConnectionService _connectionService;
     private readonly AppDiagnosticService _diagnostics;
     private readonly object _statusQueueSync = new();
     private readonly Dictionary<string, (LightDeviceItem Device, int Rssi)>
@@ -26,6 +27,10 @@ public partial class MainPage : ContentPage
     private readonly HashSet<string> _statusQueryAttempted =
         new(StringComparer.OrdinalIgnoreCase);
     private bool _statusQuerySuppressed;
+    private bool _isVisible;
+    private bool _controlNavigationInFlight;
+    private bool _controlNavigationStarted;
+    private CancellationTokenSource? _controlPagePreloadCancellation;
     private CancellationTokenSource? _statusRefreshCancellation;
     private Task? _statusRefreshTask;
 
@@ -40,6 +45,7 @@ public partial class MainPage : ContentPage
         _discoveryService =
             ServiceHelper.GetRequiredService<BluetoothDiscoveryService>();
         _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
+        _connectionService = ServiceHelper.GetRequiredService<BluetoothConnectionService>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         _repository.DevicesChanged += OnDevicesChanged;
         BindingContext = this;
@@ -49,6 +55,10 @@ public partial class MainPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _isVisible = true;
+        _controlNavigationStarted = false;
+        _agpLight.DeviceStatusChanged -= OnDeviceStatusChanged;
+        _agpLight.DeviceStatusChanged += OnDeviceStatusChanged;
         ReloadDevices();
         _statusQuerySuppressed = false;
         lock (_statusQueueSync)
@@ -59,15 +69,23 @@ public partial class MainPage : ContentPage
 
         _discoveryService.DeviceFound += OnDeviceFound;
         _ = StartHomeScanAsync();
+        CancelControlPagePreload();
+        _controlPagePreloadCancellation = new CancellationTokenSource();
+        _ = PreloadControlPageAsync(_controlPagePreloadCancellation.Token);
     }
 
     protected override void OnDisappearing()
     {
+        _isVisible = false;
+        CancelControlPagePreload();
+        _agpLight.DeviceStatusChanged -= OnDeviceStatusChanged;
         _discoveryService.DeviceFound -= OnDeviceFound;
         _statusQuerySuppressed = true;
         _statusRefreshCancellation?.Cancel();
-        // 主页离开后不再需要扫描；添加页进入时会重新启动并重置 60 秒窗口。
-        _ = _discoveryService.StopAsync();
+        // Control-page navigation owns scan teardown after the page transition.
+        // Other destinations still release the home scan here.
+        if (!_controlNavigationStarted)
+            _ = StopHomeScanAsync();
         base.OnDisappearing();
     }
 
@@ -85,6 +103,44 @@ public partial class MainPage : ContentPage
                 "BLE/Scan",
                 $"主页启动后台扫描失败：{exception.Message}");
         }
+    }
+
+    private async Task StopHomeScanAsync()
+    {
+        try { await _discoveryService.StopAsync(); }
+        catch (Exception exception)
+        {
+            _diagnostics.Warning("BLE/Scan", $"主页停止扫描失败：{exception.Message}");
+        }
+    }
+
+    private void CancelControlPagePreload()
+    {
+        _controlPagePreloadCancellation?.Cancel();
+        _controlPagePreloadCancellation?.Dispose();
+        _controlPagePreloadCancellation = null;
+    }
+
+    private async Task PreloadControlPageAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            // Let the home page render first. Do not warm every device or keep
+            // pages that have already been used for a different device.
+            await Task.Delay(250, cancellationToken);
+            Dispatcher.Dispatch(() =>
+            {
+                if (cancellationToken.IsCancellationRequested || !_isVisible ||
+                    _controlNavigationStarted || _agpLight.IsApplicationSuspended || Devices.Count == 0)
+                    return;
+                try { DeviceControlPageRoutes.Prepare(isDemo: Devices.All(device => device.IsDemo)); }
+                catch (Exception exception)
+                {
+                    _diagnostics.Warning("UI/Navigation", $"控制页预加载失败，点击时重新创建：{exception.Message}");
+                }
+            });
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
     }
 
     private void OnDeviceFound(
@@ -135,6 +191,31 @@ public partial class MainPage : ContentPage
     private void OnDevicesChanged(object? sender, EventArgs e) =>
         MainThread.BeginInvokeOnMainThread(ReloadDevices);
 
+    private void OnDeviceStatusChanged(object? sender, DeviceStatusChange change) =>
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (!_isVisible)
+                return;
+            var device = Devices.FirstOrDefault(item =>
+                !item.IsDemo && string.Equals(item.Address, change.Address,
+                    StringComparison.OrdinalIgnoreCase));
+            if (device is not null)
+                ApplyCachedDeviceStatus(device);
+        });
+
+    private void ApplyCachedDeviceStatus(LightDeviceItem device)
+    {
+        // Read the latest snapshot: a queued offline update must not overwrite
+        // a newer successful foreground reconnect.
+        if (_agpLight.GetCachedDeviceStatus(device.Address) is not { } status)
+            return;
+        device.IsOnline = status.IsOnline;
+        device.Status = status.IsOnline ? "在线" : "离线";
+        device.StatusColor = Color.FromArgb(status.IsOnline ? "#35C987" : "#E65B65");
+        if (status.LightState is { } lightState)
+            device.IsOn = lightState.IsOn;
+    }
+
     private void ReloadDevices()
     {
         var savedDevices = _repository.GetAll();
@@ -172,11 +253,16 @@ public partial class MainPage : ContentPage
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
+        await ToggleDevicePowerAsync(device);
+    }
+
+    private async Task ToggleDevicePowerAsync(LightDeviceItem device)
+    {
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Home.Power", device.Address,
             $"desiredOn={!device.IsOn}; isDemo={device.IsDemo}; isChecking={device.IsChecking}");
         if (!device.IsDemo)
-            _agpLight.PromoteConnectionToLongLived(device.Address);
+            _agpLight.BeginHomeControlOperation(device.Address);
         // 状态轮询不应抢占用户针对某台设备发起的授权控制操作。
         _statusQuerySuppressed = true;
         try
@@ -190,6 +276,7 @@ public partial class MainPage : ContentPage
         }
         timing.Mark($"后台状态查询已收尾; desiredOn={!device.IsOn}");
 
+        var previousIsOn = device.IsOn;
         try
         {
             if (device.IsDemo)
@@ -207,7 +294,8 @@ public partial class MainPage : ContentPage
         catch (Exception exception)
         {
             timing.SetResult($"failed:{exception.GetType().Name}");
-            device.IsOn = !device.IsOn;
+            device.IsOn = previousIsOn;
+            ApplyCachedDeviceStatus(device);
             _diagnostics.Error(
                 "Light/Power",
                 $"列表页发送开关指令失败：{device.Address}。",
@@ -220,11 +308,26 @@ public partial class MainPage : ContentPage
         }
     }
 
-    private async void OnDeviceManageClicked(object? sender, EventArgs e)
+    private async void OnDeviceCardTapped(object? sender, TappedEventArgs e)
     {
         if (sender is not BindableObject { BindingContext: LightDeviceItem device })
             return;
 
+        await OpenDeviceControlAsync(device);
+    }
+
+    private async Task OpenDeviceControlAsync(LightDeviceItem device)
+    {
+        if (!_isVisible || _controlNavigationInFlight || _controlNavigationStarted)
+            return;
+        // Hold the guard before any await. It stays closed while the home page
+        // is hidden and is reset only when the user returns to the home page.
+        _controlNavigationInFlight = true;
+        _controlNavigationStarted = true;
+#if DEBUG && ANDROID
+        ControlNavigationTiming.Start(_diagnostics, device.Address);
+#endif
+        CancelControlPagePreload();
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Home.OpenControl", device.Address, $"isDemo={device.IsDemo}");
         if (!device.IsDemo)
@@ -232,8 +335,9 @@ public partial class MainPage : ContentPage
         _statusQuerySuppressed = true;
         try
         {
-            await StopStatusRefreshAsync();
-            timing.Mark("后台状态查询已收尾，开始导航");
+            RequestStopStatusRefresh();
+            _ = ObserveStatusRefreshCompletionAsync(_statusRefreshTask);
+            timing.Mark("已请求取消主页查询，立即导航；BLE 收尾在页面显示后等待");
 
             // 控制页异步连接并认证；已有查询结果直接复用，不重复读取 Light State。
             var route = device.IsDemo
@@ -245,15 +349,42 @@ public partial class MainPage : ContentPage
             {
                 await Shell.Current.GoToAsync(
                     $"{route}?name={Uri.EscapeDataString(device.Name)}" +
-                    $"&address={Uri.EscapeDataString(device.Address)}");
+                    $"&address={Uri.EscapeDataString(device.Address)}", animate: false);
                 navigation.SetResult("success");
+#if DEBUG && ANDROID
+                ControlNavigationTiming.Current?.Mark("GoToAsync.Returned");
+#endif
             }
             timing.SetResult("success");
         }
         catch (Exception exception)
         {
             timing.SetResult($"failed:{exception.GetType().Name}");
-            throw;
+#if DEBUG && ANDROID
+            ControlNavigationTiming.Current?.Mark("NavigationFailed", exception.GetType().Name);
+            ControlNavigationTiming.Current?.Dispose();
+#endif
+            _controlNavigationStarted = false;
+            if (_isVisible)
+                _statusQuerySuppressed = false;
+            _diagnostics.Error("UI/Navigation", $"打开设备控制页失败：{device.Address}。", exception);
+            ToastService.Show("打开设备失败，请重试");
+        }
+        finally
+        {
+            _controlNavigationInFlight = false;
+        }
+    }
+
+    private async Task ObserveStatusRefreshCompletionAsync(Task? refreshTask)
+    {
+        if (refreshTask is null)
+            return;
+        try { await refreshTask; }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            _diagnostics.Warning("BLE/Status", $"导航后的主页查询收尾失败：{exception.Message}");
         }
     }
 
@@ -343,17 +474,15 @@ public partial class MainPage : ContentPage
 
         try
         {
-            var state = await _agpLight.GetOnOffStateWithoutAuthorizationAsync(
+            await _agpLight.GetOnOffStateWithoutAuthorizationAsync(
                 device.Address,
                 timeoutCancellation.Token);
-            device.IsOnline = true;
-            device.Status = "在线";
-            device.StatusColor = Color.FromArgb("#35C987");
-            device.IsOn = state;
+            ApplyCachedDeviceStatus(device);
             return;
         }
         catch (OperationCanceledException) when (
-            refreshCancellationToken.IsCancellationRequested)
+            refreshCancellationToken.IsCancellationRequested ||
+            _agpLight.IsApplicationSuspended)
         {
             return;
         }
@@ -376,15 +505,28 @@ public partial class MainPage : ContentPage
         finally
         {
             device.IsChecking = false;
+            ApplyCachedDeviceStatus(device);
         }
     }
 
     private void MarkDeviceOffline(LightDeviceItem device)
     {
+        // A home query can time out while queued behind foreground restoration.
+        // It must not disable a connection that has already been restored.
+        if (_connectionService.IsConnected(device.Address))
+        {
+            ApplyCachedDeviceStatus(device);
+            return;
+        }
         _agpLight.RecordDeviceOffline(device.Address);
-        device.IsOnline = false;
-        device.Status = "离线";
-        device.StatusColor = Color.FromArgb("#E65B65");
+        ApplyCachedDeviceStatus(device);
+    }
+
+    private void RequestStopStatusRefresh()
+    {
+        _statusRefreshCancellation?.Cancel();
+        lock (_statusQueueSync)
+            _pendingStatusQueries.Clear();
     }
 
     private async Task StopStatusRefreshAsync()
@@ -392,9 +534,7 @@ public partial class MainPage : ContentPage
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Home.StopStatusRefresh", detail:
             $"hasCancellation={_statusRefreshCancellation is not null}; hasTask={_statusRefreshTask is not null}; taskCompleted={_statusRefreshTask?.IsCompleted}");
-        _statusRefreshCancellation?.Cancel();
-        lock (_statusQueueSync)
-            _pendingStatusQueries.Clear();
+        RequestStopStatusRefresh();
         timing.Mark("已请求取消并清空待查询队列");
         if (_statusRefreshTask is not { } refreshTask)
         {

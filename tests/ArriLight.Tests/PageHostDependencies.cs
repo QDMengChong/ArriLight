@@ -2,22 +2,59 @@ namespace ArriLight;
 
 // In-memory MAUI boundaries let tests exercise the actual page lifecycle source.
 // Android's native dialog is checked by the platform build, not rendered here.
-public class ContentPage
+public class BindableObject
 {
     public object? BindingContext { get; set; }
+}
+
+public class Element : BindableObject;
+
+public abstract class RouteFactory
+{
+    public abstract Element GetOrCreate();
+    public virtual Element GetOrCreate(IServiceProvider services) => GetOrCreate();
+}
+
+public class ContentPage : Element
+{
+    public TestDispatcher Dispatcher { get; } = new();
     protected virtual void OnAppearing() { }
     protected virtual void OnDisappearing() { }
+    protected virtual void OnNavigatedTo(NavigatedToEventArgs args) { }
     protected virtual bool OnBackButtonPressed() => false;
-    protected void OnPropertyChanged() { }
+    protected void OnPropertyChanged(string? propertyName = null) { }
     protected Task DisplayAlertAsync(string title, string message, string cancel) => Task.CompletedTask;
     protected Task<string?> DisplayPromptAsync(
         string title, string message, string accept, string cancel, string placeholder,
         string initialValue, int maxLength) => Task.FromResult<string?>(initialValue);
 }
 
+public sealed class NavigatedToEventArgs : EventArgs;
+public sealed class TappedEventArgs : EventArgs;
+
+public sealed class TestDispatcher
+{
+    public event Action? Dispatched;
+    public Queue<Action> PendingActions { get; } = new();
+    public bool Dispatch(Action action)
+    {
+        PendingActions.Enqueue(action);
+        Dispatched?.Invoke();
+        return true;
+    }
+    public void RunNext() => PendingActions.Dequeue()();
+}
+
 public static class MainThread
 {
-    public static void BeginInvokeOnMainThread(Action action) => action();
+    public static Queue<Action>? PendingActions { get; set; }
+    public static void BeginInvokeOnMainThread(Action action)
+    {
+        if (PendingActions is { } pending)
+            pending.Enqueue(action);
+        else
+            action();
+    }
     public static Task InvokeOnMainThreadAsync(Action action)
     {
         action();
@@ -35,17 +72,62 @@ public static class ServiceHelper
 public static class ToastService
 {
     public static List<string> Messages { get; } = [];
+    public static void Show(string message) => Messages.Add(message);
     public static void ShowForDuration(string message, TimeSpan duration) => Messages.Add(message);
+}
+
+public sealed record Color(string Value)
+{
+    public static Color FromArgb(string value) => new(value);
+}
+
+public static class Colors
+{
+    public static Color Transparent { get; } = new("Transparent");
+}
+
+public sealed class QrCodeScanPage;
+public sealed class HslCtlDeviceControlPage;
+
+public partial class MainPage
+{
+    private void InitializeComponent() { }
+    internal void AppearForTest() => OnAppearing();
+    internal void DisappearForTest() => OnDisappearing();
+    internal Task TogglePowerForTestAsync(LightDeviceItem device) => ToggleDevicePowerAsync(device);
+    internal Task QueryForTestAsync(LightDeviceItem device, TimeSpan timeout) =>
+        QueryDeviceStatusAsync(device, timeout, CancellationToken.None);
+    internal void MarkOfflineForTest(LightDeviceItem device) => MarkDeviceOffline(device);
+    internal Task OpenControlForTestAsync(LightDeviceItem device) => OpenDeviceControlAsync(device);
+    internal void SetHomeRefreshForTest(Task task, CancellationTokenSource cancellation)
+    {
+        _statusRefreshTask = task;
+        _statusRefreshCancellation = cancellation;
+    }
 }
 
 public sealed class Shell
 {
     public static Shell Current { get; } = new();
     public List<string> Routes { get; } = [];
-    public Task GoToAsync(string route)
+    public List<bool> AnimationRequests { get; } = [];
+    public Func<string, Task>? OnNavigate { get; set; }
+    public Task GoToAsync(string route, bool animate = true)
     {
         Routes.Add(route);
-        return Task.CompletedTask;
+        AnimationRequests.Add(animate);
+        return OnNavigate?.Invoke(route) ?? Task.CompletedTask;
+    }
+}
+
+internal static class DeviceControlPageRoutes
+{
+    internal static int PreparationCalls { get; set; }
+    internal static bool LastPreparationWasDemo { get; private set; }
+    internal static void Prepare(bool isDemo)
+    {
+        PreparationCalls++;
+        LastPreparationWasDemo = isDemo;
     }
 }
 

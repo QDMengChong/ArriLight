@@ -74,7 +74,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     }
 
     public bool CanRefreshStatus =>
-        !_isDemo && !_isInitializingConnection && !string.IsNullOrWhiteSpace(DeviceAddress);
+        !_isDemo && !_automaticConnectionPending && !_isInitializingConnection &&
+        !string.IsNullOrWhiteSpace(DeviceAddress);
 
     public string ConnectionStatusText
     {
@@ -158,6 +159,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     protected DeviceControlPage(AgpControlPageKind controlPageKind)
     {
+        _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
+        using var timing = _diagnostics.BeginBleTiming("UI.Control.Construct", detail: $"kind={controlPageKind}");
         _controlPageKind = controlPageKind;
         _supportedCapabilities = controlPageKind switch
         {
@@ -170,14 +173,17 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _activeColorModel = controlPageKind == AgpControlPageKind.Ctl
             ? AgpColorModel.Ctl
             : AgpColorModel.Hsl;
-        InitializeComponent();
+        using (var views = _diagnostics.BeginBleTiming("UI.Control.CreateViews"))
+        {
+            InitializeComponent();
+            views.SetResult("created");
+        }
         _repository = ServiceHelper.GetRequiredService<DeviceRepository>();
         _discoveryService =
             ServiceHelper.GetRequiredService<BluetoothDiscoveryService>();
         _connectionService =
             ServiceHelper.GetRequiredService<BluetoothConnectionService>();
         _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
-        _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
         if (TimerModePicker.SelectedIndex < 0)
             TimerModePicker.SelectedIndex = 0;
@@ -185,25 +191,18 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         ConfigureControlPage();
         UpdateEffectVisual();
         _isReady = true;
+        timing.SetResult("prepared");
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
+#if DEBUG && ANDROID
+        _navigationTiming?.Mark("Appearing.Enter");
+#endif
         base.OnAppearing();
+        BeginControlPageAppearance();
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Control.Appearing", DeviceAddress);
-        // 控制页需要独占扫描之外的 BLE 资源，避免后台广播扫描影响
-        // 当前设备的连接、授权和灯控操作。
-        try
-        {
-            await _discoveryService.StopAsync();
-        }
-        catch (Exception exception)
-        {
-            timing.SetResult($"stop-scan-failed:{exception.GetType().Name}");
-            throw;
-        }
-        timing.Mark("后台扫描已停止");
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged += OnRequestedThemeChanged;
         _connectionService.StateChanged += OnConnectionStateChanged;
@@ -211,13 +210,17 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
             _repository.GetByAddress(DeviceAddress) is { } device)
         {
-            DelaySecondsEntry.Text = _repository.GetTimerSeconds(DeviceAddress).ToString();
+            DelaySecondsEntry.Text = (device.TimerSeconds is >= 1 and <= 86400
+                ? device.TimerSeconds : 60).ToString();
             _isDemo = device.IsDemo;
             timing.Mark($"载入控制页; isDemo={_isDemo}");
             OnPropertyChanged(nameof(CanRefreshStatus));
             DeviceName = device.Name;
-            LoadEffectParameters();
-            LoadCustomPresets();
+            LoadEffectParameters(device);
+            LoadCustomPresets(device.CustomPresets ?? []);
+            // A preloaded page may have been constructed before a theme change.
+            UpdateMasterPowerVisual();
+            UpdateEffectVisual();
             if (device.IsDemo)
             {
                 ConnectionStatusText = "演示设备不执行真实蓝牙连接";
@@ -232,19 +235,26 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 timing.Mark("控制页接管持续连接");
                 if (_agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState is { } cachedState)
                     ApplyLightState(cachedState);
-                ApplyConnectionSnapshot(_connectionService.Snapshot);
-                await EnsureConnectedAsync(showError: false);
+                ApplyConnectionSnapshot(_connectionService.GetSnapshot(DeviceAddress));
+                // OnNavigatedTo schedules scan teardown and AGP preparation
+                // after the page transition. Appearing only applies local state.
+                ConnectionStatusText = "正在准备设备连接…";
+                CanConnect = false;
             }
-            timing.SetResult(device.IsDemo ? "demo" : "initialization-finished");
+            timing.SetResult(device.IsDemo ? "demo" : "page-prepared");
         }
         else
         {
             timing.SetResult("device-not-found");
         }
+#if DEBUG && ANDROID
+        _navigationTiming?.Mark("Appearing.Exit");
+#endif
     }
 
     protected override void OnDisappearing()
     {
+        EndControlPageAppearance();
         _connectionInitializationCancellation?.Cancel();
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged -= OnRequestedThemeChanged;
@@ -287,33 +297,44 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             await EnsureConnectedAsync(showError: true, refreshStatus: true);
     }
 
-    private async Task EnsureConnectedAsync(bool showError, bool refreshStatus = false)
+    private async Task EnsureConnectedAsync(
+        bool showError, bool refreshStatus = false, CancellationToken cancellationToken = default,
+        bool scanAlreadyStopped = false)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         if (_isInitializingConnection &&
             _connectionInitializationCancellation?.IsCancellationRequested == true &&
             _connectionInitializationTask is { } previousInitialization)
         {
             await previousInitialization;
         }
+        cancellationToken.ThrowIfCancellationRequested();
         if (string.IsNullOrWhiteSpace(DeviceAddress) || _isInitializingConnection)
             return;
 
-        var initialization = InitializeControlSessionAsync(showError, refreshStatus);
+        var initialization = InitializeControlSessionAsync(
+            showError, refreshStatus, cancellationToken, scanAlreadyStopped);
         _connectionInitializationTask = initialization;
         await initialization;
     }
 
-    private async Task InitializeControlSessionAsync(bool showError, bool refreshStatus)
+    private async Task InitializeControlSessionAsync(
+        bool showError, bool refreshStatus, CancellationToken cancellationToken, bool scanAlreadyStopped)
     {
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Control.Initialize", DeviceAddress,
             $"refreshStatus={refreshStatus}; useCachedLightState={!refreshStatus}");
         _isInitializingConnection = true;
         OnPropertyChanged(nameof(CanRefreshStatus));
-        using var initializationCancellation = new CancellationTokenSource();
+        using var initializationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _connectionInitializationCancellation = initializationCancellation;
         try
         {
+            // Manual connect/refresh also runs only on the already visible page.
+            // Retry scan teardown if the deferred preparation failed there.
+            if (!scanAlreadyStopped)
+                await _discoveryService.StopAsync();
+            initializationCancellation.Token.ThrowIfCancellationRequested();
             var profile = await _agpLight.GetControlProfileAsync(
                 DeviceAddress, initializationCancellation.Token,
                 useCachedLightState: !refreshStatus,
@@ -350,7 +371,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
             try
             {
-                await _connectionService.DisconnectAsync();
+                await _connectionService.DisconnectAsync(DeviceAddress);
             }
             catch
             {
@@ -622,17 +643,15 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         _effectPressCancellation = null;
     }
 
-    private void LoadCustomPresets()
+    private void LoadCustomPresets(IReadOnlyList<SavedControlPreset> savedPresets)
     {
         for (var index = 0; index < Presets.Count; index++)
-            Presets[index] = ControlPreset.Empty();
-
-        foreach (var saved in _repository.GetCustomPresets(DeviceAddress))
         {
-            if (saved.Slot is < 0 or >= 6)
-                continue;
-
-            Presets[saved.Slot] = ControlPreset.FromSaved(saved);
+            var saved = savedPresets.LastOrDefault(preset => preset.Slot == index);
+            if (saved is not null && (!Presets[index].IsSaved || Presets[index].ToSaved(index) != saved))
+                Presets[index] = ControlPreset.FromSaved(saved);
+            else if (saved is null && Presets[index].IsSaved)
+                Presets[index] = ControlPreset.Empty();
         }
 
         ConfigureControlPage();
@@ -1435,6 +1454,9 @@ public sealed class ControlPreset : INotifyPropertyChanged
         bool supportsTemperature,
         bool supportsEffect)
     {
+        if (_supportsBrightness == supportsBrightness && _supportsColor == supportsColor &&
+            _supportsTemperature == supportsTemperature && _supportsEffect == supportsEffect)
+            return;
         _supportsBrightness = supportsBrightness;
         _supportsColor = supportsColor;
         _supportsTemperature = supportsTemperature;

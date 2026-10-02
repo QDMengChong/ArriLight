@@ -146,7 +146,7 @@
                     <DataTemplate x:DataType="local:LightDeviceItem">
                         <Border
                             Margin="0,0,0,12"
-                            Padding="16"
+                            Padding="0"
                             BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
                             Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
                             StrokeShape="RoundRectangle 20"
@@ -159,8 +159,15 @@
                                     Radius="12" />
                             </Border.Shadow>
 
-                            <Grid ColumnDefinitions="64,*,Auto,Auto" ColumnSpacing="12">
+                            <!-- Separate sibling hit regions keep the power button
+                                 outside every navigation gesture, even when disabled. -->
+                            <Grid ColumnDefinitions="*,56,60" MinimumHeightRequest="96">
+                                <Grid Padding="16,16,0,16" ColumnDefinitions="64,*" ColumnSpacing="12">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                    </Grid.GestureRecognizers>
                                 <Border
+                                    InputTransparent="True"
                                     HeightRequest="64"
                                     WidthRequest="64"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
@@ -174,6 +181,7 @@
 
                                 <VerticalStackLayout
                                     Grid.Column="1"
+                                    InputTransparent="True"
                                     Spacing="6"
                                     VerticalOptions="Center">
                                     <Label
@@ -194,9 +202,32 @@
                                             VerticalTextAlignment="Center" />
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>
+                                </Grid>
 
+                                <Grid Grid.Column="1" ColumnDefinitions="6,44,6" RowDefinitions="*,44,*">
+                                    <Grid Grid.Row="0" Grid.ColumnSpan="3">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                        </Grid.GestureRecognizers>
+                                    </Grid>
+                                    <Grid Grid.Row="2" Grid.ColumnSpan="3">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                        </Grid.GestureRecognizers>
+                                    </Grid>
+                                    <Grid Grid.Row="1" Grid.Column="0">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                        </Grid.GestureRecognizers>
+                                    </Grid>
+                                    <Grid Grid.Row="1" Grid.Column="2">
+                                        <Grid.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                        </Grid.GestureRecognizers>
+                                    </Grid>
                                 <Border
-                                    Grid.Column="2"
+                                    Grid.Row="1"
+                                    Grid.Column="1"
                                     HeightRequest="44"
                                     WidthRequest="44"
                                     BackgroundColor="{Binding PowerBackgroundColor}"
@@ -213,18 +244,23 @@
                                         Source="{Binding PowerIcon}"
                                         SemanticProperties.Description="快速开关灯光" />
                                 </Border>
+                                </Grid>
 
-                                <ImageButton
-                                    Grid.Column="3"
-                                    Padding="13"
-                                    BackgroundColor="Transparent"
-                                    Clicked="OnDeviceManageClicked"
-                                    HeightRequest="44"
+                                <Grid Grid.Column="2">
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                    </Grid.GestureRecognizers>
+                                <Image
+                                    InputTransparent="True"
+                                    Margin="13"
+                                    HeightRequest="18"
+                                    HorizontalOptions="Center"
                                     Opacity="0.55"
                                     Source="chevron_right.svg"
                                     VerticalOptions="Center"
-                                    WidthRequest="44"
-                                    SemanticProperties.Description="进入设备管理" />
+                                    WidthRequest="18"
+                                    SemanticProperties.Description="进入设备控制" />
+                                </Grid>
                             </Grid>
                         </Border>
                     </DataTemplate>

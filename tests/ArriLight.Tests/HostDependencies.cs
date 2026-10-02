@@ -9,6 +9,11 @@ namespace ArriLight;
 // AGP codecs/client and persistence serialization use the production sources.
 public sealed class BluetoothDiscoveryService(IDevice device)
 {
+    private readonly Dictionary<string, IDevice> _devices = new(StringComparer.OrdinalIgnoreCase)
+    {
+        [device.Id.ToString("D")] = device
+    };
+    public void RegisterDevice(IDevice other) => _devices[other.Id.ToString("D")] = other;
     public Exception? Failure { get; set; }
     public List<string> InvalidatedAddresses { get; } = [];
     public event EventHandler<DiscoveredBluetoothDevice>? DeviceFound;
@@ -16,12 +21,21 @@ public sealed class BluetoothDiscoveryService(IDevice device)
     public Task<IDevice> FindDeviceAsync(string address, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Failure is null ? Task.FromResult(device) : Task.FromException<IDevice>(Failure);
+        return Failure is null
+            ? Task.FromResult(_devices[address])
+            : Task.FromException<IDevice>(Failure);
     }
 
     public void InvalidateCachedDevice(string address) => InvalidatedAddresses.Add(address);
     public Task ScanAsync(CancellationToken token) => Task.Delay(Timeout.InfiniteTimeSpan, token);
-    public Task StopAsync() => Task.CompletedTask;
+    public int StopCalls { get; private set; }
+    public Func<Task>? OnStop { get; set; }
+    public Task StopAsync()
+    {
+        StopCalls++;
+        return OnStop?.Invoke() ?? Task.CompletedTask;
+    }
+    public Task StartOrResetBackgroundScanAsync(TimeSpan duration) => Task.CompletedTask;
     public void Advertise(DiscoveredBluetoothDevice value) => DeviceFound?.Invoke(this, value);
 }
 

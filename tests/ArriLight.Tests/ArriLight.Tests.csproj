@@ -23,6 +23,10 @@
     <Compile Include="..\..\ArriLight\Services\EffectParameters.cs" Link="Services\EffectParameters.cs" />
     <Compile Include="..\..\ArriLight\Services\SavedDevice.cs" Link="Services\SavedDevice.cs" />
     <Compile Include="..\..\ArriLight\Views\BluetoothScanPage.xaml.cs" Link="Views\BluetoothScanPage.xaml.cs" />
+    <Compile Include="..\..\ArriLight\Views\MainPage.xaml.cs" Link="Views\MainPage.xaml.cs" />
+    <Compile Include="..\..\ArriLight\Views\DeviceControlPage.ConnectionLifecycle.cs" Link="Views\DeviceControlPage.ConnectionLifecycle.cs" />
+    <Compile Include="..\..\ArriLight\Views\DeviceControlPage.Transition.cs" Link="Views\DeviceControlPage.Transition.cs" />
+    <Compile Include="..\..\ArriLight\Services\PreparedControlPageRouteFactory.cs" Link="Services\PreparedControlPageRouteFactory.cs" />
     <Compile Include="..\..\ArriLight\Views\DeviceControlPage.EffectSettings.cs" Link="Views\DeviceControlPage.EffectSettings.cs" />
   </ItemGroup>
 </Project>

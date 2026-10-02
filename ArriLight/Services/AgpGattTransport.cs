@@ -9,8 +9,7 @@ using Plugin.BLE.Abstractions;
 namespace ArriLight;
 
 /// <summary>
-/// 在应用拥有的 BLE 会话上承载 AGP。连接切换仍由
-/// <see cref="BluetoothConnectionService"/> 统一管理，本适配器只负责 AGP 特征。
+/// 在应用拥有的指定 BLE 会话上承载 AGP；每个设备地址拥有独立的通知和客户端通道。
 /// </summary>
 public sealed class AgpGattTransport : IAgpColorGattConnection
 {
@@ -22,6 +21,7 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
 #endif
     private bool _started;
     private bool _disposed;
+    private long _connectionGeneration;
 
     public AgpGattTransport(
         BluetoothConnectionService connectionService,
@@ -95,6 +95,7 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
             }
 
             HasColorStateCharacteristic = colorState is not null;
+            _connectionGeneration = _connectionService.GetConnectionGeneration(_address);
             timing.Mark($"profileValidated; hasColorState={HasColorStateCharacteristic}");
 
             _connectionService.MessageReceived += OnMessageReceived;
@@ -199,7 +200,7 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
     }
 
     public Task DisconnectAsync(CancellationToken cancellationToken = default) =>
-        _connectionService.DisconnectAsync(cancellationToken);
+        _connectionService.DisconnectAsync(_address, cancellationToken);
 
     public ValueTask DisposeAsync()
     {
@@ -216,6 +217,10 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
 
     private void OnMessageReceived(object? sender, BluetoothMessage message)
     {
+        if (_disposed ||
+            message.ConnectionGeneration != _connectionGeneration ||
+            !string.Equals(message.Address, _address, StringComparison.OrdinalIgnoreCase))
+            return;
         if (message.ServiceId != AgpProfile.ServiceId)
             return;
 
