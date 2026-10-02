@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<local:TimedLazyContentView
+    x:Class="ArriLight.LazyEffectControlView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight">
+    <VerticalStackLayout Spacing="14">
+        <Grid ColumnDefinitions="*,Auto">
+            <Label Style="{StaticResource MenuTitleStyle}" Text="特效" />
+            <Label
+                Grid.Column="1"
+                FontSize="11"
+                Text="长按设置/查看参数"
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                VerticalTextAlignment="Center" />
+        </Grid>
+        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+            <Button
+                x:Name="SteadyEffectButtonElement"
+                Clicked="OnEffectClicked"
+                Pressed="OnEffectPressed"
+                Released="OnEffectReleased"
+                Text="常亮"
+                CommandParameter="0" />
+            <Button
+                x:Name="BlinkEffectButtonElement"
+                Grid.Column="1"
+                Clicked="OnEffectClicked"
+                Pressed="OnEffectPressed"
+                Released="OnEffectReleased"
+                Text="闪烁"
+                CommandParameter="1" />
+            <Button
+                x:Name="BreatheEffectButtonElement"
+                Grid.Column="2"
+                Clicked="OnEffectClicked"
+                Pressed="OnEffectPressed"
+                Released="OnEffectReleased"
+                Text="呼吸灯"
+                CommandParameter="2" />
+        </Grid>
+    </VerticalStackLayout>
+</local:TimedLazyContentView>

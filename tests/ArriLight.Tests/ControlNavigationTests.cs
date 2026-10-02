@@ -6,6 +6,136 @@ namespace ArriLight.Tests;
 public sealed class ControlNavigationTests
 {
     [Fact]
+    public async Task SlowCancellationCallbackDoesNotBlockHomeNavigation()
+    {
+        await using var fixture = new PairingFixture();
+        var home = CreateHome(fixture);
+        using var source = new CancellationTokenSource();
+        using var release = new ManualResetEventSlim();
+        var callbackFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var registration = source.Token.Register(() =>
+        {
+            try { release.Wait(TimeSpan.FromSeconds(5)); }
+            finally { callbackFinished.TrySetResult(); }
+        });
+        home.SetHomeRefreshForTest(Task.CompletedTask, source);
+        try
+        {
+            await home.OpenControlForTestAsync(home.Devices.Single(d => d.Address == fixture.Address))
+                .WaitAsync(TimeSpan.FromSeconds(1));
+            Assert.True(source.IsCancellationRequested);
+            Assert.Single(Shell.Current.Routes);
+            Assert.False(callbackFinished.Task.IsCompleted);
+        }
+        finally
+        {
+            release.Set();
+            await callbackFinished.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            home.DisappearForTest();
+        }
+    }
+
+    [Fact]
+    public async Task BothWorkBranchesAndAnimationWaitForTheFirstFrame()
+    {
+        await using var fixture = new PairingFixture();
+        var control = new DeviceControlPage(fixture.Address) { RequireFirstFrameForTest = true };
+        control.AppearConnectionForTest(fixture.Discovery);
+        control.NavigatedForTest();
+        control.Dispatcher.RunNext();
+        Assert.Equal(0, fixture.Discovery.StopCalls);
+        Assert.False(control.ControlsStartedForTest.Task.IsCompleted);
+        Assert.Empty(control.TransitionForTest.Durations);
+        control.DrawFirstFrameForTest();
+        await control.DeferredInitializationForTest!.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(1, control.InitializationCalls);
+        Assert.True(control.ControlsStartedForTest.Task.IsCompleted);
+        control.LeaveConnectionForTest();
+    }
+
+    [Fact]
+    public async Task SlowControlsDoNotDelayBluetoothReadiness()
+    {
+        await using var fixture = new PairingFixture();
+        var controls = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var control = new DeviceControlPage(fixture.Address) { OnLoadControls = token => controls.Task.WaitAsync(token) };
+        control.AppearConnectionForTest(fixture.Discovery);
+        control.NavigatedForTest();
+        control.Dispatcher.RunNext();
+        try
+        {
+            await control.ControlsStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await control.InitializationStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.False(controls.Task.IsCompleted);
+            await control.BlePreparationForTest!;
+            // BLE finishes and clears its pending flag while the UI is still loading.
+            Assert.True(control.CanRefreshStatus);
+            controls.TrySetResult();
+            await control.DeferredInitializationForTest!;
+        }
+        finally { controls.TrySetResult(); control.LeaveConnectionForTest(); }
+    }
+
+    [Fact]
+    public async Task SlowBluetoothDoesNotDelayControls()
+    {
+        await using var fixture = new PairingFixture();
+        var connection = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var control = new DeviceControlPage(fixture.Address) { OnInitialize = token => connection.Task.WaitAsync(token) };
+        control.AppearConnectionForTest(fixture.Discovery);
+        control.NavigatedForTest();
+        control.Dispatcher.RunNext();
+        try
+        {
+            await control.ControlsStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            await control.InitializationStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.False(connection.Task.IsCompleted);
+            Assert.False(control.CanRefreshStatus);
+            connection.TrySetResult();
+            await control.DeferredInitializationForTest!;
+        }
+        finally { connection.TrySetResult(); control.LeaveConnectionForTest(); }
+    }
+
+    [Fact]
+    public async Task LeavingBeforeFirstFramePreventsBothBranches()
+    {
+        await using var fixture = new PairingFixture();
+        var control = new DeviceControlPage(fixture.Address) { RequireFirstFrameForTest = true };
+        control.AppearConnectionForTest(fixture.Discovery);
+        control.NavigatedForTest();
+        control.Dispatcher.RunNext();
+        control.LeaveConnectionForTest();
+        control.DrawFirstFrameForTest();
+        await control.DeferredInitializationForTest!.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.Equal(0, fixture.Discovery.StopCalls);
+        Assert.False(control.ControlsStartedForTest.Task.IsCompleted);
+        Assert.Empty(control.TransitionForTest.Durations);
+    }
+
+    [Fact]
+    public async Task LeavingDuringControlsCancelsTheLoadingBranch()
+    {
+        await using var fixture = new PairingFixture();
+        CancellationToken loadingToken = default;
+        var control = new DeviceControlPage(fixture.Address)
+        {
+            OnLoadControls = token =>
+            {
+                loadingToken = token;
+                return Task.Delay(Timeout.InfiniteTimeSpan, token);
+            }
+        };
+        control.AppearConnectionForTest(fixture.Discovery);
+        control.NavigatedForTest();
+        control.Dispatcher.RunNext();
+        await control.ControlsStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
+        control.LeaveConnectionForTest();
+        await control.DeferredInitializationForTest!.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.True(loadingToken.IsCancellationRequested);
+    }
+
+    [Fact]
     public async Task NavigationCancelsHomeQueryButDoesNotWaitForItsBleCleanupOrStopScanning()
     {
         await using var fixture = new PairingFixture();
@@ -129,6 +259,7 @@ public sealed class ControlNavigationTests
         control.Dispatcher.RunNext();
         try
         {
+            await fixture.Discovery.StopStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
             Assert.Equal(1, fixture.Discovery.StopCalls);
             Assert.Equal(0, control.InitializationCalls);
             stopped.TrySetResult();
@@ -167,6 +298,7 @@ public sealed class ControlNavigationTests
         control.AppearConnectionForTest(fixture.Discovery);
         control.NavigatedForTest();
         control.Dispatcher.RunNext();
+        await fixture.Discovery.StopStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
         control.LeaveConnectionForTest();
         stopped.TrySetResult();
         await control.DeferredInitializationForTest!;
@@ -187,6 +319,7 @@ public sealed class ControlNavigationTests
         control.AppearConnectionForTest(fixture.Discovery);
         control.NavigatedForTest();
         control.Dispatcher.RunNext();
+        await control.InitializationStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
         Assert.Equal(1, control.InitializationCalls);
         control.LeaveConnectionForTest();
         await control.DeferredInitializationForTest!.WaitAsync(TimeSpan.FromSeconds(1));

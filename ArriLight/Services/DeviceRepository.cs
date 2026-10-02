@@ -1,4 +1,5 @@
 using System.Text.Json;
+using ArriOpto.BLE.Agp;
 
 namespace ArriLight;
 
@@ -106,6 +107,34 @@ public sealed class DeviceRepository
             });
     }
 
+    public AgpCapabilities? GetCapabilities(string address) =>
+        GetByAddress(address)?.Capabilities;
+
+    public bool SetCapabilities(string address, AgpCapabilities capabilities) =>
+        // Capability migration is internal metadata and does not change the
+        // device list shown by the home page. Avoid rebuilding its item while
+        // a foreground operation is using that item.
+        Update(address, device => device with { Capabilities = capabilities },
+            notifyDevicesChanged: false);
+
+    public bool SetTokenAndCapabilities(
+        string address,
+        byte[] token,
+        AgpCapabilities capabilities)
+    {
+        ArgumentNullException.ThrowIfNull(token);
+        if (token.Length != 4)
+            throw new ArgumentException("设备 Token 必须为 4 字节。", nameof(token));
+
+        return Update(
+            address,
+            device => device with
+            {
+                Token = Convert.ToHexString(token).ToUpperInvariant(),
+                Capabilities = capabilities
+            });
+    }
+
     public bool ClearToken(string address) =>
         Update(address, device => device with { Token = null });
 
@@ -167,7 +196,8 @@ public sealed class DeviceRepository
 
     private bool Update(
         string address,
-        Func<SavedDevice, SavedDevice> updateDevice)
+        Func<SavedDevice, SavedDevice> updateDevice,
+        bool notifyDevicesChanged = true)
     {
         var updated = false;
         lock (_syncRoot)
@@ -184,7 +214,7 @@ public sealed class DeviceRepository
             updated = true;
         }
 
-        if (updated)
+        if (updated && notifyDevicesChanged)
             DevicesChanged?.Invoke(this, EventArgs.Empty);
 
         return updated;

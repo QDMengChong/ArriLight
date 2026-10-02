@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using CommunityToolkit.Maui;
 using ArriOpto.BLE.Ota;
 using Plugin.BLE;
 using Plugin.BLE.Abstractions.Contracts;
@@ -13,6 +14,7 @@ public static class MauiProgram
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
+            .UseMauiCommunityToolkit()
             .UseBarcodeReader()
             .ConfigureFonts(fonts =>
             {

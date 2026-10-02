@@ -359,7 +359,8 @@ public sealed class AgpLightControlService : IAsyncDisposable
             cancellationToken: cancellationToken);
 
     /// <summary>
-    /// 连接暂时不可用时每隔 500 ms 重试；收到成功 Token 响应并保存后完成绑定。
+    /// 连接暂时不可用时每隔 500 ms 重试；收到成功 Token 响应并保存
+    /// Token 与配对阶段读取的能力快照后完成绑定。
     /// ATT Indication 接收确认由手机 BLE 栈完成，PW01 随后主动断开供其他 APP 配对。
     /// </summary>
     public async Task BindAsync(
@@ -427,6 +428,9 @@ public sealed class AgpLightControlService : IAsyncDisposable
             await transport.StartAsync(token, subscribeState: false);
             await using var client = new AgpClient(transport);
             var capabilities = await client.ReadCapabilitiesAsync(token);
+            _diagnostics.Information(
+                "AGP/Binding",
+                $"配对阶段已读取设备能力：device={address}，capabilities=0x{(ulong)capabilities:X}。");
             if (!capabilities.HasFlag(AgpCapabilities.SecureControl))
                 throw new NotSupportedException("设备不支持 Token 配对。");
 
@@ -439,15 +443,17 @@ public sealed class AgpLightControlService : IAsyncDisposable
             EnsureSuccess(provision.Result);
             if (provision.Token is not { Length: 4 } provisionedToken)
                 throw new InvalidOperationException("设备返回的 AGP Token 格式无效。");
-            if (!_repository.SetToken(address, provisionedToken))
+            if (!_repository.SetTokenAndCapabilities(address, provisionedToken, capabilities))
             {
                 throw new InvalidOperationException(
-                    "设备已返回 Token，但本地设备记录不存在，无法保存绑定信息。");
+                    "设备已返回 Token 和能力，但本地设备记录不存在，无法保存绑定信息。");
             }
 
             // Token 已保存即配对成功；原连接会被设备断开，不能在这里继续
             // AUTH_TOKEN、读取灯状态或校时，也不能因断开而删除已保存的 Token。
-            _diagnostics.Information("AGP/Binding", $"设备 {address} 的 Token 已保存，配对完成。");
+            _diagnostics.Information(
+                "AGP/Binding",
+                $"设备 {address} 的 Token 和能力已保存，配对完成。");
         }
         finally
         {
@@ -1058,9 +1064,24 @@ public sealed class AgpLightControlService : IAsyncDisposable
         var client = new AgpClient(transport);
         try
         {
-            var capabilities = await MeasureAsync("AGP.ReadCapabilities", address,
-                () => client.ReadCapabilitiesAsync(cancellationToken));
-            timing.Mark($"capabilities=0x{(ulong)capabilities:X} secureControl={capabilities.HasFlag(AgpCapabilities.SecureControl)}");
+            var cachedCapabilities = _repository.GetCapabilities(address);
+            AgpCapabilities capabilities;
+            if (cachedCapabilities is { } persistedCapabilities)
+            {
+                capabilities = persistedCapabilities;
+                timing.Mark(
+                    $"capabilities=0x{(ulong)capabilities:X} source=local secureControl={capabilities.HasFlag(AgpCapabilities.SecureControl)}");
+            }
+            else
+            {
+                // Devices added before capability persistence was introduced are
+                // migrated on their next authenticated connection.
+                capabilities = await MeasureAsync("AGP.ReadCapabilities", address,
+                    () => client.ReadCapabilitiesAsync(cancellationToken));
+                _repository.SetCapabilities(address, capabilities);
+                timing.Mark(
+                    $"capabilities=0x{(ulong)capabilities:X} source=ble secureControl={capabilities.HasFlag(AgpCapabilities.SecureControl)}");
+            }
             var isAuthorized = true;
             if (capabilities.HasFlag(AgpCapabilities.SecureControl))
             {

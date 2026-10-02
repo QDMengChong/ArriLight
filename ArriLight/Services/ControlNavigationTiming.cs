@@ -19,6 +19,10 @@ internal sealed class ControlNavigationTiming : IDisposable
     private readonly Dictionary<VisualElement, long> _handlerStarts = [];
     private readonly HashSet<VisualElement> _observed = [];
     private readonly Dictionary<string, (int Count, double Total, double Max)> _handlers = [];
+    private readonly Dictionary<VisualElement, string> _groups = [];
+    private readonly Dictionary<string, (int Count, double Total, double Max)> _layouts = [];
+    private readonly Dictionary<string, double> _creations = [];
+    private readonly HashSet<Element> _descendantRoots = [];
     private DeviceControlPage? _page;
     private Android.Views.View? _nativeView;
     private NativeObserver? _nativeObserver;
@@ -28,16 +32,17 @@ internal sealed class ControlNavigationTiming : IDisposable
     private bool _disposed;
     private int _layoutCount;
     private int _frameCount;
+    private readonly System.Collections.Concurrent.ConcurrentQueue<string> _frames = new();
     private bool _preDrawSeen;
     private bool _drawSeen;
     private long _firstHandlerStart;
     private long _lastHandlerEnd;
 
-    private ControlNavigationTiming(AppDiagnosticService diagnostics, string address)
+    private ControlNavigationTiming(AppDiagnosticService diagnostics, string address, string origin = "TapAccepted")
     {
         _diagnostics = diagnostics;
         _address = address;
-        Mark("TapAccepted", "触摸手势已触发；不是手指按下时间");
+        Mark(origin, "计时起点为应用收到请求，不是手指按下时间");
         if (OperatingSystem.IsAndroidVersionAtLeast(24) &&
             Microsoft.Maui.ApplicationModel.Platform.CurrentActivity?.Window is { } window)
         {
@@ -62,6 +67,52 @@ internal sealed class ControlNavigationTiming : IDisposable
         Current = new ControlNavigationTiming(diagnostics, address);
     }
 
+    internal static ControlNavigationTiming StartLazyLoad(AppDiagnosticService diagnostics, string address)
+    {
+        Current = new ControlNavigationTiming(diagnostics, address, "LazyViewRequested");
+        return Current;
+    }
+
+    internal void ObserveLazyContent(TimedLazyContentView view)
+    {
+        if (_disposed) return;
+        var group = view.GetType().Name;
+        ObserveTree(view, group);
+        ObserveDescendants(view);
+    }
+
+    // CollectionView template elements are created later than the LazyView's
+    // initial visual tree. Their constructors subscribe before handler setup.
+    internal void ObservePresetElement(VisualElement view)
+    {
+        if (_disposed) return;
+        ObserveTree(view, nameof(LazyPresetControlView));
+        ObserveDescendants(view);
+    }
+
+    private void ObserveDescendants(Element root)
+    {
+        if (_descendantRoots.Add(root)) root.DescendantAdded += OnDescendantAdded;
+    }
+
+    private void OnDescendantAdded(object? sender, ElementEventArgs args)
+    {
+        if (_disposed || sender is not VisualElement root || args.Element is not IVisualTreeElement child) return;
+        ObserveTree(child, _groups.GetValueOrDefault(root, "Page"));
+    }
+
+    internal void RecordLayout(VisualElement view, string phase, long started)
+    {
+        if (_disposed) return;
+        var key = $"group={_groups.GetValueOrDefault(view, view.GetType().Name)}; type={view.GetType().Name}; phase={phase}";
+        var elapsed = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+        var previous = _layouts.GetValueOrDefault(key);
+        _layouts[key] = (previous.Count + 1, previous.Total + elapsed, Math.Max(previous.Max, elapsed));
+    }
+
+    internal void RecordCreation(string group, long started) =>
+        _creations[group] = Stopwatch.GetElapsedTime(started).TotalMilliseconds;
+
     internal void Attach(DeviceControlPage page)
     {
         _page = page;
@@ -78,14 +129,15 @@ internal sealed class ControlNavigationTiming : IDisposable
         }
     }
 
-    private void ObserveTree(IVisualTreeElement element)
+    private void ObserveTree(IVisualTreeElement element, string group = "Page")
     {
         if (element is VisualElement view && _observed.Add(view))
         {
+            _groups[view] = group;
             view.HandlerChanging += OnHandlerChanging;
             view.HandlerChanged += OnHandlerChanged;
         }
-        foreach (var child in element.GetVisualChildren()) ObserveTree(child);
+        foreach (var child in element.GetVisualChildren()) ObserveTree(child, group);
     }
 
     private void OnHandlerChanging(object? sender, HandlerChangingEventArgs args)
@@ -103,7 +155,7 @@ internal sealed class ControlNavigationTiming : IDisposable
         if (_handlerStarts.Remove(view, out var start))
         {
             var elapsed = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
-            var type = view.GetType().Name;
+            var type = $"group={_groups.GetValueOrDefault(view, "Page")}; type={view.GetType().Name}";
             var previous = _handlers.GetValueOrDefault(type);
             _handlers[type] = (previous.Count + 1, previous.Total + elapsed, Math.Max(previous.Max, elapsed));
         }
@@ -168,10 +220,17 @@ internal sealed class ControlNavigationTiming : IDisposable
 
     private void Frame(FrameMetrics metrics, int dropped)
     {
-        if (!OperatingSystem.IsAndroidVersionAtLeast(24) || _disposed || _frameCount >= 6) return;
-        _frameCount++;
-        Mark("Android.WindowFrame", string.Create(CultureInfo.InvariantCulture,
-            $"frame={_frameCount}; layoutMeasure={metrics.GetMetric((int)FrameMetricsId.LayoutMeasureDuration) / 1_000_000d:0.0}ms; draw={metrics.GetMetric((int)FrameMetricsId.DrawDuration) / 1_000_000d:0.0}ms; total={metrics.GetMetric((int)FrameMetricsId.TotalDuration) / 1_000_000d:0.0}ms; firstWindowDraw={metrics.GetMetric((int)FrameMetricsId.FirstDrawFrame)}; droppedReports={dropped}; window级统计，可能包含主页或过渡帧；sinceTap为回调到达时间"));
+        if (!OperatingSystem.IsAndroidVersionAtLeast(24) || _disposed) return;
+        var frame = Interlocked.Increment(ref _frameCount);
+        if (frame > 64) return;
+        var measure = metrics.GetMetric((int)FrameMetricsId.LayoutMeasureDuration) / 1_000_000d;
+        var draw = metrics.GetMetric((int)FrameMetricsId.DrawDuration) / 1_000_000d;
+        var total = metrics.GetMetric((int)FrameMetricsId.TotalDuration) / 1_000_000d;
+        // Keep the first frames and later slow module-layout frames. Do not
+        // print during measurement/drawing or miss presets loaded in later batches.
+        if (frame <= 6 || measure >= 16 || total >= 32)
+            _frames.Enqueue(string.Create(CultureInfo.InvariantCulture,
+                $"frame={frame}; callbackSinceTap={Stopwatch.GetElapsedTime(_started).TotalMilliseconds:0.0}ms; layoutMeasure={measure:0.0}ms; draw={draw:0.0}ms; total={total:0.0}ms; firstWindowDraw={metrics.GetMetric((int)FrameMetricsId.FirstDrawFrame)}; droppedReports={dropped}; window级统计，可能包含主页或过渡帧；callbackSinceTap 为回调到达时间"));
     }
 
     public void Dispose()
@@ -180,16 +239,26 @@ internal sealed class ControlNavigationTiming : IDisposable
         Mark("Summary", $"observedElements={_observed.Count}; layouts={_layoutCount}; firstDrawCallback={_drawSeen}; HandlerChanging→Changed仅为事件区间，可能嵌套，不能相加当作原生创建总耗时");
         if (_firstHandlerStart != 0 && _lastHandlerEnd != 0)
             Mark("HandlerWindow", string.Create(CultureInfo.InvariantCulture,
-                $"firstChangingSinceTap={Stopwatch.GetElapsedTime(_started, _firstHandlerStart).TotalMilliseconds:0.0}ms; lastChangedSinceTap={Stopwatch.GetElapsedTime(_started, _lastHandlerEnd).TotalMilliseconds:0.0}ms; 仅统计路由返回时已存在的可视树元素"));
-        foreach (var entry in _handlers.OrderByDescending(entry => entry.Value.Total).Take(10))
+                $"firstChangingSinceTap={Stopwatch.GetElapsedTime(_started, _firstHandlerStart).TotalMilliseconds:0.0}ms; lastChangedSinceTap={Stopwatch.GetElapsedTime(_started, _lastHandlerEnd).TotalMilliseconds:0.0}ms; 包含首帧后 LazyView 及预设模板实例"));
+        foreach (var entry in _handlers.OrderByDescending(entry => entry.Value.Total))
             Mark("HandlerSummary", string.Create(CultureInfo.InvariantCulture,
-                $"type={entry.Key}; count={entry.Value.Count}; eventIntervalsTotal={entry.Value.Total:0.0}ms; max={entry.Value.Max:0.0}ms"));
+                $"{entry.Key}; count={entry.Value.Count}; eventIntervalsTotal={entry.Value.Total:0.0}ms; max={entry.Value.Max:0.0}ms"));
+        foreach (var entry in _creations)
+            Mark("LazyViewCreation", string.Create(CultureInfo.InvariantCulture,
+                $"group={entry.Key}; creation={entry.Value:0.0}ms; 包含 XAML 构造、绑定及 Content 赋值；不含后续布局"));
+        foreach (var entry in _layouts.OrderByDescending(entry => entry.Value.Total))
+            Mark("LayoutSummary", string.Create(CultureInfo.InvariantCulture,
+                $"{entry.Key}; count={entry.Value.Count}; inclusiveTotal={entry.Value.Total:0.0}ms; max={entry.Value.Max:0.0}ms; 父子测量/排列可能嵌套，不可相加"));
+        foreach (var frame in _frames) Mark("Android.WindowFrame", frame);
         _disposed = true;
         foreach (var view in _observed)
         {
             view.HandlerChanging -= OnHandlerChanging;
             view.HandlerChanged -= OnHandlerChanged;
         }
+        foreach (var root in _descendantRoots) root.DescendantAdded -= OnDescendantAdded;
+        _descendantRoots.Clear();
+        _groups.Clear();
         try
         {
             if (_nativeObserver is not null && _nativeView?.ViewTreeObserver is { IsAlive: true } observer)

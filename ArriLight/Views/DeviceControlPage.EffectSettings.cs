@@ -90,17 +90,21 @@ public partial class DeviceControlPage
         try
         {
             var period = SnapEffectPeriod(initialPeriod);
-            await MainThread.InvokeOnMainThreadAsync(() =>
-            {
-                EffectSettingsTitle.Text = title;
-                EffectSettingsPeriodSlider.Value = period;
-                EffectSettingsPeriodLabel.Text = FormatEffectPeriod(period);
+            var nativeShown = false;
 #if ANDROID
-                if (TryShowEffectSettingsDialog(title, period, completion))
-                    return;
+            nativeShown = await MainThread.InvokeOnMainThreadAsync(
+                () => TryShowEffectSettingsDialog(title, period, completion));
 #endif
-                EffectSettingsOverlay.IsVisible = true;
-            });
+            if (!nativeShown)
+            {
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    // The page-level overlay is also capability-dependent.
+                    // Create it only when a user opens effect settings.
+                    await EnsureEffectSettingsOverlayLoadedAsync(title, period);
+                    SetEffectSettingsOverlayVisible(true);
+                });
+            }
             _diagnostics.Information(
                 "Light/EffectSettings",
                 $"特效参数对话框已打开：device={DeviceAddress}, mode={mode}。");
@@ -156,7 +160,8 @@ public partial class DeviceControlPage
         dialog?.Dismiss();
         dialog?.Dispose();
 #endif
-        EffectSettingsOverlay.IsVisible = false;
+        if (HasEffectSettingsOverlay)
+            SetEffectSettingsOverlayVisible(false);
     }
 
     protected override bool OnBackButtonPressed()

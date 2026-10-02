@@ -49,7 +49,7 @@ public sealed class FastControlPageTests
     }
 
     [Fact]
-    public async Task ShortAnimationFinishesBeforeScanTeardownAndConnectionInitialization()
+    public async Task ShortAnimationAndConnectionPreparationProceedIndependently()
     {
         await using var fixture = new PairingFixture();
         var control = new DeviceControlPage(fixture.Address);
@@ -60,8 +60,10 @@ public sealed class FastControlPageTests
         control.Dispatcher.RunNext();
         try
         {
-            Assert.Equal(0, fixture.Discovery.StopCalls);
-            Assert.Equal(0, control.InitializationCalls);
+            await control.InitializationStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            Assert.Equal(1, fixture.Discovery.StopCalls);
+            Assert.Equal(1, control.InitializationCalls);
+            Assert.False(animation.Task.IsCompleted);
             Assert.Equal(new uint[] { 120, 120 }, control.TransitionForTest.Durations);
             animation.TrySetResult(false);
             await control.DeferredInitializationForTest!;
@@ -78,19 +80,27 @@ public sealed class FastControlPageTests
     }
 
     [Fact]
-    public async Task LeavingDuringAnimationResetsThePageAndNeverStartsBluetooth()
+    public async Task LeavingDuringAnimationResetsThePageAndCancelsConcurrentBluetooth()
     {
         await using var fixture = new PairingFixture();
         var control = new DeviceControlPage(fixture.Address);
+        CancellationToken initializationToken = default;
+        control.OnInitialize = token =>
+        {
+            initializationToken = token;
+            return Task.Delay(Timeout.InfiniteTimeSpan, token);
+        };
         control.AppearConnectionForTest(fixture.Discovery);
         control.TransitionForTest.Completion =
             new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         control.NavigatedForTest();
         control.Dispatcher.RunNext();
+        await control.InitializationStartedForTest.Task.WaitAsync(TimeSpan.FromSeconds(2));
         control.LeaveConnectionForTest();
         await control.DeferredInitializationForTest!.WaitAsync(TimeSpan.FromSeconds(1));
-        Assert.Equal(0, fixture.Discovery.StopCalls);
-        Assert.Equal(0, control.InitializationCalls);
+        Assert.Equal(1, fixture.Discovery.StopCalls);
+        Assert.Equal(1, control.InitializationCalls);
+        Assert.True(initializationToken.IsCancellationRequested);
         Assert.Equal(1, control.TransitionForTest.Opacity);
         Assert.Equal(0, control.TransitionForTest.TranslationX);
     }

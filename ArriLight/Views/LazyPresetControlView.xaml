@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<local:TimedLazyContentView
+    x:Class="ArriLight.LazyPresetControlView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight">
+    <VerticalStackLayout
+        x:Name="CustomPresetSectionElement"
+        Spacing="10">
+        <Grid ColumnDefinitions="*,Auto">
+            <Label
+                FontFamily="OpenSansSemibold"
+                FontSize="18"
+                Text="自定义配置"
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+            <HorizontalStackLayout
+                Grid.Column="1"
+                Spacing="6"
+                VerticalOptions="Center">
+                <Label
+                    x:Name="PresetModeLabelElement"
+                    FontSize="12"
+                    Text="最多 6 个"
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                    VerticalTextAlignment="Center" />
+                <local:TimedPresetButton
+                    x:Name="FinishReorderButtonElement"
+                    Padding="10,5"
+                    Clicked="OnFinishReorderClicked"
+                    FontSize="11"
+                    IsVisible="False"
+                    Text="完成" />
+            </HorizontalStackLayout>
+        </Grid>
+
+        <local:TimedPresetCollectionView
+            HeightRequest="236"
+            ItemsSource="{Binding Presets}"
+            SelectionMode="None"
+            VerticalScrollBarVisibility="Never">
+            <CollectionView.ItemsLayout>
+                <GridItemsLayout
+                    HorizontalItemSpacing="10"
+                    Orientation="Vertical"
+                    Span="3"
+                    VerticalItemSpacing="10" />
+            </CollectionView.ItemsLayout>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="local:ControlPreset">
+                    <local:TimedPresetBorder
+                        Padding="10"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                        Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                        StrokeShape="RoundRectangle 16"
+                        StrokeThickness="1">
+                        <local:TimedPresetBorder.GestureRecognizers>
+                            <DragGestureRecognizer DragStarting="OnPresetDragStarting" />
+                            <DropGestureRecognizer AllowDrop="True" Drop="OnPresetDrop" />
+                        </local:TimedPresetBorder.GestureRecognizers>
+                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
+                            <local:TimedPresetBorder
+                                Grid.Row="0"
+                                HeightRequest="26"
+                                WidthRequest="26"
+                                HorizontalOptions="Center"
+                                BackgroundColor="{Binding PreviewColor}"
+                                Stroke="#55FFFFFF"
+                                StrokeShape="RoundRectangle 13"
+                                StrokeThickness="2" />
+                            <Label
+                                Grid.Row="1"
+                                FontFamily="OpenSansSemibold"
+                                FontSize="12"
+                                HorizontalTextAlignment="Center"
+                                LineBreakMode="TailTruncation"
+                                MaxLines="1"
+                                Text="{Binding DisplayName}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                            <Label
+                                Grid.Row="2"
+                                FontSize="10"
+                                HorizontalTextAlignment="Center"
+                                LineBreakMode="TailTruncation"
+                                MaxLines="1"
+                                Text="{Binding DetailText}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            <local:TimedPresetButton
+                                Grid.RowSpan="3"
+                                ZIndex="10"
+                                BackgroundColor="Transparent"
+                                Clicked="OnPresetClicked"
+                                InputTransparent="{Binding IsReorderMode}"
+                                Opacity="0.01"
+                                Pressed="OnPresetPressed"
+                                Released="OnPresetReleased"
+                                SemanticProperties.Description="{Binding DisplayName}" />
+                        </Grid>
+                    </local:TimedPresetBorder>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </local:TimedPresetCollectionView>
+    </VerticalStackLayout>
+</local:TimedLazyContentView>

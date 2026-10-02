@@ -24,4 +24,5 @@ public sealed record SavedDevice(
     BlinkEffectParameters? BlinkEffectParameters = null,
     BreatheEffectParameters? BreatheEffectParameters = null,
     IReadOnlyList<SavedControlPreset>? CustomPresets = null,
-    int TimerSeconds = 60);
+    int TimerSeconds = 60,
+    AgpCapabilities? Capabilities = null);

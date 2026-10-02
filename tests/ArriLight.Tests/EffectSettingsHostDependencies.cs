@@ -58,6 +58,19 @@ public partial class DeviceControlPage : ContentPage
         }
         return Task.CompletedTask;
     }
+
+    private bool HasEffectSettingsOverlay => true;
+
+    private Task EnsureEffectSettingsOverlayLoadedAsync(string title, ushort period)
+    {
+        EffectSettingsTitle.Text = title;
+        EffectSettingsPeriodSlider.Value = period;
+        EffectSettingsPeriodLabel.Text = $"周期长度：{period} ms";
+        return Task.CompletedTask;
+    }
+
+    private void SetEffectSettingsOverlayVisible(bool visible) =>
+        EffectSettingsOverlay.IsVisible = visible;
 }
 
 public sealed class ValueChangedEventArgs(double oldValue, double newValue) : EventArgs

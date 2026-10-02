@@ -21,12 +21,28 @@ public sealed class PairingTests
         await fixture.Service.BindAsync(fixture.Address, fixture.ReportProgress);
 
         Assert.Equal("A1B2C3D4", fixture.Repository.GetToken(fixture.Address));
+        Assert.Equal(fixture.Ble.Capabilities, fixture.Repository.GetCapabilities(fixture.Address));
         Assert.Equal([AgpOpcode.AuthGetToken], fixture.Ble.Requests);
         Assert.Equal([AgpProfile.CapabilitiesCharacteristicId], fixture.Ble.Reads);
         Assert.Equal([AgpProfile.ControlPointCharacteristicId], fixture.Ble.Subscriptions);
         Assert.Equal([AgpBindingStage.Connecting, AgpBindingStage.ReceivingToken], fixture.Stages);
         Assert.Single(fixture.Ble.ConnectAttempts);
         Assert.False(fixture.Connection.Snapshot.IsConnected);
+    }
+
+    [Fact]
+    public async Task PersistedCapabilitiesAreUsedWithoutReadingCapabilitiesAgain()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        Assert.True(fixture.Repository.SetCapabilities(
+            fixture.Address, fixture.Ble.Capabilities));
+
+        await fixture.Service.GetOnOffStateAsync(fixture.Address);
+
+        Assert.DoesNotContain(
+            AgpProfile.CapabilitiesCharacteristicId,
+            fixture.Ble.Reads);
     }
 
     [Fact]

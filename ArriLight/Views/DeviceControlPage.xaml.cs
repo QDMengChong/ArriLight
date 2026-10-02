@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using ArriOpto.BLE.Agp;
 using ArriLight.Controls;
+using CommunityToolkit.Maui.Views;
 
 namespace ArriLight;
 
@@ -16,8 +17,12 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private readonly BluetoothConnectionService _connectionService;
     private readonly AgpLightControlService _agpLight;
     private readonly AppDiagnosticService _diagnostics;
-    // 真实设备的能力需要通过 BLE 读取。控制页先以亮度控件快速显示，
-    // 连接完成后再切换到设备实际支持的控制模型。
+    private AgpLightState? _pendingLightState;
+    private int _pendingTimerSeconds = 60;
+    private Task? _capabilityViewsTask;
+    private bool _hasKnownCapabilities;
+    private AgpDeviceControlProfile? _pendingControlProfile;
+    // 能力相关区域使用 LazyView；内部视图只在能力确认后加载。
     private AgpControlPageKind _controlPageKind;
     private AgpCapabilities _supportedCapabilities = AgpCapabilities.Lightness;
 
@@ -50,6 +55,52 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private bool _isInitializingConnection;
     private CancellationTokenSource? _connectionInitializationCancellation;
     private Task? _connectionInitializationTask;
+
+    private LazyColorControlView ColorView =>
+        (LazyColorControlView)ColorControlLazyView.Content!;
+    private LazyBrightnessControlView BrightnessView =>
+        (LazyBrightnessControlView)BrightnessControlLazyView.Content!;
+    private LazyEffectControlView EffectsView =>
+        (LazyEffectControlView)EffectControlLazyView.Content!;
+    private LazySavePresetButtonView SavePresetView =>
+        (LazySavePresetButtonView)SavePresetLazyView.Content!;
+    private LazyPresetControlView PresetView =>
+        (LazyPresetControlView)PresetControlLazyView.Content!;
+    private LazyTimerControlView TimerView =>
+        (LazyTimerControlView)TimerControlLazyView.Content!;
+    private LazyScheduleControlView ScheduleView =>
+        (LazyScheduleControlView)ScheduleControlLazyView.Content!;
+    private LazyEffectSettingsOverlayView EffectSettingsView =>
+        (LazyEffectSettingsOverlayView)EffectSettingsLazyView.Content!;
+
+    private bool HasColorView => ColorControlLazyView.HasLazyViewLoaded;
+    private bool HasTemperatureLegendView => TemperatureLegendLazyView.HasLazyViewLoaded;
+    private bool HasBrightnessView => BrightnessControlLazyView.HasLazyViewLoaded;
+    private bool HasEffectView => EffectControlLazyView.HasLazyViewLoaded;
+    private bool HasSavePresetView => SavePresetLazyView.HasLazyViewLoaded;
+    private bool HasPresetView => PresetControlLazyView.HasLazyViewLoaded;
+    private bool HasTimerView => TimerControlLazyView.HasLazyViewLoaded;
+    private bool HasScheduleView => ScheduleControlLazyView.HasLazyViewLoaded;
+    private bool HasEffectSettingsView => EffectSettingsLazyView.HasLazyViewLoaded;
+
+    private ColorTemperaturePicker ColorPicker => ColorView.ColorPicker;
+    private Grid BrightnessControlRow => BrightnessView.BrightnessControlRow;
+    private Slider BrightnessSlider => BrightnessView.BrightnessSlider;
+    private Button SteadyEffectButton => EffectsView.SteadyEffectButton;
+    private Button BlinkEffectButton => EffectsView.BlinkEffectButton;
+    private Button BreatheEffectButton => EffectsView.BreatheEffectButton;
+    private Button SavePresetButton => SavePresetView.SavePresetButton;
+    private VerticalStackLayout CustomPresetSection => PresetView.CustomPresetSection;
+    private Label PresetModeLabel => PresetView.PresetModeLabel;
+    private Button FinishReorderButton => PresetView.FinishReorderButton;
+    private Border RelativeTimerCard => TimerView.RelativeTimerCard;
+    private Picker TimerModePicker => TimerView.TimerModePicker;
+    private Entry DelaySecondsEntry => TimerView.DelaySecondsEntry;
+    private Border ScheduleSettingsCard => ScheduleView.ScheduleSettingsCard;
+    private LazyEffectSettingsOverlayView EffectSettingsOverlay => EffectSettingsView;
+    private Label EffectSettingsTitle => EffectSettingsView.EffectSettingsTitle;
+    private Label EffectSettingsPeriodLabel => EffectSettingsView.EffectSettingsPeriodLabel;
+    private Slider EffectSettingsPeriodSlider => EffectSettingsView.EffectSettingsPeriodSlider;
 
     public string DeviceName
     {
@@ -185,10 +236,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             ServiceHelper.GetRequiredService<BluetoothConnectionService>();
         _agpLight = ServiceHelper.GetRequiredService<AgpLightControlService>();
         BindingContext = this;
-        if (TimerModePicker.SelectedIndex < 0)
-            TimerModePicker.SelectedIndex = 0;
         UpdateMasterPowerVisual();
-        ConfigureControlPage();
         UpdateEffectVisual();
         _isReady = true;
         timing.SetResult("prepared");
@@ -210,14 +258,22 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
             _repository.GetByAddress(DeviceAddress) is { } device)
         {
-            DelaySecondsEntry.Text = (device.TimerSeconds is >= 1 and <= 86400
-                ? device.TimerSeconds : 60).ToString();
+            _pendingTimerSeconds = device.TimerSeconds is >= 1 and <= 86400
+                ? device.TimerSeconds : 60;
             _isDemo = device.IsDemo;
             timing.Mark($"载入控制页; isDemo={_isDemo}");
             OnPropertyChanged(nameof(CanRefreshStatus));
             DeviceName = device.Name;
             LoadEffectParameters(device);
             LoadCustomPresets(device.CustomPresets ?? []);
+            _capabilityViewsTask = null;
+            if (device.Capabilities is { } cachedCapabilities)
+            {
+                ApplyCachedCapabilities(cachedCapabilities);
+                // Only local state here. Native controls are created in batches
+                // after the page's first draw, independently of BLE preparation.
+                timing.Mark($"使用本地能力缓存=0x{(ulong)cachedCapabilities:X}");
+            }
             // A preloaded page may have been constructed before a theme change.
             UpdateMasterPowerVisual();
             UpdateEffectVisual();
@@ -226,6 +282,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 ConnectionStatusText = "演示设备不执行真实蓝牙连接";
                 ConnectionButtonText = "演示";
                 CanConnect = false;
+                _hasKnownCapabilities = true;
             }
             else
             {
@@ -333,17 +390,21 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             // Manual connect/refresh also runs only on the already visible page.
             // Retry scan teardown if the deferred preparation failed there.
             if (!scanAlreadyStopped)
-                await _discoveryService.StopAsync();
+                await Task.Run(_discoveryService.StopAsync, initializationCancellation.Token);
             initializationCancellation.Token.ThrowIfCancellationRequested();
-            var profile = await _agpLight.GetControlProfileAsync(
+            var profile = await Task.Run(() => _agpLight.GetControlProfileAsync(
                 DeviceAddress, initializationCancellation.Token,
                 useCachedLightState: !refreshStatus,
-                refreshLightState: refreshStatus);
+                refreshLightState: refreshStatus), initializationCancellation.Token);
             timing.Mark("完整控制资料已取得");
             initializationCancellation.Token.ThrowIfCancellationRequested();
             if (profile.LightState is { } state)
                 ApplyLightState(state);
             ApplyControlProfile(profile);
+            // A legacy record may have failed before its capabilities were
+            // obtained. A later successful manual retry must still fill the UI.
+            if (_capabilityViewsTask is null && _controlPageAppearanceCancellation is { } appearance)
+                _ = ObserveCapabilityViewsRetryAsync(appearance.Token);
             timing.Mark("控制资料已应用到页面，控制初始化完成");
             timing.SetResult("ready");
             if (refreshStatus)
@@ -388,14 +449,18 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void ApplyLightState(AgpLightState state)
     {
+        _pendingLightState = state;
+        _isMasterPowerOn = state.IsOn;
+        UpdateMasterPowerVisual();
+        if (!HasBrightnessView)
+            return;
+
         _isApplyingControlState = true;
         try
         {
-            _isMasterPowerOn = state.IsOn;
             BrightnessSlider.Value = Math.Clamp(
                 state.IsOn && state.PresentBrightness > 0
                     ? (int)state.PresentBrightness : state.LastNonzeroBrightness, 1, 100);
-            UpdateMasterPowerVisual();
         }
         finally
         {
@@ -609,6 +674,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void UpdateEffectAvailability()
     {
+        if (!HasEffectView)
+            return;
         var enabled = IsDeviceOnline && _effectsSupported;
         SteadyEffectButton.IsEnabled = enabled;
         BlinkEffectButton.IsEnabled = enabled;
@@ -617,6 +684,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void UpdateEffectVisual()
     {
+        if (!HasEffectView)
+            return;
         var isDark = Application.Current?.RequestedTheme == AppTheme.Dark;
         var selectedBackground = Color.FromArgb("#3157E8");
         var inactiveBackground = Color.FromArgb(isDark ? "#263652" : "#EDF3FF");
@@ -930,7 +999,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnTimerSendClicked(object? sender, EventArgs e)
     {
-        if (!IsDeviceOnline || !RelativeTimerCard.IsVisible)
+        if (!IsDeviceOnline || !HasTimerView || !RelativeTimerCard.IsVisible)
             return;
         if (!int.TryParse(DelaySecondsEntry.Text, out var seconds) || seconds is < 1 or > 86400)
         {
@@ -970,7 +1039,14 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void ApplyTimerCapabilities(AgpCapabilities capabilities)
     {
-        ScheduleSettingsCard.IsVisible = capabilities.HasFlag(AgpCapabilities.RtcTime);
+        if (!HasTimerView)
+            return;
+        // The schedule card is itself capability-dependent and is loaded lazily.
+        // A device that only exposes RelativeTimer has no Schedule LazyView yet;
+        // touching its content here would dereference a null view during the
+        // first capability load.
+        if (HasScheduleView)
+            ScheduleSettingsCard.IsVisible = capabilities.HasFlag(AgpCapabilities.RtcTime);
         RelativeTimerCard.IsVisible = capabilities.HasFlag(AgpCapabilities.RelativeTimer);
 
         var wasTimedOn = TimerModePicker.SelectedIndex == 1;
@@ -984,7 +1060,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async void OnScheduleTapped(object? sender, TappedEventArgs e)
     {
-        if (!IsDeviceOnline || !ScheduleSettingsCard.IsVisible)
+        if (!IsDeviceOnline || !HasScheduleView || !ScheduleSettingsCard.IsVisible)
             return;
 
         await Shell.Current.GoToAsync(
@@ -1184,14 +1260,29 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             AgpControlPageKind.Ctl or AgpControlPageKind.HslAndCtl;
         var supportsBrightness = SupportsBrightness;
 
-        ColorPicker.IsVisible = supportsHsl || supportsCtl;
-        ColorPicker.IsColorControlEnabled = supportsHsl;
-        ColorPicker.IsTemperatureControlEnabled = supportsCtl;
-        ColorTemperatureLegend.IsVisible = supportsCtl;
-        BrightnessControlRow.IsVisible = supportsBrightness;
+        if (HasColorView)
+        {
+            ColorControlLazyView.IsVisible = supportsHsl || supportsCtl;
+            ColorPicker.IsColorControlEnabled = supportsHsl;
+            ColorPicker.IsTemperatureControlEnabled = supportsCtl;
+        }
+        if (HasTemperatureLegendView)
+            TemperatureLegendLazyView.IsVisible = supportsCtl;
+        ColorBrightnessSeparator.IsVisible = supportsHsl || supportsCtl;
+        if (HasBrightnessView)
+        {
+            BrightnessControlLazyView.IsVisible = supportsBrightness;
+            BrightnessControlRow.IsVisible = supportsBrightness;
+        }
         var hasPresetSupport = supportsBrightness || supportsHsl || supportsCtl || SupportsEffect;
-        SavePresetButton.IsVisible = hasPresetSupport;
-        CustomPresetSection.IsVisible = hasPresetSupport;
+        if (HasSavePresetView)
+            SavePresetLazyView.IsVisible = hasPresetSupport;
+        if (HasPresetView)
+        {
+            PresetControlLazyView.IsVisible = hasPresetSupport;
+            CustomPresetSection.IsVisible = hasPresetSupport;
+        }
+        BrightnessEffectSeparator.IsVisible = supportsBrightness && SupportsEffect;
         foreach (var preset in Presets)
         {
             preset.SetSupportedContent(
@@ -1209,13 +1300,237 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         };
     }
 
+    private Task LoadDeferredCapabilityViewsAsync(Task blePreparation, CancellationToken token) =>
+        _capabilityViewsTask ??= LoadDeferredCapabilityViewsCoreAsync(blePreparation, token);
+
+    private async Task LoadDeferredCapabilityViewsCoreAsync(Task blePreparation, CancellationToken token)
+    {
+        // Give the first frame/entrance transition another drawing opportunity.
+        // Legacy records without cached capabilities wait only for the profile.
+        var completed = false;
+        try
+        {
+            await WaitForFirstControlFrameAsync(token);
+            await YieldControlFrameAsync(token);
+            if (!_hasKnownCapabilities) await blePreparation;
+            token.ThrowIfCancellationRequested();
+            if (!_hasKnownCapabilities) return;
+            await LoadCapabilityViewsAsync(token);
+            completed = true;
+        }
+        finally
+        {
+            if (!completed && _controlPageAppearanceCancellation?.Token == token)
+                _capabilityViewsTask = null;
+        }
+    }
+
+    private async Task ObserveCapabilityViewsRetryAsync(CancellationToken token)
+    {
+        try { await LoadDeferredCapabilityViewsAsync(Task.CompletedTask, token); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+        catch (Exception exception) { _diagnostics.Error("UI/Control", "能力控件补充加载失败。", exception); }
+    }
+
+    private void ApplyCachedCapabilities(AgpCapabilities capabilities)
+    {
+        _hasKnownCapabilities = true;
+        _supportedCapabilities = capabilities;
+        _controlPageKind = new AgpDeviceControlProfile(
+            capabilities, null, _ctlRange).PageKind;
+        _effectsSupported = capabilities.HasFlag(AgpCapabilities.Effects);
+        _activeColorModel = _controlPageKind == AgpControlPageKind.Ctl
+            ? AgpColorModel.Ctl
+            : AgpColorModel.Hsl;
+    }
+
+    private async Task LoadCapabilityViewsAsync(CancellationToken token)
+    {
+        using var timing = _diagnostics.BeginBleTiming(
+            "UI.Control.LoadCapabilityViews",
+            DeviceAddress,
+            $"pageKind={_controlPageKind}; capabilities=0x{(ulong)_supportedCapabilities:X16}");
+        var supportsHsl = _controlPageKind is
+            AgpControlPageKind.Hsl or AgpControlPageKind.HslAndCtl;
+        var supportsCtl = _controlPageKind is
+            AgpControlPageKind.Ctl or AgpControlPageKind.HslAndCtl;
+        var supportsBrightness = SupportsBrightness;
+        var hasPresetSupport = supportsBrightness || supportsHsl || supportsCtl || SupportsEffect;
+
+        if (supportsHsl || supportsCtl)
+        {
+            token.ThrowIfCancellationRequested();
+            var view = await LoadLazyViewAsync(ColorControlLazyView);
+            view.SelectionChanged -= OnColorPickerSelectionChanged;
+            view.SelectionChanged += OnColorPickerSelectionChanged;
+            ColorControlLazyView.IsVisible = true;
+            ConfigureControlPage();
+            ApplyPendingProfileToLoadedViews(applyBrightness: false);
+            timing.Mark("HSL/CTL LazyView loaded");
+            await YieldControlFrameAsync(token);
+        }
+
+        if (supportsCtl)
+        {
+            await LoadLazyViewAsync(TemperatureLegendLazyView);
+            TemperatureLegendLazyView.IsVisible = true;
+            timing.Mark("CTL legend LazyView loaded");
+            await YieldControlFrameAsync(token);
+        }
+
+        if (supportsBrightness)
+        {
+            var view = await LoadLazyViewAsync(BrightnessControlLazyView);
+            view.BrightnessChanged -= OnBrightnessChanged;
+            view.BrightnessChanged += OnBrightnessChanged;
+            BrightnessControlLazyView.IsVisible = true;
+            if (_pendingLightState is { } state) ApplyLightState(state);
+            ApplyPendingProfileToLoadedViews(applyColor: false);
+            timing.Mark("brightness LazyView loaded");
+            await YieldControlFrameAsync(token);
+        }
+
+        if (SupportsEffect)
+        {
+            var view = await LoadLazyViewAsync(EffectControlLazyView);
+            view.EffectClicked -= OnEffectClicked;
+            view.EffectPressed -= OnEffectPressed;
+            view.EffectReleased -= OnEffectReleased;
+            view.EffectClicked += OnEffectClicked;
+            view.EffectPressed += OnEffectPressed;
+            view.EffectReleased += OnEffectReleased;
+            EffectControlLazyView.IsVisible = true;
+            UpdateEffectAvailability();
+            UpdateEffectVisual();
+            timing.Mark("effects LazyView loaded");
+            await YieldControlFrameAsync(token);
+        }
+
+        if (hasPresetSupport)
+        {
+            var saveView = await LoadLazyViewAsync(SavePresetLazyView);
+            saveView.SaveClicked -= OnSavePresetClicked;
+            saveView.SaveClicked += OnSavePresetClicked;
+            SavePresetLazyView.IsVisible = true;
+            timing.Mark("save preset LazyView loaded");
+            await YieldControlFrameAsync(token);
+
+            var presetView = await LoadLazyViewAsync(PresetControlLazyView);
+            presetView.FinishReorderClicked -= OnFinishReorderClicked;
+            presetView.PresetClicked -= OnPresetClicked;
+            presetView.PresetPressed -= OnPresetPressed;
+            presetView.PresetReleased -= OnPresetReleased;
+            presetView.PresetDragStarting -= OnPresetDragStarting;
+            presetView.PresetDrop -= OnPresetDrop;
+            presetView.FinishReorderClicked += OnFinishReorderClicked;
+            presetView.PresetClicked += OnPresetClicked;
+            presetView.PresetPressed += OnPresetPressed;
+            presetView.PresetReleased += OnPresetReleased;
+            presetView.PresetDragStarting += OnPresetDragStarting;
+            presetView.PresetDrop += OnPresetDrop;
+            PresetControlLazyView.IsVisible = true;
+            timing.Mark("preset LazyView loaded");
+            await YieldControlFrameAsync(token);
+        }
+
+        if (_supportedCapabilities.HasFlag(AgpCapabilities.RelativeTimer))
+        {
+            var view = await LoadLazyViewAsync(TimerControlLazyView);
+            view.DelayFocused -= OnDelaySecondsFocused;
+            view.DelayTextChanged -= OnDelaySecondsTextChanged;
+            view.SendClicked -= OnTimerSendClicked;
+            view.DelayFocused += OnDelaySecondsFocused;
+            view.DelayTextChanged += OnDelaySecondsTextChanged;
+            view.SendClicked += OnTimerSendClicked;
+            view.TimerModePicker.SelectedIndex = 0;
+            view.DelaySecondsEntry.Text = _pendingTimerSeconds.ToString();
+            TimerControlLazyView.IsVisible = true;
+            timing.Mark("timer LazyView loaded");
+            await YieldControlFrameAsync(token);
+        }
+
+        if (_supportedCapabilities.HasFlag(AgpCapabilities.RtcTime))
+        {
+            var view = await LoadLazyViewAsync(ScheduleControlLazyView);
+            view.Tapped -= OnScheduleTapped;
+            view.Tapped += OnScheduleTapped;
+            ScheduleControlLazyView.IsVisible = true;
+            timing.Mark("schedule LazyView loaded");
+            await YieldControlFrameAsync(token);
+        }
+
+        ConfigureControlPage();
+        ApplyTimerCapabilities(_supportedCapabilities);
+        UpdateEffectAvailability();
+        UpdateEffectVisual();
+        timing.SetResult("capability views ready");
+    }
+
+    private async Task<T> LoadLazyViewAsync<T>(LazyView<T> lazyView)
+        where T : View, new()
+    {
+        if (!lazyView.HasLazyViewLoaded)
+        {
+#if DEBUG && ANDROID
+            var ownsTiming = ControlNavigationTiming.Current is null;
+            var observer = ControlNavigationTiming.Current ??
+                ControlNavigationTiming.StartLazyLoad(_diagnostics, DeviceAddress);
+            var creationStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+#endif
+            lazyView.BindingContext = this;
+            await lazyView.LoadViewAsync();
+#if DEBUG && ANDROID
+            observer.RecordCreation(typeof(T).Name, creationStarted);
+            if (ownsTiming) _ = FinishLazyTimingAsync(observer);
+#endif
+        }
+
+        return (T)lazyView.Content!;
+    }
+
+#if DEBUG && ANDROID
+    private async Task FinishLazyTimingAsync(ControlNavigationTiming observer)
+    {
+        try
+        {
+            await YieldControlFrameAsync(_controlPageAppearanceCancellation?.Token ?? new CancellationToken(true));
+        }
+        catch (OperationCanceledException) { }
+        finally { observer.Dispose(); }
+    }
+#endif
+
+    private bool HasEffectSettingsOverlay => HasEffectSettingsView;
+
+    private async Task EnsureEffectSettingsOverlayLoadedAsync(string title, ushort period)
+    {
+        if (!HasEffectSettingsView)
+            await LoadLazyViewAsync(EffectSettingsLazyView);
+
+        EffectSettingsTitle.Text = title;
+        EffectSettingsPeriodSlider.Value = period;
+        EffectSettingsPeriodLabel.Text = FormatEffectPeriod(period);
+    }
+
+    private void SetEffectSettingsOverlayVisible(bool visible) =>
+        EffectSettingsLazyView.IsVisible = visible;
+
     private void ApplyControlProfile(AgpDeviceControlProfile profile)
     {
+        _hasKnownCapabilities = true;
+        _pendingControlProfile = profile;
         _supportedCapabilities = profile.Capabilities;
         _controlPageKind = profile.PageKind;
         ApplyEffectProfile(profile);
+        _ctlRange = profile.CtlRange;
         ConfigureControlPage();
-        ApplyTimerCapabilities(profile.Capabilities);
+        ApplyTimerCapabilities(_supportedCapabilities);
+        ApplyPendingProfileToLoadedViews();
+    }
+
+    private void ApplyPendingProfileToLoadedViews(bool applyBrightness = true, bool applyColor = true)
+    {
+        if (_pendingControlProfile is not { } profile) return;
 
         if (profile.ColorState is null)
         {
@@ -1224,7 +1539,6 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 : AgpColorModel.Hsl;
         }
 
-        _ctlRange = profile.CtlRange;
         _isApplyingControlState = true;
         try
         {
@@ -1234,29 +1548,36 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                     _activeColorModel = hsl.ActiveModel == AgpColorModel.None
                         ? AgpColorModel.Hsl
                         : hsl.ActiveModel;
-                    BrightnessSlider.Value =
-                        AgpColorModelCodec.Lightness16ToBrightnessPercent(
-                            hsl.Present.Lightness);
-                    ColorPicker.Hue = hsl.Present.Hue / (double)ushort.MaxValue;
-                    ColorPicker.Saturation =
-                        hsl.Present.Saturation / (double)ushort.MaxValue;
+                    if (applyBrightness && HasBrightnessView)
+                        BrightnessSlider.Value =
+                            AgpColorModelCodec.Lightness16ToBrightnessPercent(
+                                hsl.Present.Lightness);
+                    if (applyColor && HasColorView)
+                    {
+                        ColorPicker.Hue = hsl.Present.Hue / (double)ushort.MaxValue;
+                        ColorPicker.Saturation =
+                            hsl.Present.Saturation / (double)ushort.MaxValue;
+                    }
                     break;
 
                 case AgpCtlState ctl:
                     _activeColorModel = ctl.ActiveModel == AgpColorModel.None
                         ? AgpColorModel.Ctl
                         : ctl.ActiveModel;
-                    BrightnessSlider.Value =
-                        AgpColorModelCodec.Lightness16ToBrightnessPercent(
-                            ctl.Present.Lightness);
-                    ColorPicker.Temperature =
-                        KelvinToTemperatureRatio(ctl.Present.TemperatureKelvin);
+                    if (applyBrightness && HasBrightnessView)
+                        BrightnessSlider.Value =
+                            AgpColorModelCodec.Lightness16ToBrightnessPercent(
+                                ctl.Present.Lightness);
+                    if (applyColor && HasColorView)
+                        ColorPicker.Temperature =
+                            KelvinToTemperatureRatio(ctl.Present.TemperatureKelvin);
                     break;
 
                 case AgpLightness16State lightness:
-                    BrightnessSlider.Value =
-                        AgpColorModelCodec.Lightness16ToBrightnessPercent(
-                            lightness.Present);
+                    if (applyBrightness && HasBrightnessView)
+                        BrightnessSlider.Value =
+                            AgpColorModelCodec.Lightness16ToBrightnessPercent(
+                                lightness.Present);
                     break;
             }
         }

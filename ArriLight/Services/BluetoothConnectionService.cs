@@ -200,14 +200,27 @@ public sealed class BluetoothConnectionService
         var session = GetOrCreateSession(address);
         if (_applicationSuspended)
             return;
-        lock (session.LeaseSync)
+#if DEBUG
+        if (DebugOperationTiming.Current is { } preparation)
         {
-            session.LongLived = true;
-            session.CancelLease();
+            preparation.Run("LeaseLockWait", () => Monitor.Enter(session.LeaseSync));
+            try { preparation.Run("LeaseUpgradeAndCancel", Promote); }
+            finally { Monitor.Exit(session.LeaseSync); }
+        }
+        else
+#endif
+        {
+            lock (session.LeaseSync) Promote();
         }
         _diagnostics.Debug(
             "BLE/Connection",
             $"设备 {address} 的主页短时连接已升级为持续控制连接。");
+
+        void Promote()
+        {
+            session.LongLived = true;
+            session.CancelLease();
+        }
     }
 
     /// <summary>Start a new public home-query lease ownership cycle.</summary>
@@ -939,12 +952,16 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
+            Task callbacks;
             lock (session.LeaseSync)
             {
                 if (ReferenceEquals(session.LeaseCancellation, lease))
                     session.LeaseCancellation = null;
-                lease.Dispose();
+                callbacks = session.LeaseCallbacks.Remove(lease, out var pending)
+                    ? pending : Task.CompletedTask;
             }
+            await callbacks.ConfigureAwait(false);
+            lease.Dispose();
         }
     }
 
@@ -1144,7 +1161,7 @@ public sealed class BluetoothConnectionService
     private ConnectionSession GetOrCreateSession(string address)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
-        return _sessions.GetOrAdd(address, value => new ConnectionSession(value));
+        return _sessions.GetOrAdd(address, value => new ConnectionSession(value, _diagnostics));
     }
 
     private void UpdateState(
@@ -1159,7 +1176,7 @@ public sealed class BluetoothConnectionService
         StateChanged?.Invoke(this, session.Snapshot);
     }
 
-    private sealed class ConnectionSession(string address)
+    private sealed class ConnectionSession(string address, AppDiagnosticService diagnostics)
     {
         public string Address { get; } = address;
         public object LeaseSync { get; } = new();
@@ -1168,6 +1185,7 @@ public sealed class BluetoothConnectionService
         public ConcurrentDictionary<Guid, ICharacteristic> NotificationCharacteristics { get; } = new();
         public ConcurrentDictionary<Guid, EventHandler<CharacteristicUpdatedEventArgs>> NotificationHandlers { get; } = new();
         public CancellationTokenSource? LeaseCancellation { get; set; }
+        public Dictionary<CancellationTokenSource, Task> LeaseCallbacks { get; } = [];
         public bool LongLived { get; set; }
         public BluetoothDisconnectReason? ExpectedDisconnectReason { get; set; }
         public BluetoothSessionSnapshot Snapshot { get; set; } =
@@ -1184,7 +1202,8 @@ public sealed class BluetoothConnectionService
             {
                 var lease = LeaseCancellation;
                 LeaseCancellation = null;
-                lease?.Cancel();
+                if (lease is not null)
+                    LeaseCallbacks[lease] = CancellationDispatch.Request(lease, diagnostics, "Connection.Lease", address: Address);
             }
         }
     }

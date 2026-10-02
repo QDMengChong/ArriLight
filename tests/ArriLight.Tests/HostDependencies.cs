@@ -29,10 +29,12 @@ public sealed class BluetoothDiscoveryService(IDevice device)
     public void InvalidateCachedDevice(string address) => InvalidatedAddresses.Add(address);
     public Task ScanAsync(CancellationToken token) => Task.Delay(Timeout.InfiniteTimeSpan, token);
     public int StopCalls { get; private set; }
+    public TaskCompletionSource StopStartedForTest { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public Func<Task>? OnStop { get; set; }
     public Task StopAsync()
     {
         StopCalls++;
+        StopStartedForTest.TrySetResult();
         return OnStop?.Invoke() ?? Task.CompletedTask;
     }
     public Task StartOrResetBackgroundScanAsync(TimeSpan duration) => Task.CompletedTask;

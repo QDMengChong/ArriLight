@@ -18,6 +18,8 @@
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.cs" Link="Services\AgpLightControlService.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpGattTransport.cs" Link="Services\AgpGattTransport.cs" />
     <Compile Include="..\..\ArriLight\Services\BleTimingScope.cs" Link="Services\BleTimingScope.cs" />
+    <Compile Include="..\..\ArriLight\Services\CancellationDispatch.cs" Link="Services\CancellationDispatch.cs" />
+    <Compile Include="..\..\ArriLight\Services\DebugOperationTiming.cs" Link="Services\DebugOperationTiming.cs" />
     <Compile Include="..\..\ArriLight\Services\BluetoothConnectionService.cs" Link="Services\BluetoothConnectionService.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceRepository.cs" Link="Services\DeviceRepository.cs" />
     <Compile Include="..\..\ArriLight\Services\EffectParameters.cs" Link="Services\EffectParameters.cs" />

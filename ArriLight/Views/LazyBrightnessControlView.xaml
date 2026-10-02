@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<local:TimedLazyContentView
+    x:Class="ArriLight.LazyBrightnessControlView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight">
+    <Grid
+        x:Name="BrightnessControlRowElement"
+        ColumnDefinitions="Auto,*,Auto"
+        ColumnSpacing="12">
+        <Image HeightRequest="20" Source="control_brightness.svg" WidthRequest="20" />
+        <Slider
+            x:Name="BrightnessSliderElement"
+            Grid.Column="1"
+            Maximum="100"
+            Minimum="1"
+            Value="75"
+            ValueChanged="OnBrightnessChanged" />
+        <Label
+            Grid.Column="2"
+            FontFamily="OpenSansSemibold"
+            FontSize="13"
+            Text="{Binding Source={x:Reference BrightnessSliderElement}, Path=Value, StringFormat='{0:0}%'}"
+            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+            VerticalTextAlignment="Center"
+            WidthRequest="42" />
+    </Grid>
+</local:TimedLazyContentView>

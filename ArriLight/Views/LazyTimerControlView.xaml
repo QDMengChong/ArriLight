@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<local:TimedLazyContentView
+    x:Class="ArriLight.LazyTimerControlView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight">
+    <Border
+        x:Name="RelativeTimerCardElement"
+        Style="{StaticResource MenuCardStyle}">
+        <Grid ColumnDefinitions="112,*,44" ColumnSpacing="10">
+            <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                <Picker
+                    x:Name="TimerModePickerElement"
+                    FontFamily="OpenSansSemibold"
+                    FontSize="14"
+                    HorizontalOptions="Start"
+                    SelectedIndex="0"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    Title="计时模式">
+                    <Picker.Items>
+                        <x:String>计时关灯</x:String>
+                        <x:String>计时开灯</x:String>
+                        </Picker.Items>
+                </Picker>
+            </VerticalStackLayout>
+            <Border
+                Grid.Column="1"
+                Padding="10,0"
+                BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 12">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Entry
+                        x:Name="DelaySecondsEntryElement"
+                        FontSize="14"
+                        Focused="OnDelaySecondsFocused"
+                        TextChanged="OnDelaySecondsTextChanged"
+                        HorizontalTextAlignment="Center"
+                        Keyboard="Numeric"
+                        MaxLength="5"
+                        Text="60"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                        VerticalTextAlignment="Center" />
+                    <Label
+                        Grid.Column="1"
+                        FontSize="12"
+                        Text="秒"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                        VerticalTextAlignment="Center" />
+                </Grid>
+            </Border>
+            <Border
+                x:Name="TimerSendContainerElement"
+                Grid.Column="2"
+                HeightRequest="44"
+                WidthRequest="44"
+                BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                Stroke="{StaticResource Primary}"
+                StrokeShape="RoundRectangle 22"
+                StrokeThickness="1"
+                VerticalOptions="Center">
+                <ImageButton
+                    Padding="9"
+                    BackgroundColor="Transparent"
+                    Clicked="OnTimerSendClicked"
+                    Source="action_send.svg"
+                    SemanticProperties.Description="发送计时指令" />
+            </Border>
+        </Grid>
+    </Border>
+</local:TimedLazyContentView>

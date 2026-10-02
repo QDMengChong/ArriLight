@@ -3,8 +3,8 @@
     x:Class="ArriLight.DeviceControlPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    xmlns:controls="clr-namespace:ArriLight.Controls"
     xmlns:local="clr-namespace:ArriLight"
+    xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     x:DataType="local:DeviceControlPage"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -64,290 +64,58 @@
                                     Text="亮度控制"
                                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                             </VerticalStackLayout>
-                            <Button
+                            <toolkit:LazyView
+                                x:Name="SavePresetLazyView"
                                 Grid.Column="1"
-                                x:Name="SavePresetButton"
-                                Padding="12,8"
-                                Clicked="OnSavePresetClicked"
-                                FontSize="12"
-                                Text="保存配置" />
+                                IsVisible="False"
+                                x:TypeArguments="local:LazySavePresetButtonView" />
                         </Grid>
 
-                        <controls:ColorTemperaturePicker
-                            x:Name="ColorPicker"
-                            HeightRequest="260"
-                            HorizontalOptions="Center"
-                            SelectionChanged="OnColorPickerSelectionChanged"
-                            WidthRequest="260" />
+                        <toolkit:LazyView
+                            x:Name="ColorControlLazyView"
+                            IsVisible="False"
+                            x:TypeArguments="local:LazyColorControlView" />
 
-                        <Grid
-                            x:Name="ColorTemperatureLegend"
-                            ColumnDefinitions="Auto,*,Auto">
-                            <Label
-                                FontSize="11"
-                                Text="暖光"
-                                TextColor="#E19A56" />
-                            <Label
-                                Grid.Column="1"
-                                FontSize="11"
-                                HorizontalTextAlignment="Center"
-                                Text="色温"
-                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                            <Label
-                                Grid.Column="2"
-                                FontSize="11"
-                                Text="冷光"
-                                TextColor="#77AEEA" />
-                        </Grid>
+                        <toolkit:LazyView
+                            x:Name="TemperatureLegendLazyView"
+                            IsVisible="False"
+                            x:TypeArguments="local:LazyTemperatureLegendView" />
 
                         <BoxView
+                            x:Name="ColorBrightnessSeparator"
                             HeightRequest="1"
                             BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
 
-                        <Grid
-                            x:Name="BrightnessControlRow"
-                            ColumnDefinitions="Auto,*,Auto"
-                            ColumnSpacing="12">
-                            <Image HeightRequest="20" Source="control_brightness.svg" WidthRequest="20" />
-                            <Slider
-                                x:Name="BrightnessSlider"
-                                Grid.Column="1"
-                                Maximum="100"
-                                Minimum="1"
-                                Value="75"
-                                ValueChanged="OnBrightnessChanged" />
-                            <Label
-                                Grid.Column="2"
-                                FontFamily="OpenSansSemibold"
-                                FontSize="13"
-                                Text="{Binding Source={x:Reference BrightnessSlider}, Path=Value, StringFormat='{0:0}%'}"
-                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                                VerticalTextAlignment="Center"
-                                WidthRequest="42" />
-                        </Grid>
+                        <toolkit:LazyView
+                            x:Name="BrightnessControlLazyView"
+                            IsVisible="False"
+                            x:TypeArguments="local:LazyBrightnessControlView" />
                         <BoxView
+                            x:Name="BrightnessEffectSeparator"
                             HeightRequest="1"
                             BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
 
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="特效" />
-                            <Label
-                                Grid.Column="1"
-                                FontSize="11"
-                                Text="长按设置/查看参数"
-                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
-                                VerticalTextAlignment="Center" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
-                            <Button
-                                x:Name="SteadyEffectButton"
-                                Clicked="OnEffectClicked"
-                                Pressed="OnEffectPressed"
-                                Released="OnEffectReleased"
-                                Text="常亮"
-                                CommandParameter="0" />
-                            <Button
-                                x:Name="BlinkEffectButton"
-                                Grid.Column="1"
-                                Clicked="OnEffectClicked"
-                                Pressed="OnEffectPressed"
-                                Released="OnEffectReleased"
-                                Text="闪烁"
-                                CommandParameter="1" />
-                            <Button
-                                x:Name="BreatheEffectButton"
-                                Grid.Column="2"
-                                Clicked="OnEffectClicked"
-                                Pressed="OnEffectPressed"
-                                Released="OnEffectReleased"
-                                Text="呼吸灯"
-                                CommandParameter="2" />
-                        </Grid>
+                        <toolkit:LazyView
+                            x:Name="EffectControlLazyView"
+                            IsVisible="False"
+                            x:TypeArguments="local:LazyEffectControlView" />
                     </VerticalStackLayout>
                 </Border>
 
-                <VerticalStackLayout
-                    x:Name="CustomPresetSection"
+                <toolkit:LazyView
+                    x:Name="PresetControlLazyView"
                     IsVisible="False"
-                    Spacing="10">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label
-                            FontFamily="OpenSansSemibold"
-                            FontSize="18"
-                            Text="自定义配置"
-                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                        <HorizontalStackLayout
-                            Grid.Column="1"
-                            Spacing="6"
-                            VerticalOptions="Center">
-                            <Label
-                                x:Name="PresetModeLabel"
-                                FontSize="12"
-                                Text="最多 6 个"
-                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
-                                VerticalTextAlignment="Center" />
-                            <Button
-                                x:Name="FinishReorderButton"
-                                Padding="10,5"
-                                Clicked="OnFinishReorderClicked"
-                                FontSize="11"
-                                IsVisible="False"
-                                Text="完成" />
-                        </HorizontalStackLayout>
-                    </Grid>
+                    x:TypeArguments="local:LazyPresetControlView" />
 
-                    <CollectionView
-                        HeightRequest="236"
-                        ItemsSource="{Binding Presets}"
-                        SelectionMode="None"
-                        VerticalScrollBarVisibility="Never">
-                        <CollectionView.ItemsLayout>
-                            <GridItemsLayout
-                                HorizontalItemSpacing="10"
-                                Orientation="Vertical"
-                                Span="3"
-                                VerticalItemSpacing="10" />
-                        </CollectionView.ItemsLayout>
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="local:ControlPreset">
-                                <Border
-                                    Padding="10"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
-                                    Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
-                                    StrokeShape="RoundRectangle 16"
-                                    StrokeThickness="1">
-                                    <Border.GestureRecognizers>
-                                        <DragGestureRecognizer DragStarting="OnPresetDragStarting" />
-                                        <DropGestureRecognizer AllowDrop="True" Drop="OnPresetDrop" />
-                                    </Border.GestureRecognizers>
-                                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="7">
-                                        <Border
-                                            Grid.Row="0"
-                                            HeightRequest="26"
-                                            WidthRequest="26"
-                                            HorizontalOptions="Center"
-                                            BackgroundColor="{Binding PreviewColor}"
-                                            Stroke="#55FFFFFF"
-                                            StrokeShape="RoundRectangle 13"
-                                            StrokeThickness="2" />
-                                        <Label
-                                            Grid.Row="1"
-                                            FontFamily="OpenSansSemibold"
-                                            FontSize="12"
-                                            HorizontalTextAlignment="Center"
-                                            LineBreakMode="TailTruncation"
-                                            MaxLines="1"
-                                            Text="{Binding DisplayName}"
-                                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                                        <Label
-                                            Grid.Row="2"
-                                            FontSize="10"
-                                            HorizontalTextAlignment="Center"
-                                            LineBreakMode="TailTruncation"
-                                            MaxLines="1"
-                                            Text="{Binding DetailText}"
-                                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                                        <Button
-                                            Grid.RowSpan="3"
-                                            ZIndex="10"
-                                            BackgroundColor="Transparent"
-                                            Clicked="OnPresetClicked"
-                                            InputTransparent="{Binding IsReorderMode}"
-                                            Opacity="0.01"
-                                            Pressed="OnPresetPressed"
-                                            Released="OnPresetReleased"
-                                            SemanticProperties.Description="{Binding DisplayName}" />
-                                    </Grid>
-                                </Border>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
-                </VerticalStackLayout>
+                <toolkit:LazyView
+                    x:Name="TimerControlLazyView"
+                    IsVisible="False"
+                    x:TypeArguments="local:LazyTimerControlView" />
 
-                <Border
-                    x:Name="RelativeTimerCard"
-                    Style="{StaticResource MenuCardStyle}"
-                    IsVisible="False">
-                    <Grid ColumnDefinitions="112,*,44" ColumnSpacing="10">
-                        <VerticalStackLayout Spacing="3" VerticalOptions="Center">
-                            <Picker
-                                x:Name="TimerModePicker"
-                                FontFamily="OpenSansSemibold"
-                                FontSize="14"
-                                HorizontalOptions="Start"
-                                SelectedIndex="0"
-                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                                Title="计时模式">
-                                <Picker.Items>
-                                    <x:String>计时关灯</x:String>
-                                    <x:String>计时开灯</x:String>
-                                </Picker.Items>
-                            </Picker>
-                        </VerticalStackLayout>
-                        <Border
-                            Grid.Column="1"
-                            Padding="10,0"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
-                            StrokeThickness="0"
-                            StrokeShape="RoundRectangle 12">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Entry
-                                    x:Name="DelaySecondsEntry"
-                                    FontSize="14"
-                                    Focused="OnDelaySecondsFocused"
-                                    TextChanged="OnDelaySecondsTextChanged"
-                                    HorizontalTextAlignment="Center"
-                                    Keyboard="Numeric"
-                                    MaxLength="5"
-                                    Text="60"
-                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                                    VerticalTextAlignment="Center" />
-                                <Label
-                                    Grid.Column="1"
-                                    FontSize="12"
-                                    Text="秒"
-                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
-                                    VerticalTextAlignment="Center" />
-                            </Grid>
-                        </Border>
-                        <Border
-                            x:Name="TimerSendContainer"
-                            Grid.Column="2"
-                            HeightRequest="44"
-                            WidthRequest="44"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
-                            Stroke="{StaticResource Primary}"
-                            StrokeShape="RoundRectangle 22"
-                            StrokeThickness="1"
-                            VerticalOptions="Center">
-                            <ImageButton
-                                Padding="9"
-                                BackgroundColor="Transparent"
-                                Clicked="OnTimerSendClicked"
-                                Source="action_send.svg"
-                                SemanticProperties.Description="发送计时指令" />
-                        </Border>
-                    </Grid>
-                </Border>
-
-                <Border
-                    x:Name="ScheduleSettingsCard"
-                    Style="{StaticResource MenuCardStyle}"
-                    IsVisible="False">
-                    <Border.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnScheduleTapped" />
-                    </Border.GestureRecognizers>
-                    <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
-                        <Border Style="{StaticResource MenuIconContainerStyle}">
-                            <Image Margin="12" Source="control_schedule.svg" />
-                        </Border>
-                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="定时设置" />
-                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="管理自动开关灯计划" />
-                        </VerticalStackLayout>
-                        <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
-                    </Grid>
-                </Border>
+                <toolkit:LazyView
+                    x:Name="ScheduleControlLazyView"
+                    IsVisible="False"
+                    x:TypeArguments="local:LazyScheduleControlView" />
             </VerticalStackLayout>
         </ScrollView>
 
@@ -394,61 +162,12 @@
                 </HorizontalStackLayout>
             </Border>
         </Border>
-        <Grid
-            x:Name="EffectSettingsOverlay"
+        <toolkit:LazyView
+            x:Name="EffectSettingsLazyView"
             Grid.RowSpan="2"
-            BackgroundColor="#88000000"
             IsVisible="False"
-            Padding="28"
+            x:TypeArguments="local:LazyEffectSettingsOverlayView"
             ZIndex="10">
-            <Border
-                Padding="28,22"
-                BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
-                MaximumWidthRequest="420"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 20"
-                VerticalOptions="Center">
-                <VerticalStackLayout Spacing="14">
-                    <Label
-                        x:Name="EffectSettingsTitle"
-                        FontFamily="OpenSansSemibold"
-                        FontSize="20"
-                        HorizontalTextAlignment="Center"
-                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    <Label
-                        FontSize="14"
-                        HorizontalTextAlignment="Center"
-                        Text="调整周期（200～10000 ms）"
-                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                    <Label
-                        x:Name="EffectSettingsPeriodLabel"
-                        FontSize="16"
-                        HorizontalTextAlignment="Center"
-                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    <Slider
-                        x:Name="EffectSettingsPeriodSlider"
-                        Maximum="10000"
-                        Minimum="200"
-                        MaximumTrackColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
-                        MinimumTrackColor="{StaticResource Primary}"
-                        ThumbColor="{StaticResource Primary}"
-                        Value="1000"
-                        ValueChanged="OnEffectSettingsPeriodChanged" />
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                        <Button
-                            BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
-                            Clicked="OnEffectSettingsCancelClicked"
-                            Text="取消"
-                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                        <Button
-                            Grid.Column="1"
-                            BackgroundColor="{StaticResource Primary}"
-                            Clicked="OnEffectSettingsApplyClicked"
-                            Text="应用"
-                            TextColor="White" />
-                    </Grid>
-                </VerticalStackLayout>
-            </Border>
-        </Grid>
+        </toolkit:LazyView>
     </Grid>
 </ContentPage>

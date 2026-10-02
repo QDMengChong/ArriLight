@@ -37,7 +37,7 @@ APP 按设备地址维护多条独立 BLE GATT 会话、通知订阅、AGP 客�
 
 ### 控制页面
 
-主页点击设备卡片后仅请求取消公开状态查询，立即执行页面导航，不等待查询或 BLE 断开清理。主页离开到控制页时也不在导航路径中停止扫描。控制页 `OnAppearing` 只加载本地名称、配置和已知灯状态；导航完成后，由 `OnNavigatedTo` 向 UI 调度队列提交连接准备任务，在已打开的控制页中等待扫描停止、旧查询收尾，再执行连接、能力读取、Token 认证和控制资料读取。页面显示“正在准备设备连接…”，自动初始化完成前不允许重复连接或刷新。离开页面取消本次显示周期的任务，已离开的页面不会迟到启动连接。
+主页点击设备卡片后仅请求取消公开状态查询，立即执行页面导航，不等待查询或 BLE 断开清理。主页离开到控制页时也不在导航路径中停止扫描。控制页 `OnAppearing` 先加载本地名称、配置、已知灯状态和配对时保存的能力位；能力相关 `LazyView` 可以在页面显示与 BLE 连接准备并行创建。导航完成后，由 `OnNavigatedTo` 向 UI 调度队列提交连接准备任务，在已打开的控制页中等待扫描停止、旧查询收尾，再执行连接、Token 认证和控制资料读取。页面显示“正在准备设备连接…”，自动初始化完成前不允许重复连接或刷新。离开页面取消本次显示周期的任务，已离开的页面不会迟到启动连接。
 
 设备卡片除 44×44 的开关区域外均可点击进入控制页，包含图标、名称、状态、留白及箭头。导航点击区域与开关是独立的相邻区域，开关离线禁用时也不会触发导航。主页在首次点击同步锁定导航，导航期间或主页隐藏期间的重复点击不再打开其他控制页；返回主页后解除锁定，导航失败则解除锁定并提示重试。
 
@@ -114,11 +114,9 @@ ArriOpto.BLE.Agp AgpClient
 
 1. 停止后台扫描。
 2. 如果已有成功查询结果，先恢复开关和亮度显示。
-3. 连接目标设备。
-4. 读取 AGP 能力位。
-5. 如果设备支持安全控制，读取本地 Token 并执行认证；没有 Token 时提示尚未绑定，用户需从添加页面完成配对。
-6. 成功查询过的 Light State 直接复用；没有可用结果时读取一次。仍读取 Color State、CTL 范围及特效参数等控制页所需数据。
-7. 根据能力位显示亮度、HSL、CTL 或组合控制界面。
+3. 使用配对时保存的能力位提前显示亮度、HSL、CTL 或组合控制界面；旧设备没有缓存能力时，首次连接读取一次并迁移保存。
+4. 连接目标设备并读取本地 Token 执行认证；没有 Token 时提示尚未绑定，用户需从添加页面完成配对。
+5. 成功查询过的 Light State 直接复用；没有可用结果时读取一次。仍读取 Color State、CTL 范围及特效参数等控制页所需数据。
 
 进入控制页仍建立实际 BLE 连接并认证；缓存灯状态不能跳过 Token 校验。同一设备在同一条有效连接上复用自己的认证客户端；断开重连后必须重新认证。主页公开状态查询成功后，每条连接短暂保留约 10 秒，同一设备的控制操作可以接管其连接；该设备租约到期、查询失败、删除或异常断开时只释放它自己的连接。进入控制页或执行开关、亮度、颜色、特效、计时等控制操作会取消目标租约，连接保持到用户主动断开或应用生命周期结束。控制页直接使用控制 Profile 携带的 Light State，不再额外调用开关状态查询。顶部设备设置按钮左侧新增“刷新”，强制读取一次新的 Light State，同时更新控制 Profile 和共享缓存；断开后则重新连接并认证。刷新进行中按钮不可重复点击，离开页面取消未完成的初始化或刷新；返回时等待旧的取消流程结束后再初始化。
 
@@ -150,7 +148,7 @@ ArriOpto.BLE.Agp AgpClient
 后台 BLE 广播扫描
 ```
 
-当用户点击开关、进入控制页或离开主页时，主页会取消正在进行的状态查询。开关发送仍等待查询收尾以安全接管会话；进入控制页直接导航，将扫描停止和连接准备放到页面导航完成之后执行。
+当用户点击开关、进入控制页或离开主页时，主页会取消正在进行的状态查询。开关发送仍等待查询收尾以安全接管会话；进入控制页通过 CancelAsync 立即标记取消并异步执行回调，直接导航，将扫描停止和连接准备放到页面首次绘制之后执行。取消源等回调完成后才释放。
 
 应用窗口进入后台时，`App` 调用 `AgpLightControlService.SuspendForBackgroundAsync`，记录所有活动连接及各自的认证/租约状态，释放全部 AGP 客户端并逐台断开 BLE。窗口恢复时调用 `ResumeAfterBackgroundAsync`，立即启动这些地址的恢复流程：控制会话重新认证并恢复长连接，主页短时会话重新连接后恢复 10 秒租约。恢复某台设备失败时保留该目标供下次恢复，并继续处理其他设备，已经恢复的设备不被回滚；释放某台连接失败也会继续释放其他设备。窗口销毁时调用 `DisconnectForApplicationCloseAsync`，清理全部连接且不保留任何恢复目标。
 
@@ -165,12 +163,12 @@ PW01 同时只支持一条 BLE 连接。用户双键长按 1 秒打开约 60 秒
 1. 显示“正在连接 PW01”，启动 60 秒等待上限。
 2. 按 500 ms 间隔串行尝试连接。单次连接等待最多 3 秒，给 Android 完成正常 GATT 建连的时间；500 ms 只用于两轮之间的退避，不在原生连接尚未收尾时重复发起建连。
 3. 连接暂时不可用时显示“连接未完成，正在恢复蓝牙连接并自动重试”。BLE 连接错误无法单独证明存在其他手机，因此不把普通超时显示为占用提示。用户取消、离开页面或等待超时均停止重试。
-4. 连接成功后显示“已连接，正在获取配对信息”。只开启 Control Point Indicate，读取能力位以确认支持 Token 配对，再发送 `AUTH_GET_TOKEN`。
-5. 检查成功结果及四字节 Token，保存到本地设备记录。ATT Indication 接收确认由手机 BLE 栈自动完成，不新增 AGP 确认命令。
+4. 连接成功后显示“已连接，正在获取配对信息”。只开启 Control Point Indicate，读取能力位并保存到本地设备记录，以确认支持 Token 配对，再发送 `AUTH_GET_TOKEN`。
+5. 检查成功结果及四字节 Token，将 Token 与配对阶段读取的能力位一并保存到本地设备记录。ATT Indication 接收确认由手机 BLE 栈自动完成，不新增 AGP 确认命令。
 6. Token 保存成功即配对完成，关闭配对提示框并显示“添加成功”，继续停留在“添加设备”页面，不自动返回主页。不在配对连接上继续执行 `AUTH_TOKEN`、读取/订阅灯状态或校时；PW01 的预期主动断开不会把配对结果改为失败。连接清理失败也不删除已保存的 Token。
-7. 后续控制操作重新连接、启用通知、用保存的 Token 认证，然后读取状态并按能力校时。
+7. 后续控制操作重新连接、启用通知、用保存的 Token 认证，直接使用本地能力位读取状态并按能力校时；仅旧记录没有能力位时才补读一次并保存。
 
-本地配对凭据是设备地址和 Token，设备名称、添加时间等属于列表信息。`Light State` 的开关、亮度、过渡、模式、状态标志和状态版本号只服务于运行状态与控制，不参与配对持久化。
+本地配对信息是设备地址、Token 和配对时读取的能力位，设备名称、添加时间等属于列表信息。`Light State` 的开关、亮度、过渡、模式、状态标志和状态版本号只服务于运行状态与控制，不参与配对持久化。
 
 设备设置页的“解除绑定”通过 `AgpLightControlService.RemoveDeviceAsync` 与灯控操作串行执行：先释放目标设备的 AGP 客户端、取消通知并断开目标 GATT 连接，再清理扫描缓存、状态缓存和本地设备记录（包含 Token 与配置）。必须在原生断开成功后才删除记录；失败时保留记录并提示重试。删除其他设备不影响当前控制会话，删除完成后旧页面迟到的控制或状态查询在重连前被拒绝。诊断输出 `[BLE/Removal]` 记录开始、成功或失败，Debug Timing 额外记录 `AGP.RemoveDevice` 与 `Connection.DisconnectDevice` 阶段。
 
@@ -200,7 +198,7 @@ dotnet test tests\ArriLight.Tests\ArriLight.Tests.csproj
 
 导航回归直接编译主页导航及 `DeviceControlPage.ConnectionLifecycle.cs`，替换 Shell 导航、UI 调度器和控制资料初始化边界。验证导航不等待未完成的主页查询/清理、不在导航前停止扫描、同台或不同设备的连续点击只打开一个页面、返回主页可再次进入、导航失败可重试、开关不会执行导航，以及导航完成后的调度、停止扫描与初始化顺序。还覆盖离开页面前后取消、初始化期间取消、演示设备不启动 BLE 和扫描停止失败后页面可重试。实际触摸区域与页面首帧耗时仍需在手机上验证。
 
-快速切换回归直接编译预加载路由工厂与过渡控制代码，验证备用页面只消费一次、冷启动和预加载失败可正常创建新页面、120 ms 动画完成前不开始 BLE、动画中离开会复位界面且不连接、预加载仅在 UI 调度中执行，以及点击进入后丢弃迟到的预加载任务。测试替换动画时钟及视图，实际动画流畅度和首帧耗时以 Android 实测为准。
+快速切换回归直接编译预加载路由工厂与过渡控制代码，验证备用页面只消费一次、冷启动和预加载失败可正常创建新页面、首帧前不开始内容加载或 BLE、120 ms 动画与 BLE/内容加载独立推进、动画中离开会复位界面并取消并行任务、预加载仅在 UI 调度中执行，以及点击进入后丢弃迟到的预加载任务。测试替换动画时钟及视图，实际动画流畅度和首帧耗时以 Android 实测为准。
 
 Relative Timer 回归测试验证无 RTC/Scheduler 时仍可发送延时开/关灯、对应 opcode 与 4 字节小端秒数、0 秒取消、30 天上限、非整秒向上取整、缺少 `RelativeTimer` 时拒绝，以及业务失败不会因 GATT 写成功而被当作成功。协议库另有 `DELAY_ON_SET/GET` 精确规范向量及响应格式校验测试。
 
@@ -218,7 +216,7 @@ Timing 仅在 Debug 构建中启用。Release 使用共享空 scope，不创建 
 
 Debug 启动输出 `[BLE/Test]` 环境信息（应用版本、平台、系统版本、手机型号），操作输出 `[BLE/Timing]`。两者自动进入 Visual Studio“输出 → 调试”，不需要开启隐藏文件日志开关。需要保存文件时，仍可在“我的 → 应用版本”连续点击版本号 5 次开启文件输出。
 
-页面性能还输出 `UI.Control.Construct`（构造总耗时）、`UI.Control.CreateViews`（XAML 管理视图创建）、`UI.Control.Preload`（主页预加载）、`UI.Control.RoutePage`（路由获取及是否命中预加载）、`UI.Home.NavigateControl`（导航）、`UI.Control.Entrance`（短动画）及 `UI.Control.AfterNavigation`（动画后的扫描清理与连接）。这些阶段同样仅在 Debug 启用，动画 120 ms 是目标时长，不代表创建、布局、导航和设备连接总共只需要 120 ms。
+页面性能还输出 `UI.Control.Construct`（页面构造总耗时）、`UI.Control.CreateViews`（页面 XAML 框架创建）、`UI.Control.LoadCapabilityViews`（能力确认后各个 `LazyView` 的首次加载）、`UI.Control.Preload`（主页预加载）、`UI.Control.RoutePage`（路由获取及是否命中预加载）、`UI.Home.NavigateControl`（导航）、`UI.Control.Entrance`（短动画）、`UI.Control.BleAfterFirstFrame`（首帧后的扫描清理与连接）及 `UI.Control.AfterNavigation`（内容加载、BLE 与动画全部结束）。能力相关区域使用 CommunityToolkit.Maui 的 `LazyView<T>`；只有设备支持并需要显示时才调用 `LoadViewAsync`，不支持的区域不会创建内部视图。特效参数弹层在首次打开参数设置时才加载。上述阶段同样仅在 Debug 启用，动画 120 ms 是目标时长，不代表创建、布局、导航和设备连接总共只需要 120 ms。
 
 每行 Timing 包含：
 
@@ -242,6 +240,7 @@ Debug 启动输出 `[BLE/Test]` 环境信息（应用版本、平台、系统版
 | `AGP.Authenticate` | 认证命令到客户端拿到协议结果 |
 | `AGP.ReadLightState.Initial` | 初始化时读取灯状态；缓存复用会另有标记 |
 | `AGP.Profile.GetEffect` | 控制页补充读取特效参数 |
+| `UI.Control.LoadCapabilityViews` | 根据已读取的能力调用各个 `LazyView.LoadViewAsync`；不支持的模块不会加载内部视图 |
 | `AGP.Command.OnOff` | 开关命令到客户端拿到协议结果 |
 | `GATT.NativeWrite` | 原生 GATT 写入请求到写回调完成 |
 | `responseReceived` 标记 | 收到响应时的请求 TID、请求/响应 opcode、请求到响应到达的耗时 |
@@ -269,7 +268,25 @@ Debug 启动输出 `[BLE/Test]` 环境信息（应用版本、平台、系统版
 | `Page.HandlerChanging/Changed`、`HandlerWindow`、`HandlerSummary` | 原生 Handler 相关事件区间及控件类型汇总；事件区间可能嵌套，且不覆盖所有创建工作，不能直接相加 |
 | `Page.SizeAllocated`、`Native.GlobalLayout` | 页面尺寸回调及布局完成观察点，不等同于整个布局耗时 |
 | `Native.FirstPreDraw`、`Native.FirstDrawCallback`、`Native.AfterDrawPosted` | 原生视图首次绘制前、绘制观察回调、其后界面队列执行点；均不保证像素已呈现到屏幕 |
-| `Android.WindowFrame` | Android 7/API 24 起可用，窗口帧的 `layoutMeasure`、`draw`、`total`；可能包含主页和过渡帧，回调到达时间不等于帧开始时间 |
+| `Android.WindowFrame` | Android 7/API 24 起可用，窗口帧的 `layoutMeasure`、`draw`、`total`；可能包含主页和过渡帧，callbackSinceTap 记录采样回调到达时间，汇总输出的 sinceTap 不等于帧开始时间 |
 | `AfterNavigation.Finished`、`Page.Left`、`Summary` | 初始化完成或离开页面时解除观察器，并输出汇总 |
 
-限制尺寸日志最多 4 次、布局日志最多 2 次、窗口帧日志最多 6 次；控件事件只汇总路由返回时已存在的可视树，最多输出 10 种控件类型，减少日志对测试的干扰。原有 `[BLE/Timing]` 继续测量动画、扫描收尾和 AGP 初始化。实体测试请清空输出，以 Debug 从主页单击进入控制页，等待初始化结束后保存完整输出；至少保留 `[UI/Timing]`、`[BLE/Timing]` 和 Android 的丢帧/GC 日志。建议再返回主页重复进入一次，用于比较首次与后续进入。
+限制尺寸日志最多 4 次、布局日志最多 2 次；窗口帧最多采集 64 次，汇总时输出前 6 帧和后续慢帧（measure ≥ 16 ms 或 total ≥ 32 ms），覆盖较晚加载的预设模块；控件事件覆盖路由已有控件、首帧后 LazyView 以及 CollectionView 动态模板，按模块和控件类型汇总。MeasureOverride/ArrangeOverride 的耗时先积累后输出，避免每次测量直接打印影响布局。新增 `[UI/Timing]` 阶段如下：
+
+| 阶段 | 用途 |
+| --- | --- |
+| `Home.BeforeNavigation.CancelPreload/LeasePromotion` | 停止预加载、升级租约的调用耗时 |
+| `Home.BeforeNavigation.LeaseLockWait/LeaseUpgradeAndCancel` | 租约锁等待及升级、请求取消租约的耗时 |
+| `Home.BeforeNavigation.CancelRequest/QueueLockWait/QueueClear` | 主页查询取消请求、待查询队列锁等待及清空队列 |
+| `Home.BeforeNavigation.LogOutput` | 已有调试输出耗时与计时报告输出耗时；各操作的 `loggingIncluded` 已包含在其 `elapsed` 中 |
+| `Home.StatusRefresh.CancelCallbacks` / `Connection.Lease.CancelCallbacks` | CancelAsync 同步请求时间，以及线程池排队加取消回调完成时间；后者不阻塞导航 |
+| `FirstFrame.WorkReleased` | 首次绘制回调之后的工作启动点；不等同于显示器呈现确认 |
+| `LazyViewCreation` | 每个模块的 XAML 创建、绑定和 Content 赋值耗时 |
+| `HandlerSummary` | 每个 LazyView 内部各控件 HandlerChanging → Changed 的次数、总区间与最大区间，包含预设列表动态生成的 Border、Button |
+| `LayoutSummary` | 各 LazyView，以及预设 CollectionView、Border、Button 的 Measure/Arrange 次数、包含子控件的总耗时与单次最大值 |
+
+首帧之前只套用本地能力、状态和配置；保留已有布局与 LazyView 占位。Android 通过页面原生 OnDraw 后的 Post 作为门控。首帧之后逐个创建支持模块，每个模块加入后等下一轮绘制再继续；创建仍在 UI 线程。扫描停止和 AGP 控制资料请求在后台发起，其完成后仅将状态应用回 UI，不等待全部模块创建。已有本地能力时内容路径也不等待 BLE；旧记录缺少能力时，待控制资料补充能力后才创建相应模块。离开页面会取消未加载模块及 BLE 准备。
+
+父子 Handler 区间、Measure/Arrange 区间可能嵌套，不能相加当成总耗时。Release 不包含以上新计时器、统计或诊断订阅；Release 仍保留用于分批加载的首帧/绘制门控，这属于实际调度逻辑。
+
+原有 `[BLE/Timing]` 继续测量动画、扫描收尾和 AGP 初始化。实体测试请清空输出，以 Debug 从主页单击进入控制页，等待初始化结束后保存完整输出；至少保留 `[UI/Timing]`、`[BLE/Timing]` 和 Android 的丢帧/GC 日志。建议再返回主页重复进入一次，用于比较首次与后续进入。

@@ -6,6 +6,7 @@ public partial class DeviceControlPage
     private bool _controlInitializationScheduled;
     private bool _automaticConnectionPending;
     private Task? _deferredConnectionInitializationTask;
+    private Task? _blePreparationTask;
 
     private void BeginControlPageAppearance()
     {
@@ -14,6 +15,7 @@ public partial class DeviceControlPage
         _controlInitializationScheduled = false;
         _automaticConnectionPending = true;
         PrepareEntranceTransition();
+        BeginControlFrameObservation(_controlPageAppearanceCancellation.Token);
     }
 
     private void EndControlPageAppearance()
@@ -27,8 +29,9 @@ public partial class DeviceControlPage
             _navigationTiming?.Dispose();
         }
 #endif
-        _controlPageAppearanceCancellation?.Cancel();
-        _controlPageAppearanceCancellation?.Dispose();
+        EndControlFrameObservation();
+        _ = CancellationDispatch.Request(_controlPageAppearanceCancellation,
+            _diagnostics, "Control.Appearance", dispose: true, address: DeviceAddress);
         _controlPageAppearanceCancellation = null;
         _automaticConnectionPending = false;
         ResetEntranceTransition();
@@ -71,21 +74,58 @@ public partial class DeviceControlPage
 
     private async Task InitializeAfterNavigationAsync(CancellationToken cancellationToken)
     {
+#if DEBUG && ANDROID
+        var navigationTiming = _navigationTiming;
+#endif
         using var timing = _diagnostics.BeginBleTiming("UI.Control.AfterNavigation", DeviceAddress);
         try
         {
+            await WaitForFirstControlFrameAsync(cancellationToken);
+#if DEBUG && ANDROID
+            navigationTiming?.Mark("FirstFrame.WorkReleased");
+#endif
+            // Each branch yields before its work. A synchronous LazyView
+            // constructor cannot prevent the BLE branch from being scheduled.
+            var connection = PrepareBleAfterFirstFrameAsync(cancellationToken);
+            _blePreparationTask = connection;
+            var controls = LoadDeferredCapabilityViewsAsync(connection, cancellationToken);
+            var transition = PlayEntranceTransitionAsync(cancellationToken);
+            await Task.WhenAll(connection, controls, transition);
+            timing.SetResult("finished");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            timing.SetResult("page-left");
+        }
+        catch (Exception exception)
+        {
+            timing.SetResult($"failed:{exception.GetType().Name}");
+            _diagnostics.Error("UI/Control", $"控制页延迟内容加载失败：{DeviceAddress}。", exception);
+        }
+        finally
+        {
+#if DEBUG && ANDROID
+            navigationTiming?.Mark("AfterNavigation.Finished", $"canceled={cancellationToken.IsCancellationRequested}");
+            navigationTiming?.Dispose();
+#endif
+        }
+    }
+
+    private async Task PrepareBleAfterFirstFrameAsync(CancellationToken cancellationToken)
+    {
+        using var timing = _diagnostics.BeginBleTiming("UI.Control.BleAfterFirstFrame", DeviceAddress);
+        try
+        {
+            await Task.Yield();
             cancellationToken.ThrowIfCancellationRequested();
-            // Finish the short transition before GATT work can contend with UI
-            // frames. Demonstration devices animate without starting BLE work.
-            await PlayEntranceTransitionAsync(cancellationToken);
             if (_isDemo)
             {
                 timing.SetResult("demo-shown");
                 return;
             }
-            await _discoveryService.StopAsync();
+            await Task.Run(_discoveryService.StopAsync, cancellationToken).WaitAsync(cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            timing.Mark("页面导航已完成，后台扫描已停止，开始准备 AGP 会话");
+            timing.Mark("页面首帧已绘制，后台扫描已停止，开始准备 AGP 会话；不等待控件加载");
             await EnsureConnectedAsync(
                 showError: false, cancellationToken: cancellationToken, scanAlreadyStopped: true);
             timing.SetResult("finished");
@@ -106,10 +146,6 @@ public partial class DeviceControlPage
         }
         finally
         {
-#if DEBUG && ANDROID
-            _navigationTiming?.Mark("AfterNavigation.Finished", $"canceled={cancellationToken.IsCancellationRequested}");
-            _navigationTiming?.Dispose();
-#endif
             if (_controlPageAppearanceCancellation?.Token == cancellationToken)
             {
                 _automaticConnectionPending = false;

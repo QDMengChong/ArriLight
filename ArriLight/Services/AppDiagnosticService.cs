@@ -171,7 +171,12 @@ public sealed class AppDiagnosticService
 
         // Debug.WriteLine 带有 DEBUG 条件特性：Debug 构建始终进入
         // Visual Studio“输出 → 调试”，Release 构建会在编译时移除。
+#if DEBUG
+        var outputStarted = System.Diagnostics.Stopwatch.GetTimestamp();
         System.Diagnostics.Debug.WriteLine(entry.DisplayText);
+        DebugOperationTiming.Current?.RecordLog(
+            System.Diagnostics.Stopwatch.GetElapsedTime(outputStarted).TotalMilliseconds);
+#endif
 
         // 隐藏开关只控制文件写入，不影响 Debug 构建的 VS 输出。
         if (!force && !IsEnabled)

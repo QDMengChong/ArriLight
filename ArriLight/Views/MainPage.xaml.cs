@@ -32,6 +32,7 @@ public partial class MainPage : ContentPage
     private bool _controlNavigationStarted;
     private CancellationTokenSource? _controlPagePreloadCancellation;
     private CancellationTokenSource? _statusRefreshCancellation;
+    private Task _statusCancellationCallbacks = Task.CompletedTask;
     private Task? _statusRefreshTask;
 
     public ObservableCollection<LightDeviceItem> Devices { get; } = [];
@@ -81,7 +82,7 @@ public partial class MainPage : ContentPage
         _agpLight.DeviceStatusChanged -= OnDeviceStatusChanged;
         _discoveryService.DeviceFound -= OnDeviceFound;
         _statusQuerySuppressed = true;
-        _statusRefreshCancellation?.Cancel();
+        RequestStopStatusRefresh();
         // Control-page navigation owns scan teardown after the page transition.
         // Other destinations still release the home scan here.
         if (!_controlNavigationStarted)
@@ -116,8 +117,8 @@ public partial class MainPage : ContentPage
 
     private void CancelControlPagePreload()
     {
-        _controlPagePreloadCancellation?.Cancel();
-        _controlPagePreloadCancellation?.Dispose();
+        _ = CancellationDispatch.Request(_controlPagePreloadCancellation, _diagnostics,
+            "Home.Preload", dispose: true);
         _controlPagePreloadCancellation = null;
     }
 
@@ -327,17 +328,31 @@ public partial class MainPage : ContentPage
 #if DEBUG && ANDROID
         ControlNavigationTiming.Start(_diagnostics, device.Address);
 #endif
+#if DEBUG
+        using var preparation = new DebugOperationTiming();
+        preparation.Run("CancelPreload", CancelControlPagePreload);
+#else
         CancelControlPagePreload();
+#endif
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Home.OpenControl", device.Address, $"isDemo={device.IsDemo}");
         if (!device.IsDemo)
+        {
+#if DEBUG
+            preparation.Run("LeasePromotion", () => _agpLight.PromoteConnectionToLongLived(device.Address));
+#else
             _agpLight.PromoteConnectionToLongLived(device.Address);
+#endif
+        }
         _statusQuerySuppressed = true;
         try
         {
             RequestStopStatusRefresh();
             _ = ObserveStatusRefreshCompletionAsync(_statusRefreshTask);
             timing.Mark("已请求取消主页查询，立即导航；BLE 收尾在页面显示后等待");
+#if DEBUG
+            preparation.Emit(_diagnostics, device.Address);
+#endif
 
             // 控制页异步连接并认证；已有查询结果直接复用，不重复读取 Light State。
             var route = device.IsDemo
@@ -412,6 +427,7 @@ public partial class MainPage : ContentPage
 
         using var refreshCancellation = new CancellationTokenSource();
         _statusRefreshCancellation = refreshCancellation;
+        _statusCancellationCallbacks = Task.CompletedTask;
         var cancellationToken = refreshCancellation.Token;
         try
         {
@@ -441,6 +457,9 @@ public partial class MainPage : ContentPage
         }
         finally
         {
+            // Keep the source alive until asynchronously dispatched callbacks
+            // finish. Disposal must not race their linked-token registrations.
+            await _statusCancellationCallbacks;
             _statusRefreshCancellation = null;
         }
     }
@@ -524,9 +543,26 @@ public partial class MainPage : ContentPage
 
     private void RequestStopStatusRefresh()
     {
-        _statusRefreshCancellation?.Cancel();
+#if DEBUG
+        var preparation = DebugOperationTiming.Current;
+        if (preparation is not null)
+        {
+            preparation.Run("CancelRequest", RequestCancellation);
+            preparation.Run("QueueLockWait", () => Monitor.Enter(_statusQueueSync));
+            try { preparation.Run("QueueClear", _pendingStatusQueries.Clear); }
+            finally { Monitor.Exit(_statusQueueSync); }
+            return;
+        }
+#endif
+        RequestCancellation();
         lock (_statusQueueSync)
             _pendingStatusQueries.Clear();
+
+        void RequestCancellation()
+        {
+            if (_statusRefreshCancellation is { IsCancellationRequested: false } source)
+                _statusCancellationCallbacks = CancellationDispatch.Request(source, _diagnostics, "Home.StatusRefresh");
+        }
     }
 
     private async Task StopStatusRefreshAsync()

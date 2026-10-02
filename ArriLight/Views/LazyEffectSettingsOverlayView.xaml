@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<local:TimedLazyContentView
+    x:Class="ArriLight.LazyEffectSettingsOverlayView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:ArriLight"
+    BackgroundColor="#88000000"
+    Padding="28">
+    <Border
+        Padding="28,22"
+        BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+        MaximumWidthRequest="420"
+        StrokeThickness="0"
+        StrokeShape="RoundRectangle 20"
+        VerticalOptions="Center">
+        <VerticalStackLayout Spacing="14">
+            <Label
+                x:Name="EffectSettingsTitleElement"
+                FontFamily="OpenSansSemibold"
+                FontSize="20"
+                HorizontalTextAlignment="Center"
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+            <Label
+                FontSize="14"
+                HorizontalTextAlignment="Center"
+                Text="调整周期（200～10000 ms）"
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            <Label
+                x:Name="EffectSettingsPeriodLabelElement"
+                FontSize="16"
+                HorizontalTextAlignment="Center"
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+            <Slider
+                x:Name="EffectSettingsPeriodSliderElement"
+                Maximum="10000"
+                Minimum="200"
+                MaximumTrackColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                MinimumTrackColor="{StaticResource Primary}"
+                ThumbColor="{StaticResource Primary}"
+                Value="1000"
+                ValueChanged="OnEffectSettingsPeriodChanged" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <Button
+                    BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                    Clicked="OnEffectSettingsCancelClicked"
+                    Text="取消"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                <Button
+                    Grid.Column="1"
+                    BackgroundColor="{StaticResource Primary}"
+                    Clicked="OnEffectSettingsApplyClicked"
+                    Text="应用"
+                    TextColor="White" />
+            </Grid>
+        </VerticalStackLayout>
+    </Border>
+</local:TimedLazyContentView>

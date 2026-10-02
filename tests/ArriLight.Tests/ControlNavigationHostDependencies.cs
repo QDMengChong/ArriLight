@@ -12,8 +12,14 @@ public partial class DeviceControlPage
     public bool CanConnect { get; private set; }
     public bool CanRefreshStatus => !_automaticConnectionPending;
     internal int InitializationCalls { get; private set; }
+    internal TaskCompletionSource InitializationStartedForTest { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal TaskCompletionSource ControlsStartedForTest { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    internal Func<CancellationToken, Task>? OnLoadControls { get; set; }
+    internal bool RequireFirstFrameForTest { get; set; }
+    private TaskCompletionSource _testFirstFrame = new(TaskCreationOptions.RunContinuationsAsynchronously);
     internal Func<CancellationToken, Task>? OnInitialize { get; set; }
     internal Task? DeferredInitializationForTest => _deferredConnectionInitializationTask;
+    internal Task? BlePreparationForTest => _blePreparationTask;
     internal void AppearConnectionForTest(BluetoothDiscoveryService discovery, bool isDemo = false)
     {
         _discoveryService = discovery;
@@ -22,6 +28,21 @@ public partial class DeviceControlPage
     }
     internal void NavigatedForTest() => OnNavigatedTo(new NavigatedToEventArgs());
     internal void LeaveConnectionForTest() => EndControlPageAppearance();
+    internal void DrawFirstFrameForTest() => _testFirstFrame.TrySetResult();
+    private void BeginControlFrameObservation(CancellationToken token)
+    {
+        _testFirstFrame = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        if (!RequireFirstFrameForTest) _testFirstFrame.TrySetResult();
+    }
+    private void EndControlFrameObservation() { }
+    private Task WaitForFirstControlFrameAsync(CancellationToken token) => _testFirstFrame.Task.WaitAsync(token);
+    private async Task LoadDeferredCapabilityViewsAsync(Task connection, CancellationToken token)
+    {
+        await Task.Yield();
+        token.ThrowIfCancellationRequested();
+        ControlsStartedForTest.TrySetResult();
+        if (OnLoadControls is not null) await OnLoadControls(token);
+    }
 
     private Task EnsureConnectedAsync(
         bool showError, bool refreshStatus = false, CancellationToken cancellationToken = default,
@@ -29,6 +50,7 @@ public partial class DeviceControlPage
     {
         cancellationToken.ThrowIfCancellationRequested();
         InitializationCalls++;
+        InitializationStartedForTest.TrySetResult();
         return OnInitialize?.Invoke(cancellationToken) ?? Task.CompletedTask;
     }
 }
