@@ -18,6 +18,18 @@ public enum BluetoothSessionState
     Error
 }
 
+internal enum BluetoothDisconnectReason
+{
+    Requested,
+    HomeQueryLeaseExpired,
+    ApplicationBackground,
+    ApplicationClosing,
+    DeviceSwitch,
+    DeviceRemoval,
+    QueryFailure,
+    Abnormal
+}
+
 public sealed record BluetoothSessionSnapshot(
     BluetoothSessionState State,
     string Address,
@@ -81,6 +93,7 @@ public sealed class BluetoothConnectionService
     private Task? _connectionLeaseTask;
     private string? _longLivedAddress;
     private volatile bool _applicationSuspended;
+    private BluetoothDisconnectReason? _expectedDisconnectReason;
     private BluetoothSessionSnapshot _snapshot =
         new(BluetoothSessionState.Disconnected, string.Empty, "未连接");
 
@@ -219,14 +232,19 @@ public sealed class BluetoothConnectionService
         }
     }
 
-    public async Task DisconnectAsync(CancellationToken cancellationToken = default)
+    public Task DisconnectAsync(CancellationToken cancellationToken = default) =>
+        DisconnectAsync(BluetoothDisconnectReason.Requested, cancellationToken);
+
+    internal async Task DisconnectAsync(
+        BluetoothDisconnectReason reason,
+        CancellationToken cancellationToken = default)
     {
         CancelConnectionLease();
         using var timing = _diagnostics.BeginBleTiming("Connection.Disconnect", _currentAddress);
         await WaitForOperationLockAsync("disconnect", _currentAddress, cancellationToken);
         try
         {
-            await DisconnectCoreAsync(cancellationToken);
+            await DisconnectCoreAsync(cancellationToken, reason);
             timing.SetResult("disconnected");
         }
         catch (Exception exception)
@@ -569,9 +587,18 @@ public sealed class BluetoothConnectionService
                     "BLE/Connection",
                     $"当前连接属于 {_currentAddress}，切换到 {address}。");
                 await ClearNotificationsAsync(cancellationToken);
-                await MeasureAsync(
-                    "Connection.NativeDisconnect", _currentAddress, $"reason=switch; target={address}",
-                    () => _adapter.DisconnectDeviceAsync(other, cancellationToken));
+                var previousReason = _expectedDisconnectReason;
+                _expectedDisconnectReason = BluetoothDisconnectReason.DeviceSwitch;
+                try
+                {
+                    await MeasureAsync(
+                        "Connection.NativeDisconnect", _currentAddress, $"reason=switch; target={address}",
+                        () => _adapter.DisconnectDeviceAsync(other, cancellationToken));
+                }
+                finally
+                {
+                    _expectedDisconnectReason = previousReason;
+                }
             }
 
             UpdateState(BluetoothSessionState.Scanning, address, "正在查找设备");
@@ -737,15 +764,16 @@ public sealed class BluetoothConnectionService
         {
             if (string.Equals(_currentAddress, address, StringComparison.OrdinalIgnoreCase))
             {
-                await DisconnectCoreAsync(cancellationToken);
+                await DisconnectCoreAsync(
+                    cancellationToken,
+                    BluetoothDisconnectReason.DeviceRemoval);
                 timing.SetResult("disconnected");
             }
             else
             {
                 timing.SetResult("target-not-connected");
+                _discoveryService.InvalidateCachedDevice(address);
             }
-
-            _discoveryService.InvalidateCachedDevice(address);
         }
         catch (Exception exception)
         {
@@ -758,22 +786,38 @@ public sealed class BluetoothConnectionService
         }
     }
 
-    private async Task DisconnectCoreAsync(CancellationToken cancellationToken)
+    private async Task DisconnectCoreAsync(
+        CancellationToken cancellationToken,
+        BluetoothDisconnectReason reason)
     {
-        await ClearNotificationsAsync(cancellationToken);
-        if (_currentDevice is { State: DeviceState.Connected } device)
+        var address = _currentAddress;
+        var previousReason = _expectedDisconnectReason;
+        _expectedDisconnectReason = reason;
+        try
         {
-            _diagnostics.Information("BLE/Connection", $"主动断开设备 {_currentAddress}。");
-            await MeasureAsync(
-                "Connection.NativeDisconnect", _currentAddress, "reason=requested",
-                () => _adapter.DisconnectDeviceAsync(device, cancellationToken));
-        }
+            await ClearNotificationsAsync(cancellationToken);
+            if (_currentDevice is { State: DeviceState.Connected } device)
+            {
+                _diagnostics.Information(
+                    "BLE/Connection",
+                    $"主动断开设备 {address}，reason={reason}。");
+                await MeasureAsync(
+                    "Connection.NativeDisconnect", address, $"reason={reason}",
+                    () => _adapter.DisconnectDeviceAsync(device, cancellationToken));
+            }
 
-        _currentDevice = null;
-        _currentAddress = string.Empty;
-        lock (_connectionLeaseSync)
-            _longLivedAddress = null;
-        UpdateState(BluetoothSessionState.Disconnected, string.Empty, "未连接");
+            _currentDevice = null;
+            _currentAddress = string.Empty;
+            lock (_connectionLeaseSync)
+                _longLivedAddress = null;
+            if (ShouldInvalidateCachedDevice(reason))
+                _discoveryService.InvalidateCachedDevice(address);
+            UpdateState(BluetoothSessionState.Disconnected, string.Empty, "未连接");
+        }
+        finally
+        {
+            _expectedDisconnectReason = previousReason;
+        }
     }
 
     private async Task ExpireConnectionLeaseAsync(
@@ -801,7 +845,9 @@ public sealed class BluetoothConnectionService
                     _diagnostics.Information(
                         "BLE/Connection",
                         $"主页查询连接租约到期，释放设备 {address}。");
-                    await DisconnectCoreAsync(CancellationToken.None);
+                    await DisconnectCoreAsync(
+                        CancellationToken.None,
+                        BluetoothDisconnectReason.HomeQueryLeaseExpired);
                 }
             }
             finally
@@ -933,7 +979,9 @@ public sealed class BluetoothConnectionService
         _diagnostics.Information(
             "BLE/Connection",
             $"设备已断开：{_currentAddress}。");
-        HandleDisconnected("设备已断开");
+        HandleDisconnected(
+            "设备已断开",
+            _expectedDisconnectReason ?? BluetoothDisconnectReason.Abnormal);
     }
 
     private void OnDeviceConnectionLost(
@@ -946,7 +994,9 @@ public sealed class BluetoothConnectionService
         _diagnostics.Warning(
             "BLE/Connection",
             $"设备连接丢失：{_currentAddress}，{eventArgs.ErrorMessage}");
-        HandleDisconnected("连接意外断开");
+        HandleDisconnected(
+            "连接意外断开",
+            _expectedDisconnectReason ?? BluetoothDisconnectReason.Abnormal);
     }
 
     private void OnDeviceConnectionError(
@@ -968,8 +1018,11 @@ public sealed class BluetoothConnectionService
     private bool IsCurrentDevice(IDevice device) =>
         _currentDevice is not null && _currentDevice.Id == device.Id;
 
-    private void HandleDisconnected(string message)
+    private void HandleDisconnected(
+        string message,
+        BluetoothDisconnectReason reason)
     {
+        var address = _currentAddress;
         CancelConnectionLease();
         lock (_connectionLeaseSync)
             _longLivedAddress = null;
@@ -977,12 +1030,18 @@ public sealed class BluetoothConnectionService
             characteristic.ValueUpdated -= OnCharacteristicValueUpdated;
         _notificationCharacteristics.Clear();
         _currentDevice = null;
-        _discoveryService.InvalidateCachedDevice(_currentAddress);
+        if (_expectedDisconnectReason is null && ShouldInvalidateCachedDevice(reason))
+            _discoveryService.InvalidateCachedDevice(address);
         UpdateState(
             BluetoothSessionState.Disconnected,
-            _currentAddress,
+            address,
             message);
     }
+
+    private static bool ShouldInvalidateCachedDevice(BluetoothDisconnectReason reason) =>
+        reason is BluetoothDisconnectReason.DeviceRemoval or
+            BluetoothDisconnectReason.QueryFailure or
+            BluetoothDisconnectReason.Abnormal;
 
     private void UpdateState(
         BluetoothSessionState state,

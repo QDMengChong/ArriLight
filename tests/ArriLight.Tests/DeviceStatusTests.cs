@@ -186,6 +186,51 @@ public sealed class DeviceStatusTests
     }
 
     [Fact]
+    public async Task NormalConnectionReleaseKeepsShortLivedDiscoveryLocation()
+    {
+        await using var fixture = new PairingFixture();
+
+        await fixture.Connection.ConnectAsync(fixture.Address);
+        await fixture.Connection.DisconnectAsync();
+
+        Assert.False(fixture.Connection.Snapshot.IsConnected);
+        Assert.Empty(fixture.Discovery.InvalidatedAddresses);
+
+        var connectCount = fixture.Ble.ConnectAttempts.Count;
+        await fixture.Connection.ConnectAsync(fixture.Address);
+
+        Assert.Equal(connectCount + 1, fixture.Ble.ConnectAttempts.Count);
+        Assert.True(fixture.Connection.Snapshot.IsConnected);
+    }
+
+    [Fact]
+    public async Task ExpiredHomeLeaseKeepsDiscoveryLocationButDropsTheConnection()
+    {
+        await using var fixture = new PairingFixture();
+
+        await fixture.Connection.ConnectAsync(fixture.Address);
+        fixture.Connection.RetainConnectionFor(
+            fixture.Address, TimeSpan.FromMilliseconds(25));
+        await Task.Delay(150);
+
+        Assert.False(fixture.Connection.Snapshot.IsConnected);
+        Assert.Empty(fixture.Discovery.InvalidatedAddresses);
+    }
+
+    [Fact]
+    public async Task UnexpectedDisconnectInvalidatesDiscoveryLocation()
+    {
+        await using var fixture = new PairingFixture();
+
+        await fixture.Connection.ConnectAsync(fixture.Address);
+        fixture.Ble.RaiseUnexpectedDisconnect();
+
+        Assert.False(fixture.Connection.Snapshot.IsConnected);
+        Assert.Contains(fixture.Discovery.InvalidatedAddresses, address =>
+            string.Equals(address, fixture.Address, StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
     public async Task ClosingApplicationReleasesConnectionWithoutLeavingResumeTarget()
     {
         await using var fixture = new PairingFixture();

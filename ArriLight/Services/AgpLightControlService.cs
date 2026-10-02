@@ -728,7 +728,9 @@ public sealed class AgpLightControlService : IAsyncDisposable
                         try
                         {
                             await MeasureAsync("AGP.Home.Disconnect", address,
-                                () => _connectionService.DisconnectAsync(CancellationToken.None));
+                                () => _connectionService.DisconnectAsync(
+                                    BluetoothDisconnectReason.QueryFailure,
+                                    CancellationToken.None));
                         }
                         catch
                         {
@@ -868,7 +870,11 @@ public sealed class AgpLightControlService : IAsyncDisposable
                 await DisposeHandleAsync();
                 if (_connectionService.Snapshot.IsConnected)
                 {
-                    await _connectionService.DisconnectAsync(CancellationToken.None);
+                    await _connectionService.DisconnectAsync(
+                        rememberForResume
+                            ? BluetoothDisconnectReason.ApplicationBackground
+                            : BluetoothDisconnectReason.ApplicationClosing,
+                        CancellationToken.None);
                     _diagnostics.Information(
                         "BLE/Lifecycle",
                         $"应用生命周期切换释放 BLE 连接：reason={(rememberForResume ? "background" : "closing")}。");

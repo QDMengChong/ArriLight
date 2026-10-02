@@ -333,6 +333,15 @@ internal sealed class FakeBle
         return Task.CompletedTask;
     }
 
+    public void RaiseUnexpectedDisconnect()
+    {
+        _state = DeviceState.Disconnected;
+        InterfaceProxy.From(Adapter).Raise(
+            "DeviceConnectionLost",
+            Adapter,
+            new DeviceErrorEventArgs { Device = Device, ErrorMessage = "link lost" });
+    }
+
     private void AddCharacteristic(Guid id, CharacteristicPropertyType properties)
     {
         _characteristics[id] = InterfaceProxy.Create<ICharacteristic>((name, args) => name switch
