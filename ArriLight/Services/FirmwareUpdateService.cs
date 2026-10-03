@@ -2,6 +2,7 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 using ArriOpto.BLE.Ota;
 
 namespace ArriLight;
@@ -29,7 +30,7 @@ public sealed record FirmwareUpdateProgress(
 
 public sealed record FirmwareCheckResult(
     string CurrentVersion,
-    FirmwareCandidate Candidate,
+    FirmwareCandidate? Candidate,
     bool IsUpdateAvailable);
 
 public sealed class FirmwareCandidate
@@ -75,13 +76,22 @@ public sealed class FirmwareCandidate
 
 public sealed class FirmwareUpdateConfiguration
 {
-    private const string ManifestUrlPreferenceKey = "ota_manifest_url_v1";
+    private const string ListWorkerUrlPreferenceKey = "ota_list_worker_url_v1";
+    private const string GetWorkerUrlPreferenceKey = "ota_get_worker_url_v1";
 
-    public string ManifestUrl
+    public string ListWorkerUrl
     {
-        get => Preferences.Default.Get(ManifestUrlPreferenceKey, string.Empty);
+        get => Preferences.Default.Get(ListWorkerUrlPreferenceKey, string.Empty);
         set => Preferences.Default.Set(
-            ManifestUrlPreferenceKey,
+            ListWorkerUrlPreferenceKey,
+            value?.Trim() ?? string.Empty);
+    }
+
+    public string GetWorkerUrl
+    {
+        get => Preferences.Default.Get(GetWorkerUrlPreferenceKey, string.Empty);
+        set => Preferences.Default.Set(
+            GetWorkerUrlPreferenceKey,
             value?.Trim() ?? string.Empty);
     }
 
@@ -104,67 +114,97 @@ public sealed class FirmwareUpdateService(
         PropertyNameCaseInsensitive = true
     };
 
+    private static readonly Regex FirmwareVersionPattern = new(
+        @"(?<!\d)v?(\d+(?:\.\d+){1,3})(?!\d)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
     public async Task<FirmwareCheckResult> CheckOnlineAsync(
+        string hardwareVersion,
         string currentVersion,
-        string manifestUrl,
         CancellationToken cancellationToken = default)
     {
-        if (!Uri.TryCreate(manifestUrl, UriKind.Absolute, out var manifestUri) ||
-            manifestUri.Scheme is not ("http" or "https"))
+        if (string.IsNullOrWhiteSpace(hardwareVersion))
         {
-            throw new ArgumentException("在线固件清单地址必须是有效的 HTTP/HTTPS URL。");
+            throw new ArgumentException(
+                "设备未提供硬件版本，无法选择匹配的固件。",
+                nameof(hardwareVersion));
         }
 
-        configuration.ManifestUrl = manifestUri.ToString();
+        var listWorkerUri = ValidateWorkerUri(
+            configuration.ListWorkerUrl,
+            "在线固件列表 Worker 地址");
+        var getWorkerUri = ValidateWorkerUri(
+            configuration.GetWorkerUrl,
+            "在线固件下载 Worker 地址");
+        var requestUri = AppendQuery(
+            listWorkerUri,
+            ("hardwareVersion", hardwareVersion.Trim()),
+            ("currentVersion", string.IsNullOrWhiteSpace(currentVersion) ? "0.0.0" : currentVersion.Trim()));
+
         diagnostics.Information(
             "OTA/Online",
-            $"开始请求固件清单：{manifestUri}，当前版本={currentVersion}。");
+            $"开始查询固件 Worker：{requestUri}。");
 
         using var response = await httpClient.GetAsync(
-            manifestUri,
+            requestUri,
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
         diagnostics.Debug(
             "OTA/Online",
-            $"固件清单响应：HTTP {(int)response.StatusCode} {response.ReasonPhrase}。");
+            $"固件列表 Worker 响应：HTTP {(int)response.StatusCode} {response.ReasonPhrase}。");
         response.EnsureSuccessStatusCode();
 
         await using var responseStream =
             await response.Content.ReadAsStreamAsync(cancellationToken);
-        var manifest = await JsonSerializer.DeserializeAsync<FirmwareManifest>(
+        var result = await JsonSerializer.DeserializeAsync<OnlineFirmwareResponse>(
                 responseStream,
                 JsonOptions,
                 cancellationToken)
-            ?? throw new InvalidDataException("在线固件清单为空。");
+            ?? throw new InvalidDataException("固件列表 Worker 返回为空。");
 
-        manifest.Validate();
-        var downloadUri = Uri.TryCreate(
-            manifestUri,
-            manifest.DownloadUrl,
-            out var resolvedDownloadUri)
-            ? resolvedDownloadUri
-            : throw new InvalidDataException("固件下载地址无效。");
+        if (string.IsNullOrWhiteSpace(result.FileName))
+        {
+            diagnostics.Information(
+                "OTA/Online",
+                $"没有找到比 {currentVersion} 更新的 {hardwareVersion} 固件。");
+            return new FirmwareCheckResult(currentVersion, null, false);
+        }
 
-        var fileName = string.IsNullOrWhiteSpace(manifest.FileName)
-            ? Path.GetFileName(downloadUri.LocalPath)
-            : Path.GetFileName(manifest.FileName);
+        var objectKey = result.FileName.Trim();
+        var fileName = Path.GetFileName(objectKey);
+        if (string.IsNullOrWhiteSpace(fileName) ||
+            !fileName.EndsWith(".hex16", StringComparison.OrdinalIgnoreCase))
+        {
+            throw new InvalidDataException(
+                "固件列表 Worker 返回的文件名不是 .hex16 文件。");
+        }
+
+        var version = string.IsNullOrWhiteSpace(result.Version)
+            ? ParseVersionFromFileName(fileName)
+            : result.Version.Trim();
+        if (string.IsNullOrWhiteSpace(version))
+            throw new InvalidDataException(
+                "固件列表 Worker 未返回可识别的固件版本。");
+
+        var downloadUri = AppendQuery(
+            getWorkerUri,
+            ("fileName", objectKey));
         var protocol = GetFirmwareProtocol(fileName);
-
         var candidate = new FirmwareCandidate(
             FirmwareSourceKind.Online,
             protocol,
-            manifest.Version.Trim(),
+            version,
             fileName,
-            manifest.ReleaseNotes?.Trim() ?? "暂无版本说明",
-            manifest.ProductId?.Trim(),
+            $"{hardwareVersion.Trim()} 在线固件。",
+            null,
             downloadUri,
-            NormalizeSha256(manifest.Sha256),
+            NormalizeSha256(result.Sha256),
             null);
         var hasUpdate = CompareVersions(candidate.Version, currentVersion) > 0;
 
         diagnostics.Information(
             "OTA/Online",
-            $"固件清单解析完成：latest={candidate.Version}，file={candidate.FileName}，update={hasUpdate}。");
+            $"固件 Worker 返回：latest={candidate.Version}，file={candidate.FileName}，update={hasUpdate}。");
         return new FirmwareCheckResult(currentVersion, candidate, hasUpdate);
     }
 
@@ -434,7 +474,7 @@ public sealed class FirmwareUpdateService(
         {
             diagnostics.Warning(
                 "OTA/Download",
-                "在线清单未提供 SHA-256，已跳过下载完整性校验。正式环境建议强制提供。");
+                "在线 Worker 未提供 SHA-256，已跳过下载完整性校验。正式环境建议强制提供。");
             return;
         }
 
@@ -538,6 +578,42 @@ public sealed class FirmwareUpdateService(
         return normalized.ToUpperInvariant();
     }
 
+    private static Uri ValidateWorkerUri(string value, string description)
+    {
+        if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) ||
+            uri.Scheme is not ("http" or "https"))
+        {
+            throw new ArgumentException(
+                $"{description}必须是有效的 HTTP/HTTPS URL。");
+        }
+
+        return uri;
+    }
+
+    private static Uri AppendQuery(
+        Uri baseUri,
+        params (string Name, string Value)[] parameters)
+    {
+        var query = baseUri.Query.TrimStart('?');
+        var additions = parameters.Select(parameter =>
+            $"{Uri.EscapeDataString(parameter.Name)}={Uri.EscapeDataString(parameter.Value)}");
+        var combined = string.Join(
+            "&",
+            new[] { query, string.Join("&", additions) }
+                .Where(value => !string.IsNullOrWhiteSpace(value)));
+        var builder = new UriBuilder(baseUri)
+        {
+            Query = combined
+        };
+        return builder.Uri;
+    }
+
+    private static string? ParseVersionFromFileName(string fileName)
+    {
+        var match = FirmwareVersionPattern.Match(fileName);
+        return match.Success ? match.Groups[1].Value : null;
+    }
+
     private static int CompareVersions(string left, string right)
     {
         var leftParts = GetVersionParts(left);
@@ -598,32 +674,15 @@ public sealed class FirmwareUpdateService(
         public void Report(T value) => report(value);
     }
 
-    private sealed record FirmwareManifest
+    private sealed record OnlineFirmwareResponse
     {
-        [JsonPropertyName("productId")]
-        public string? ProductId { get; init; }
-
-        [JsonPropertyName("version")]
-        public string Version { get; init; } = string.Empty;
-
         [JsonPropertyName("fileName")]
         public string? FileName { get; init; }
 
-        [JsonPropertyName("downloadUrl")]
-        public string DownloadUrl { get; init; } = string.Empty;
+        [JsonPropertyName("version")]
+        public string? Version { get; init; }
 
         [JsonPropertyName("sha256")]
         public string? Sha256 { get; init; }
-
-        [JsonPropertyName("releaseNotes")]
-        public string? ReleaseNotes { get; init; }
-
-        public void Validate()
-        {
-            if (string.IsNullOrWhiteSpace(Version))
-                throw new InvalidDataException("在线固件清单缺少 version。");
-            if (string.IsNullOrWhiteSpace(DownloadUrl))
-                throw new InvalidDataException("在线固件清单缺少 downloadUrl。");
-        }
     }
 }

@@ -1,26 +1,17 @@
 # ArriLight
 
 dotnet publish -c Release -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="C:\Users\RLGE\AppData\Local\Xamarin\Mono for Android\Keystore\" -p:AndroidSigningKeyAlias=ArriOpto -p:AndroidSigningStorePass=12345678 -p:AndroidSigningKeyPass=12345678
-## OTA 在线清单
+## OTA 在线升级
 
-APP 的“固件升级 → 在线检查”使用 JSON 清单判断是否存在新版本。首次测试时会提示
-输入清单 URL，并将地址保存在本机。清单格式示例见
-`ArriLight/Resources/Raw/ota_manifest.sample.json`：
+在线升级通过 Cloudflare Python Workers 访问 R2。部署文件、API 契约、R2 目录和
+`uv run pywrangler deploy` 步骤见
+[`cloudflare-workers/README.md`](cloudflare-workers/README.md)。列表 Worker 接收
+硬件版本（例如 `PW01-A1`）和本地固件版本，下载 Worker 返回匹配的 `.hex16` 文件。
 
-```json
-{
-  "productId": "PHY6222_LIGHT",
-  "version": "1.1.0",
-  "fileName": "arrilight-phy6222-1.1.0.bin",
-  "downloadUrl": "https://firmware.example.com/arrilight/arrilight-phy6222-1.1.0.bin",
-  "sha256": "64 个十六进制字符",
-  "releaseNotes": "本版本说明"
-}
-```
-
-`downloadUrl` 可以是绝对地址，也可以是相对于清单 URL 的地址。正式服务应使用
-HTTPS 并提供真实 SHA-256。检测到更高版本后，“一键下载并升级”会在校验下载内容
-后直接进入 SLB OTA，不会在下载完成后再次确认。
+首次点击“在线检查”时，APP 会分别询问列表 Worker 和下载 Worker 的 HTTPS 地址，
+并保存在本机。检测到更新后，APP 下载文件到缓存目录，沿用现有 Single Bank OTA
+流程校验并升级设备。若 R2 对象设置了 `sha256` 自定义元数据，APP 会在下载后执行
+SHA-256 校验；没有该元数据时会记录未校验提示。
 
 调试信息输出默认关闭。在“我的 → 应用版本”页面连续点击版本号 5 次，可以打开或
 关闭文件输出。开启后日志追加写入应用数据目录的 `arrilight_debug.txt`。该开关只

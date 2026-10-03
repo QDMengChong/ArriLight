@@ -91,6 +91,11 @@ public sealed class DeviceRepository
             address,
             device => device with { FirmwareVersion = firmwareVersion });
 
+    public bool SetHardwareRevision(string address, string hardwareRevision) =>
+        Update(
+            address,
+            device => device with { HardwareRevision = hardwareRevision });
+
     public string? GetToken(string address) =>
         GetByAddress(address)?.Token;
 

@@ -15,7 +15,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     private string _deviceAddress = string.Empty;
     private string _deviceName = "灯光设备";
     private string _currentVersion = "1.0.0";
-    private string _versionSourceText = "本地记录";
+    private string _hardwareVersion = string.Empty;
     private string _connectionText = "正在准备连接…";
     private string _statusText = "请选择在线检查或加载本地 OTA 固件";
     private string _progressText = string.Empty;
@@ -50,12 +50,6 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     {
         get => _currentVersion;
         private set => SetProperty(ref _currentVersion, value);
-    }
-
-    public string VersionSourceText
-    {
-        get => _versionSourceText;
-        private set => SetProperty(ref _versionSourceText, value);
     }
 
     public string ConnectionText
@@ -98,7 +92,11 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     public bool CanOperate => !IsOperationRunning;
     public bool IsFirmwareReady => _candidate is not null;
     public bool CanStartUpdate =>
-        _candidate is not null && _canUseCandidate && !IsOperationRunning;
+        _candidate?.SourceKind == FirmwareSourceKind.Online &&
+        _canUseCandidate &&
+        !IsOperationRunning;
+    public bool IsOnlineCandidate =>
+        _candidate?.SourceKind == FirmwareSourceKind.Online;
     public bool IsProgressVisible => IsOperationRunning || ProgressValue > 0;
 
     public string CandidateTitle =>
@@ -112,11 +110,6 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     public string CandidateFileName => _candidate?.FileName ?? string.Empty;
     public string ReleaseNotes => _candidate?.ReleaseNotes ?? string.Empty;
 
-    public string UpdateButtonText =>
-        _candidate?.SourceKind == FirmwareSourceKind.Online
-            ? "一键下载并升级"
-            : "使用本地固件升级";
-
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("address", out var value) && value is not null)
@@ -127,6 +120,8 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     {
         base.OnAppearing();
         _connectionService.StateChanged += OnConnectionStateChanged;
+        if (!string.IsNullOrWhiteSpace(_deviceAddress))
+            ApplyConnectionSnapshot(_connectionService.GetSnapshot(_deviceAddress));
 
         if (!_hasInitializedDeviceInfo)
         {
@@ -135,6 +130,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
             {
                 DeviceName = device.Name;
                 CurrentVersion = device.FirmwareVersion;
+                _hardwareVersion = device.HardwareRevision?.Trim() ?? string.Empty;
             }
 
             _ = RefreshConnectedVersionAsync();
@@ -155,69 +151,97 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         if (device.IsDemo)
         {
             ConnectionText = "演示设备不执行真实蓝牙连接";
-            VersionSourceText = "演示数据";
             return;
         }
 
         try
         {
             await _connectionService.ConnectAsync(_deviceAddress);
-            var hardwareVersion =
+            var hardwareRevision =
+                await _connectionService.TryReadHardwareRevisionAsync(
+                    _deviceAddress);
+            if (!string.IsNullOrWhiteSpace(hardwareRevision))
+            {
+                _hardwareVersion = hardwareRevision.Trim();
+                _repository.SetHardwareRevision(
+                    _deviceAddress,
+                    _hardwareVersion);
+            }
+
+            var firmwareVersion =
                 await _connectionService.TryReadFirmwareRevisionAsync(
                     _deviceAddress);
-            if (!string.IsNullOrWhiteSpace(hardwareVersion))
+            if (!string.IsNullOrWhiteSpace(firmwareVersion))
             {
-                CurrentVersion = hardwareVersion;
-                VersionSourceText = "设备 Firmware Revision";
+                CurrentVersion = firmwareVersion;
                 _repository.SetFirmwareVersion(
                     _deviceAddress,
-                    hardwareVersion);
-            }
-            else
-            {
-                VersionSourceText = "本地记录（设备未提供标准版本特征）";
+                    firmwareVersion);
             }
         }
         catch (Exception exception)
         {
             ConnectionText = $"暂未连接：{exception.Message}";
-            VersionSourceText = "本地记录（连接失败）";
         }
     }
 
     private async void OnOnlineCheckClicked(object? sender, EventArgs e)
     {
-        var manifestUrl = _configuration.ManifestUrl;
-        if (string.IsNullOrWhiteSpace(manifestUrl))
+        if (string.IsNullOrWhiteSpace(_hardwareVersion))
         {
-            manifestUrl = await DisplayPromptAsync(
-                "在线固件服务",
-                "请输入在线固件清单的 HTTPS 地址。地址会保存在本机，后续可直接检查。",
-                accept: "检查",
-                cancel: "取消",
-                placeholder: "https://example.com/firmware/manifest.json",
-                keyboard: Keyboard.Url);
+            StatusText = "未读取到设备硬件版本，无法查询匹配的在线固件。";
+            return;
         }
 
-        if (string.IsNullOrWhiteSpace(manifestUrl))
-            return;
+        var listWorkerUrl = _configuration.ListWorkerUrl;
+        if (string.IsNullOrWhiteSpace(listWorkerUrl))
+        {
+            listWorkerUrl = await DisplayPromptAsync(
+                "在线固件服务",
+                "请输入固件列表 Worker 的 HTTPS 地址。地址会保存在本机。",
+                accept: "继续",
+                cancel: "取消",
+                placeholder: "https://arri-light-firmware-list-dev.<account>.workers.dev",
+                keyboard: Keyboard.Url);
+            if (string.IsNullOrWhiteSpace(listWorkerUrl))
+                return;
+        }
+
+        var getWorkerUrl = _configuration.GetWorkerUrl;
+        if (string.IsNullOrWhiteSpace(getWorkerUrl))
+        {
+            getWorkerUrl = await DisplayPromptAsync(
+                "在线固件服务",
+                "请输入固件下载 Worker 的 HTTPS 地址。地址会保存在本机。",
+                accept: "检查",
+                cancel: "取消",
+                placeholder: "https://arri-light-firmware-get-dev.<account>.workers.dev",
+                keyboard: Keyboard.Url);
+            if (string.IsNullOrWhiteSpace(getWorkerUrl))
+                return;
+        }
+
+        _configuration.ListWorkerUrl = listWorkerUrl.Trim();
+        _configuration.GetWorkerUrl = getWorkerUrl.Trim();
 
         await RunBusyOperationAsync(
             "正在检查在线固件…",
             async token =>
             {
                 var result = await _firmwareUpdateService.CheckOnlineAsync(
+                    _hardwareVersion,
                     CurrentVersion,
-                    manifestUrl,
                     token);
-                SetCandidate(result.Candidate, result.IsUpdateAvailable);
-                if (result.IsUpdateAvailable)
+                if (result.Candidate is { } candidate)
                 {
-                    StatusText =
-                        $"发现新版本 {result.Candidate.Version}，可以一键下载并升级。";
+                    SetCandidate(candidate, result.IsUpdateAvailable);
+                    StatusText = result.IsUpdateAvailable
+                        ? $"发现新版本 {candidate.Version}，可以一键下载并升级。"
+                        : $"当前版本 {CurrentVersion} 已是最新版本。";
                 }
                 else
                 {
+                    ClearCandidate();
                     StatusText =
                         $"当前版本 {CurrentVersion} 已是最新版本。";
                 }
@@ -300,7 +324,6 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
                 if (candidate.SourceKind == FirmwareSourceKind.Online)
                 {
                     CurrentVersion = candidate.Version;
-                    VersionSourceText = "升级清单（等待设备重连复核）";
                     _repository.SetFirmwareVersion(
                         _deviceAddress,
                         candidate.Version);
@@ -398,11 +421,11 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         _canUseCandidate = canUpgrade;
         OnPropertyChanged(nameof(IsFirmwareReady));
         OnPropertyChanged(nameof(CanStartUpdate));
+        OnPropertyChanged(nameof(IsOnlineCandidate));
         OnPropertyChanged(nameof(CandidateTitle));
         OnPropertyChanged(nameof(CandidateSourceText));
         OnPropertyChanged(nameof(CandidateFileName));
         OnPropertyChanged(nameof(ReleaseNotes));
-        OnPropertyChanged(nameof(UpdateButtonText));
     }
 
     private void ClearCandidate()
@@ -411,11 +434,11 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         _canUseCandidate = false;
         OnPropertyChanged(nameof(IsFirmwareReady));
         OnPropertyChanged(nameof(CanStartUpdate));
+        OnPropertyChanged(nameof(IsOnlineCandidate));
         OnPropertyChanged(nameof(CandidateTitle));
         OnPropertyChanged(nameof(CandidateSourceText));
         OnPropertyChanged(nameof(CandidateFileName));
         OnPropertyChanged(nameof(ReleaseNotes));
-        OnPropertyChanged(nameof(UpdateButtonText));
     }
 
     private void OnConnectionStateChanged(
@@ -431,8 +454,21 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
             return;
         }
 
-        MainThread.BeginInvokeOnMainThread(() =>
-            ConnectionText = snapshot.Message);
+        MainThread.BeginInvokeOnMainThread(() => ApplyConnectionSnapshot(snapshot));
+    }
+
+    private void ApplyConnectionSnapshot(BluetoothSessionSnapshot snapshot)
+    {
+        if (!string.IsNullOrWhiteSpace(snapshot.Address) &&
+            !string.Equals(
+                snapshot.Address,
+                _deviceAddress,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        ConnectionText = snapshot.Message;
     }
 
     private static string ToOtaErrorMessage(OtaException exception) =>

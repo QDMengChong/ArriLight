@@ -1,0 +1,12 @@
+name = "arrilight-firmware-list-dev"
+main = "src/entry.py"
+compatibility_date = "2026-10-03"
+compatibility_flags = ["python_workers"]
+
+# Change only this value when switching from the test bucket to production.
+[[r2_buckets]]
+binding = "FIRMWARE_BUCKET"
+bucket_name = "arrilight-firmware-dev"
+
+[observability.logs]
+enabled = true

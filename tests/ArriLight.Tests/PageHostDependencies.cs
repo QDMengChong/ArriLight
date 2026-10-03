@@ -24,9 +24,14 @@ public class ContentPage : Element
     protected virtual bool OnBackButtonPressed() => false;
     protected void OnPropertyChanged(string? propertyName = null) { }
     protected Task DisplayAlertAsync(string title, string message, string cancel) => Task.CompletedTask;
+    protected Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel) =>
+        throw new NotSupportedException("Native OTA confirmation is not available in host tests.");
     protected Task<string?> DisplayPromptAsync(
         string title, string message, string accept, string cancel, string placeholder,
         string initialValue, int maxLength) => Task.FromResult<string?>(initialValue);
+    protected Task<string?> DisplayPromptAsync(
+        string title, string message, string accept, string cancel, string placeholder, Keyboard keyboard) =>
+        throw new NotSupportedException("Native OTA prompts are not available in host tests.");
 }
 
 public sealed class NavigatedToEventArgs : EventArgs;
@@ -60,6 +65,7 @@ public static class MainThread
         action();
         return Task.CompletedTask;
     }
+    public static Task InvokeOnMainThreadAsync(Func<Task> action) => action();
 }
 
 public static class ServiceHelper

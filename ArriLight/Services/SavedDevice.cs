@@ -25,4 +25,5 @@ public sealed record SavedDevice(
     BreatheEffectParameters? BreatheEffectParameters = null,
     IReadOnlyList<SavedControlPreset>? CustomPresets = null,
     int TimerSeconds = 60,
-    AgpCapabilities? Capabilities = null);
+    AgpCapabilities? Capabilities = null,
+    string? HardwareRevision = null);

@@ -27,6 +27,8 @@
     <Compile Include="..\..\ArriLight\Services\DeviceShareCode.cs" Link="Services\DeviceShareCode.cs" />
     <Compile Include="..\..\ArriLight\Services\EffectParameters.cs" Link="Services\EffectParameters.cs" />
     <Compile Include="..\..\ArriLight\Services\SavedDevice.cs" Link="Services\SavedDevice.cs" />
+    <Compile Include="..\..\ArriLight\Services\FirmwareUpdateService.cs" Link="Services\FirmwareUpdateService.cs" />
+    <Compile Include="..\..\ArriLight\Views\FirmwareUpdatePage.xaml.cs" Link="Views\FirmwareUpdatePage.xaml.cs" />
     <Compile Include="..\..\ArriLight\Views\BluetoothScanPage.xaml.cs" Link="Views\BluetoothScanPage.xaml.cs" />
     <Compile Include="..\..\ArriLight\Views\MainPage.xaml.cs" Link="Views\MainPage.xaml.cs" />
     <Compile Include="..\..\ArriLight\Views\DeviceControlPage.ConnectionLifecycle.cs" Link="Views\DeviceControlPage.ConnectionLifecycle.cs" />

@@ -80,6 +80,9 @@ public sealed class BluetoothConnectionService
     private static readonly Guid FirmwareRevisionCharacteristic =
         Guid.Parse("00002A26-0000-1000-8000-00805F9B34FB");
 
+    private static readonly Guid HardwareRevisionCharacteristic =
+        Guid.Parse("00002A27-0000-1000-8000-00805F9B34FB");
+
     private readonly IAdapter _adapter;
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly AppDiagnosticService _diagnostics;
@@ -811,6 +814,39 @@ public sealed class BluetoothConnectionService
         {
             timing.SetResult(TimingFailure(exception));
             throw;
+        }
+    }
+
+    public async Task<string?> TryReadHardwareRevisionAsync(
+        string address,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var data = await ReadAsync(
+                address,
+                DeviceInformationService,
+                HardwareRevisionCharacteristic,
+                cancellationToken);
+            var value = Encoding.UTF8.GetString(data).Trim('\0', ' ', '\r', '\n');
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            _diagnostics.Information(
+                "BLE/Hardware",
+                $"设备通过标准 Hardware Revision 特征返回硬件版本：{value}。");
+            return value;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception exception)
+        {
+            _diagnostics.Warning(
+                "BLE/Hardware",
+                $"设备未提供可读的标准 Hardware Revision 特征，将使用本地记录版本。原因：{exception.Message}");
+            return null;
         }
     }
 

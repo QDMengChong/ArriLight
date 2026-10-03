@@ -64,6 +64,8 @@ public sealed class AppDiagnosticService
     public void Warning(string area, string message) { }
     public void Error(string area, string message, Exception? exception = null) { }
     public void Trace(string area, string message) { }
+    public ArriOpto.BLE.Ota.OtaDiagnostics CreateOtaDiagnostics() =>
+        new(new ArriOpto.BLE.Ota.DelegateOtaDiagnosticSink(_ => { }));
 }
 
 public static class Preferences

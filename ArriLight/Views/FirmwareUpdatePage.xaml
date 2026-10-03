@@ -38,7 +38,7 @@
                         HeightRequest="1"
                         BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
 
-                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="10">
+                    <Grid ColumnDefinitions="*,Auto">
                         <Label
                             Text="当前版本"
                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
@@ -47,16 +47,6 @@
                             FontFamily="OpenSansSemibold"
                             Text="{Binding CurrentVersion}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                        <Label
-                            Grid.Row="1"
-                            Text="版本来源"
-                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                        <Label
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            FontSize="12"
-                            Text="{Binding VersionSourceText}"
-                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
@@ -68,10 +58,6 @@
                         FontSize="16"
                         Text="检查固件"
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    <Label
-                        FontSize="12"
-                        Text="支持 SLB .bin，以及 Single Bank .hex、.hex4、.hex16、.hexe16、.res 文件。"
-                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button
                             Clicked="OnOnlineCheckClicked"
@@ -146,8 +132,8 @@
                     <Button
                         Clicked="OnStartUpdateClicked"
                         IsEnabled="{Binding CanStartUpdate}"
-                        IsVisible="{Binding IsFirmwareReady}"
-                        Text="{Binding UpdateButtonText}" />
+                        IsVisible="{Binding IsOnlineCandidate}"
+                        Text="一键下载并升级" />
                     <Button
                         BackgroundColor="Transparent"
                         BorderColor="#E65B65"
