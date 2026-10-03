@@ -8,10 +8,10 @@ dotnet publish -c Release -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="C:\
 [`cloudflare-workers/README.md`](cloudflare-workers/README.md)。列表 Worker 接收
 硬件版本（例如 `PW01-A1`）和本地固件版本，下载 Worker 返回匹配的 `.hex16` 文件。
 
-首次点击“在线检查”时，APP 会分别询问列表 Worker 和下载 Worker 的 HTTPS 地址，
-并保存在本机。检测到更新后，APP 下载文件到缓存目录，沿用现有 Single Bank OTA
-流程校验并升级设备。若 R2 对象设置了 `sha256` 自定义元数据，APP 会在下载后执行
-SHA-256 校验；没有该元数据时会记录未校验提示。
+两个 Worker 地址已写入 `ArriLight/Resources/Raw/appsettings.json`，APP 启动后从应用包
+读取，不在界面中询问或保存地址。检测到更新后，APP 下载文件到缓存目录，沿用现有
+Single Bank OTA 流程校验并升级设备。若 R2 对象设置了 `sha256` 自定义元数据，APP 会在
+下载后执行 SHA-256 校验；没有该元数据时会记录未校验提示。
 
 调试信息输出默认关闭。在“我的 → 应用版本”页面连续点击版本号 5 次，可以打开或
 关闭文件输出。开启后日志追加写入应用数据目录的 `arrilight_debug.txt`。该开关只

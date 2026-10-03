@@ -76,29 +76,64 @@ public sealed class FirmwareCandidate
 
 public sealed class FirmwareUpdateConfiguration
 {
-    private const string ListWorkerUrlPreferenceKey = "ota_list_worker_url_v1";
-    private const string GetWorkerUrlPreferenceKey = "ota_get_worker_url_v1";
+    private const string ConfigurationAssetName = "appsettings.json";
 
-    public string ListWorkerUrl
+    private static readonly JsonSerializerOptions ConfigurationJsonOptions = new()
     {
-        get => Preferences.Default.Get(ListWorkerUrlPreferenceKey, string.Empty);
-        set => Preferences.Default.Set(
-            ListWorkerUrlPreferenceKey,
-            value?.Trim() ?? string.Empty);
-    }
+        PropertyNameCaseInsensitive = true
+    };
 
-    public string GetWorkerUrl
-    {
-        get => Preferences.Default.Get(GetWorkerUrlPreferenceKey, string.Empty);
-        set => Preferences.Default.Set(
-            GetWorkerUrlPreferenceKey,
-            value?.Trim() ?? string.Empty);
-    }
+    public string? ListWorkerUrl { get; init; }
+
+    public string? GetWorkerUrl { get; init; }
 
     public int RequestedMtu { get; init; } = 517;
 
     // AES Key 不持久化。若产品使用加密 SLB，应由安全配置在运行时注入。
     public string? AesKeyHex { get; set; }
+
+    public async Task<(string ListWorkerUrl, string GetWorkerUrl)> LoadWorkerUrlsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var listWorkerUrl = ListWorkerUrl;
+        var getWorkerUrl = GetWorkerUrl;
+        if (string.IsNullOrWhiteSpace(listWorkerUrl) ||
+            string.IsNullOrWhiteSpace(getWorkerUrl))
+        {
+            await using var stream = await FileSystem.OpenAppPackageFileAsync(
+                ConfigurationAssetName);
+            var document = await JsonSerializer.DeserializeAsync<ConfigurationDocument>(
+                stream,
+                ConfigurationJsonOptions,
+                cancellationToken);
+            listWorkerUrl = string.IsNullOrWhiteSpace(listWorkerUrl)
+                ? document?.FirmwareUpdate?.ListWorkerUrl
+                : listWorkerUrl;
+            getWorkerUrl = string.IsNullOrWhiteSpace(getWorkerUrl)
+                ? document?.FirmwareUpdate?.GetWorkerUrl
+                : getWorkerUrl;
+        }
+
+        if (string.IsNullOrWhiteSpace(listWorkerUrl) ||
+            string.IsNullOrWhiteSpace(getWorkerUrl))
+        {
+            throw new InvalidOperationException(
+                $"应用配置文件 {ConfigurationAssetName} 未完整配置在线固件服务地址。");
+        }
+
+        return (listWorkerUrl.Trim(), getWorkerUrl.Trim());
+    }
+
+    private sealed class ConfigurationDocument
+    {
+        public FirmwareUpdateEndpoints? FirmwareUpdate { get; set; }
+    }
+
+    private sealed class FirmwareUpdateEndpoints
+    {
+        public string? ListWorkerUrl { get; set; }
+        public string? GetWorkerUrl { get; set; }
+    }
 }
 
 public sealed class FirmwareUpdateService(
@@ -130,11 +165,12 @@ public sealed class FirmwareUpdateService(
                 nameof(hardwareVersion));
         }
 
+        var workerUrls = await configuration.LoadWorkerUrlsAsync(cancellationToken);
         var listWorkerUri = ValidateWorkerUri(
-            configuration.ListWorkerUrl,
+            workerUrls.ListWorkerUrl,
             "在线固件列表 Worker 地址");
         var getWorkerUri = ValidateWorkerUri(
-            configuration.GetWorkerUrl,
+            workerUrls.GetWorkerUrl,
             "在线固件下载 Worker 地址");
         var requestUri = AppendQuery(
             listWorkerUri,

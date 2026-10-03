@@ -3,7 +3,7 @@ main = "src/entry.py"
 compatibility_date = "2026-10-03"
 compatibility_flags = ["python_workers"]
 
-# Change only this value when switching from the test bucket to production.
+# 从测试桶切换到正式桶时，只需修改此处。
 [[r2_buckets]]
 binding = "FIRMWARE_BUCKET"
 bucket_name = "arrilight-firmware-dev"

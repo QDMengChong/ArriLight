@@ -44,11 +44,23 @@ def object_version_text(key: str) -> str | None:
     return match.group(1) if match is not None else None
 
 
-def object_custom_metadata(obj: object) -> dict:
+def object_custom_metadata(obj: object) -> object:
     metadata = getattr(obj, "customMetadata", None)
     if metadata is None:
         metadata = getattr(obj, "custom_metadata", None)
-    return metadata or {}
+    return metadata
+
+
+def metadata_value(metadata: object, name: str) -> str | None:
+    if metadata is None:
+        return None
+    value = getattr(metadata, name, None)
+    if value is None:
+        try:
+            value = metadata[name]
+        except (KeyError, TypeError, AttributeError):
+            value = None
+    return str(value) if value is not None else None
 
 
 class Default(WorkerEntrypoint):
@@ -127,6 +139,6 @@ class Default(WorkerEntrypoint):
                 "hardwareVersion": hardware_version,
                 "version": version,
                 "fileName": selected_key,
-                "sha256": metadata.get("sha256"),
+                "sha256": metadata_value(metadata, "sha256"),
             }
         )

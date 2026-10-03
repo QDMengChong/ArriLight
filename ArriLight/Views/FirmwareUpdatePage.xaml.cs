@@ -1,4 +1,3 @@
-using System.Net.Http;
 using System.Runtime.CompilerServices;
 using ArriOpto.BLE.Ota;
 
@@ -9,7 +8,6 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     private readonly DeviceRepository _repository;
     private readonly BluetoothConnectionService _connectionService;
     private readonly FirmwareUpdateService _firmwareUpdateService;
-    private readonly FirmwareUpdateConfiguration _configuration;
     private readonly AppDiagnosticService _diagnostics;
 
     private string _deviceAddress = string.Empty;
@@ -34,8 +32,6 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
             ServiceHelper.GetRequiredService<BluetoothConnectionService>();
         _firmwareUpdateService =
             ServiceHelper.GetRequiredService<FirmwareUpdateService>();
-        _configuration =
-            ServiceHelper.GetRequiredService<FirmwareUpdateConfiguration>();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
         BindingContext = this;
     }
@@ -192,37 +188,6 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
             StatusText = "未读取到设备硬件版本，无法查询匹配的在线固件。";
             return;
         }
-
-        var listWorkerUrl = _configuration.ListWorkerUrl;
-        if (string.IsNullOrWhiteSpace(listWorkerUrl))
-        {
-            listWorkerUrl = await DisplayPromptAsync(
-                "在线固件服务",
-                "请输入固件列表 Worker 的 HTTPS 地址。地址会保存在本机。",
-                accept: "继续",
-                cancel: "取消",
-                placeholder: "https://arri-light-firmware-list-dev.<account>.workers.dev",
-                keyboard: Keyboard.Url);
-            if (string.IsNullOrWhiteSpace(listWorkerUrl))
-                return;
-        }
-
-        var getWorkerUrl = _configuration.GetWorkerUrl;
-        if (string.IsNullOrWhiteSpace(getWorkerUrl))
-        {
-            getWorkerUrl = await DisplayPromptAsync(
-                "在线固件服务",
-                "请输入固件下载 Worker 的 HTTPS 地址。地址会保存在本机。",
-                accept: "检查",
-                cancel: "取消",
-                placeholder: "https://arri-light-firmware-get-dev.<account>.workers.dev",
-                keyboard: Keyboard.Url);
-            if (string.IsNullOrWhiteSpace(getWorkerUrl))
-                return;
-        }
-
-        _configuration.ListWorkerUrl = listWorkerUrl.Trim();
-        _configuration.GetWorkerUrl = getWorkerUrl.Trim();
 
         await RunBusyOperationAsync(
             "正在检查在线固件…",

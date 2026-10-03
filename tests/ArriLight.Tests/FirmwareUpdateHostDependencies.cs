@@ -33,6 +33,9 @@ public sealed class FileResult
 
 public static class FileSystem
 {
+    public static Task<Stream> OpenAppPackageFileAsync(string fileName) =>
+        throw new NotSupportedException("App package assets are not used when worker URLs are supplied by host tests.");
+
     public static string CacheDirectory =>
         throw new NotSupportedException("OTA downloads are not used in connection tests.");
 }

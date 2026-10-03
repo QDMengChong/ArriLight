@@ -70,8 +70,21 @@ class Default(WorkerEntrypoint):
         metadata = getattr(obj, "customMetadata", None)
         if metadata is None:
             metadata = getattr(obj, "custom_metadata", None)
-        if metadata and metadata.get("sha256"):
-            headers["X-Firmware-SHA256"] = metadata["sha256"]
+        sha256 = metadata_value(metadata, "sha256")
+        if sha256:
+            headers["X-Firmware-SHA256"] = sha256
         if getattr(obj, "httpEtag", None):
             headers["ETag"] = obj.httpEtag
         return Response(obj.body, headers=headers)
+
+
+def metadata_value(metadata: object, name: str) -> str | None:
+    if metadata is None:
+        return None
+    value = getattr(metadata, name, None)
+    if value is None:
+        try:
+            value = metadata[name]
+        except (KeyError, TypeError, AttributeError):
+            value = None
+    return str(value) if value is not None else None

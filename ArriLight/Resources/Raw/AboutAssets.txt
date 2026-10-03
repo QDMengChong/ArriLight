@@ -1,10 +1,9 @@
-﻿Any raw assets you want to be deployed with your application can be placed in
-this directory (and child directories). Deployment of the asset to your application
-is automatically handled by the following `MauiAsset` Build Action within your `.csproj`.
+需要随应用一起部署的原始资源可以放在此目录或其子目录中。资源会由 `.csproj`
+中的以下 `MauiAsset` Build Action 自动部署到应用：
 
 	<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
 
-These files will be deployed with your package and will be accessible using Essentials:
+这些文件会随应用包一起部署，并可以通过 Essentials 访问：
 
 	async Task LoadMauiAsset()
 	{

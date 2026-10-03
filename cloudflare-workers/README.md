@@ -1,31 +1,29 @@
-# ArriLight Cloudflare OTA Workers
+# ArriLight Cloudflare OTA Worker
 
-This directory contains the two Python Workers used by the ArriLight test OTA
-service. Both Workers bind the same R2 bucket. The bucket name is deliberately
-kept in each `wrangler.toml`, so the production bucket can replace the test
-bucket without changing Python code.
+本目录包含 ArriLight 测试版在线 OTA 服务使用的两个 Python Worker：列表 Worker
+和下载 Worker。两个 Worker 绑定同一个 R2 存储桶。桶名称分别写在各自的
+`wrangler.toml` 中，切换到正式桶时只需修改配置，不需要修改 Python 代码。
 
-The R2 object layout is:
-
-```text
-PW01_A1/<firmware-file>.hex16
-PW01_A2/<firmware-file>.hex16
-```
-
-The filename must contain a dotted numeric firmware version, for example
-`PW01_A1_1.0.2.hex16` or `firmware-v1.0.2.hex16`. The list Worker compares that
-version with the requested local version and returns the newest strictly newer
-file.
-
-## API contract
-
-List:
+R2 对象目录格式如下：
 
 ```text
-GET https://<list-worker>/api/firmware?hardwareVersion=PW01-A1&currentVersion=1.0.1
+PW01_A1/<固件文件>.hex16
+PW01_A2/<固件文件>.hex16
 ```
 
-Response when an update exists:
+文件名必须包含带小数点的数字版本号，例如
+`PW01_A1_1.0.2.hex16` 或 `firmware-v1.0.2.hex16`。列表 Worker 会将文件版本
+与请求中的本地版本比较，并返回严格高于本地版本的最新文件。
+
+## 接口说明
+
+列表接口：
+
+```text
+GET https://<列表 Worker 地址>/api/firmware?hardwareVersion=PW01-A1&currentVersion=1.0.1
+```
+
+检测到更新时返回：
 
 ```json
 {
@@ -36,10 +34,10 @@ Response when an update exists:
 }
 ```
 
-`fileName` is the R2 object key. Returning the key rather than only the basename
-keeps two hardware directories from having ambiguous filenames.
+`fileName` 是 R2 对象键。返回完整对象键而不是只有文件名，可以避免不同硬件目录
+中的同名文件产生歧义。
 
-Response when there is no directory, no `.hex16` file, or no newer version:
+目录不存在、目录中没有 `.hex16` 文件，或没有高于本地版本的文件时返回：
 
 ```json
 {
@@ -50,79 +48,86 @@ Response when there is no directory, no `.hex16` file, or no newer version:
 }
 ```
 
-Get:
+下载接口：
 
 ```text
-GET https://<get-worker>/api/firmware?fileName=PW01_A1%2FPW01_A1_1.0.2.hex16
+GET https://<下载 Worker 地址>/api/firmware?fileName=PW01_A1%2FPW01_A1_1.0.2.hex16
 ```
 
-The response body is the R2 object body. The Worker also emits
-`X-Firmware-Version`, `X-Hardware-Version`, and (when the object has a
-`sha256` custom metadata value) `X-Firmware-SHA256` headers.
+响应正文就是 R2 对象内容。Worker 还会返回以下响应头：
 
-## Deploy
+- `X-Firmware-Version`：固件版本。
+- `X-Hardware-Version`：硬件版本。
+- `X-Firmware-SHA256`：对象设置了 `sha256` 自定义元数据时返回。
 
-Install `uv` and Node.js, then log in to Cloudflare once:
+## 部署
+
+先安装 `uv` 和 Node.js，然后登录 Cloudflare：
 
 ```powershell
 npx wrangler login
 ```
 
-From each Worker directory, run the Python Workers CLI documented by Cloudflare:
+在每个 Worker 目录中执行以下命令。`--group dev` 用于明确同步开发依赖，避免
+项目虚拟环境中缺少 `click` 等 `pywrangler` 依赖：
 
 ```powershell
 cd cloudflare-workers\arriLight-list
-uv run pywrangler dev
-uv run pywrangler deploy
+uv sync --group dev
+uv run --group dev pywrangler dev
+uv run --group dev pywrangler deploy
 
 cd ..\arriLight-get
-uv run pywrangler dev
-uv run pywrangler deploy
+uv sync --group dev
+uv run --group dev pywrangler dev
+uv run --group dev pywrangler deploy
 ```
 
-### Windows note
+### Windows 注意事项
 
-Native Windows currently fails before the Worker source is loaded for some
-`uv`/Pyodide combinations. The typical error is
-`ModuleNotFoundError: No module named 'python'` while `uv venv` creates
-`.venv-workers/pyodide-venv`. This is a Windows path issue in the local
-Pyodide bootstrap, not an error in `src/entry.py`; changing the Worker code or
-the R2 binding does not fix it. The same failure is tracked in the
-[`workers-py` issue tracker](https://github.com/cloudflare/workers-py/issues/270).
+部分 `uv`/Pyodide 组合在原生 Windows 下会在 Worker 源码加载前失败。常见错误是
+`uv venv` 创建 `.venv-workers/pyodide-venv` 时出现：
 
-Use WSL2 or a Linux CI runner for local development and deployment until the
-Windows bootstrap is fixed. In an Ubuntu WSL terminal:
+```text
+ModuleNotFoundError: No module named 'python'
+```
+
+这是 Windows 本地 Pyodide 初始化的路径问题，不是 `src/entry.py` 或 R2 绑定错误。
+相关问题见 [`workers-py` 问题记录](https://github.com/cloudflare/workers-py/issues/270)。
+
+在 Windows 下请使用 WSL2 或 Linux CI 环境进行本地运行和部署。在 Ubuntu WSL 终端中执行：
 
 ```bash
 cd /mnt/d/git/ArriLight/cloudflare-workers/arriLight-list
-uv run pywrangler dev
-uv run pywrangler deploy
+rm -rf .venv .venv-workers
+uv sync --group dev
+uv run --group dev pywrangler dev
+uv run --group dev pywrangler deploy
 
 cd ../arriLight-get
-uv run pywrangler dev
-uv run pywrangler deploy
+rm -rf .venv .venv-workers
+uv sync --group dev
+uv run --group dev pywrangler dev
+uv run --group dev pywrangler deploy
 ```
 
-If the failed Windows attempt left a `.venv-workers` directory, remove that
-directory from PowerShell before retrying on Windows or leave it unused when
-running from WSL.
+如果之前的 Windows 命令留下了损坏的 `.venv-workers`，可以在 PowerShell 中删除
+该目录；从 WSL 运行时不要复用这个 Windows 虚拟环境。
 
-For local testing against the real R2 bucket, set `remote = true` on the R2
-binding temporarily. Without that setting, local development uses a local R2
-simulation. Production deployment always uses the bucket named in the binding.
+本地开发默认使用本地 R2 模拟。如果需要连接真实 R2 测试桶，可临时在 R2 绑定中
+设置 `remote = true`。正式部署始终使用绑定中配置的桶。
 
-After deployment, put the two `workers.dev` URLs into the ArriLight firmware
-page when prompted. Uploading a file is separate from deploying the Workers; use
-the R2 dashboard or an S3-compatible client to place objects under the hardware
-directory shown above.
+部署完成后，两个 `workers.dev` 地址由
+`ArriLight/Resources/Raw/appsettings.json` 统一配置，APP 不会在固件升级页面中询问地址。
+上传固件与部署 Worker 是两个独立步骤；可以使用 R2 控制台或 S3 兼容客户端，将文件
+放入上面规定的硬件目录。
 
-For a small test firmware, Wrangler can upload one object directly:
+上传一个小型测试固件时，可以直接使用 Wrangler：
 
 ```powershell
 npx wrangler r2 object put arrilight-firmware-dev/PW01_A1/PW01_A1_1.0.2.hex16 `
   --file .\PW01_A1_1.0.2.hex16 --content-type application/octet-stream
 ```
 
-The object key and filename must contain the same dotted version that the list
-Worker should compare. For production, change `bucket_name` in both
-`wrangler.toml` files before deploying.
+对象键和文件名必须包含列表 Worker 用于比较的同一个小数版本号。切换正式环境时，
+请先修改两个 `wrangler.toml` 中的 `bucket_name`，再分别部署两个 Worker。
