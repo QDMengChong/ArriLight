@@ -11,12 +11,12 @@ public sealed class FirmwareOnlineTests
     {
         await using var fixture = new PairingFixture();
         var handler = new CapturingHandler(
-            "{\"hardwareVersion\":\"PW01-A1\",\"version\":\"1.0.2\",\"fileName\":\"PW01_A1/PW01_A1_1.0.2.hex16\",\"sha256\":\"aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99\"}");
+            "{\"hardwareVersion\":\"PW01-A1\",\"version\":\"1.0.2\",\"fileName\":\"PW01_A1/1.0.2.hex16\",\"sha256\":\"aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99:aa:bb:cc:dd:ee:ff:00:11:22:33:44:55:66:77:88:99\"}");
         using var httpClient = new HttpClient(handler);
         var configuration = new FirmwareUpdateConfiguration
         {
-            ListWorkerUrl = "https://list.example/api/firmware?tenant=dev",
-            GetWorkerUrl = "https://get.example/api/firmware"
+            ListWorkerUrl = "https://list.example?tenant=dev",
+            GetWorkerUrl = "https://get.example"
         };
         var service = CreateService(fixture, httpClient, configuration);
 
@@ -27,12 +27,12 @@ public sealed class FirmwareOnlineTests
         Assert.Equal(FirmwareSourceKind.Online, candidate.SourceKind);
         Assert.Equal(OtaProtocol.SingleBank, candidate.Protocol);
         Assert.Equal("1.0.2", candidate.Version);
-        Assert.Equal("PW01_A1_1.0.2.hex16", candidate.FileName);
+        Assert.Equal("1.0.2.hex16", candidate.FileName);
         Assert.Equal(
             "AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899",
             candidate.Sha256);
         Assert.Equal(
-            "https://get.example/api/firmware?fileName=PW01_A1%2FPW01_A1_1.0.2.hex16",
+            "https://get.example?fileName=PW01_A1%2F1.0.2.hex16",
             candidate.DownloadUri?.ToString());
 
         Assert.NotNull(handler.RequestUri);
@@ -50,8 +50,8 @@ public sealed class FirmwareOnlineTests
         using var httpClient = new HttpClient(handler);
         var configuration = new FirmwareUpdateConfiguration
         {
-            ListWorkerUrl = "https://list.example/api/firmware",
-            GetWorkerUrl = "https://get.example/api/firmware"
+            ListWorkerUrl = "https://list.example",
+            GetWorkerUrl = "https://get.example"
         };
         var service = CreateService(fixture, httpClient, configuration);
 

@@ -105,8 +105,25 @@ public sealed class AppDiagnosticService
     {
         var detail = exception is null
             ? message
-            : $"{message} {exception.GetType().Name}: {exception.Message}";
+            : $"{message} {FormatExceptionChain(exception)}";
         Write(AppDiagnosticLevel.Error, source, detail);
+    }
+
+    private static string FormatExceptionChain(Exception exception)
+    {
+        const int maxInnerExceptions = 8;
+        var details = new List<string>();
+        for (Exception? current = exception;
+             current is not null && details.Count < maxInnerExceptions;
+             current = current.InnerException)
+        {
+            var message = current.Message
+                .Replace('\r', ' ')
+                .Replace('\n', ' ');
+            details.Add($"{current.GetType().FullName}: {message}");
+        }
+
+        return string.Join(" --> ", details);
     }
 
     public OtaDiagnostics CreateOtaDiagnostics()

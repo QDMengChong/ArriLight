@@ -377,14 +377,11 @@ public sealed class FirmwareUpdateService(
             diagnostics.Information(
                 "OTA",
                 $"{candidate.ProtocolText} OTA 状态机执行完成。");
-            var completionMessage = candidate.Protocol == OtaProtocol.SingleBank
-                ? "升级成功，请删除本设备后重新再次连接。"
-                : "固件校验通过，设备正在重启。";
             progress?.Report(
                 new FirmwareUpdateProgress(
                     FirmwareUpdateStage.Completed,
                     100,
-                    completionMessage));
+                    "升级成功！"));
         }
         finally
         {

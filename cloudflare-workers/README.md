@@ -11,8 +11,7 @@ PW01_A1/<固件文件>.hex16
 PW01_A2/<固件文件>.hex16
 ```
 
-文件名必须包含带小数点的数字版本号，例如
-`PW01_A1_1.0.2.hex16` 或 `firmware-v1.0.2.hex16`。列表 Worker 会将文件版本
+文件名必须是带小数点的数字版本号，例如 `1.0.2.hex16`。列表 Worker 会将文件版本
 与请求中的本地版本比较，并返回严格高于本地版本的最新文件。
 
 ## 接口说明
@@ -20,7 +19,7 @@ PW01_A2/<固件文件>.hex16
 列表接口：
 
 ```text
-GET https://<列表 Worker 地址>/api/firmware?hardwareVersion=PW01-A1&currentVersion=1.0.1
+GET https://<列表 Worker 地址>?hardwareVersion=PW01-A1&currentVersion=1.0.1
 ```
 
 检测到更新时返回：
@@ -29,7 +28,7 @@ GET https://<列表 Worker 地址>/api/firmware?hardwareVersion=PW01-A1&currentV
 {
   "hardwareVersion": "PW01-A1",
   "version": "1.0.2",
-  "fileName": "PW01_A1/PW01_A1_1.0.2.hex16",
+  "fileName": "PW01_A1/1.0.2.hex16",
   "sha256": null
 }
 ```
@@ -51,7 +50,7 @@ GET https://<列表 Worker 地址>/api/firmware?hardwareVersion=PW01-A1&currentV
 下载接口：
 
 ```text
-GET https://<下载 Worker 地址>/api/firmware?fileName=PW01_A1%2FPW01_A1_1.0.2.hex16
+GET https://<下载 Worker 地址>?fileName=PW01_A1%2F1.0.2.hex16
 ```
 
 响应正文就是 R2 对象内容。Worker 还会返回以下响应头：
@@ -125,8 +124,8 @@ uv run --group dev pywrangler deploy
 上传一个小型测试固件时，可以直接使用 Wrangler：
 
 ```powershell
-npx wrangler r2 object put arrilight-firmware-dev/PW01_A1/PW01_A1_1.0.2.hex16 `
-  --file .\PW01_A1_1.0.2.hex16 --content-type application/octet-stream
+npx wrangler r2 object put arrilight-firmware-dev/PW01_A1/1.0.2.hex16 `
+  --file .\1.0.2.hex16 --content-type application/octet-stream
 ```
 
 对象键和文件名必须包含列表 Worker 用于比较的同一个小数版本号。切换正式环境时，

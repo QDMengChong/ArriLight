@@ -132,7 +132,7 @@
                     <Button
                         Clicked="OnStartUpdateClicked"
                         IsEnabled="{Binding CanStartUpdate}"
-                        IsVisible="{Binding IsOnlineCandidate}"
+                        IsVisible="{Binding CanShowOnlineUpdateButton}"
                         Text="一键下载并升级" />
                     <Button
                         BackgroundColor="Transparent"

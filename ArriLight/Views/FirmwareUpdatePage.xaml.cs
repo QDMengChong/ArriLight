@@ -21,6 +21,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     private bool _isBusy;
     private bool _hasInitializedDeviceInfo;
     private bool _canUseCandidate;
+    private bool _isUpdateCompleted;
     private FirmwareCandidate? _candidate;
     private CancellationTokenSource? _operationCancellation;
 
@@ -81,6 +82,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
                 return;
             OnPropertyChanged(nameof(CanOperate));
             OnPropertyChanged(nameof(CanStartUpdate));
+            OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
             OnPropertyChanged(nameof(IsProgressVisible));
         }
     }
@@ -90,9 +92,13 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     public bool CanStartUpdate =>
         _candidate?.SourceKind == FirmwareSourceKind.Online &&
         _canUseCandidate &&
+        !_isUpdateCompleted &&
         !IsOperationRunning;
-    public bool IsOnlineCandidate =>
-        _candidate?.SourceKind == FirmwareSourceKind.Online;
+    public bool CanShowOnlineUpdateButton =>
+        _candidate?.SourceKind == FirmwareSourceKind.Online &&
+        _canUseCandidate &&
+        !_isUpdateCompleted &&
+        !IsOperationRunning;
     public bool IsProgressVisible => IsOperationRunning || ProgressValue > 0;
 
     public string CandidateTitle =>
@@ -292,11 +298,12 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
                     _repository.SetFirmwareVersion(
                         _deviceAddress,
                         candidate.Version);
+                    _isUpdateCompleted = true;
+                    OnPropertyChanged(nameof(CanStartUpdate));
+                    OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
                 }
 
-                StatusText = candidate.Protocol == OtaProtocol.SingleBank
-                    ? "升级成功，请删除本设备后重新再次连接。"
-                    : "固件升级完成，设备正在重启。";
+                StatusText = "升级成功！";
                 ProgressValue = 1;
                 ProgressText = "100%";
             });
@@ -384,9 +391,10 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     {
         _candidate = candidate;
         _canUseCandidate = canUpgrade;
+        _isUpdateCompleted = false;
         OnPropertyChanged(nameof(IsFirmwareReady));
         OnPropertyChanged(nameof(CanStartUpdate));
-        OnPropertyChanged(nameof(IsOnlineCandidate));
+        OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
         OnPropertyChanged(nameof(CandidateTitle));
         OnPropertyChanged(nameof(CandidateSourceText));
         OnPropertyChanged(nameof(CandidateFileName));
@@ -397,9 +405,10 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     {
         _candidate = null;
         _canUseCandidate = false;
+        _isUpdateCompleted = false;
         OnPropertyChanged(nameof(IsFirmwareReady));
         OnPropertyChanged(nameof(CanStartUpdate));
-        OnPropertyChanged(nameof(IsOnlineCandidate));
+        OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
         OnPropertyChanged(nameof(CandidateTitle));
         OnPropertyChanged(nameof(CandidateSourceText));
         OnPropertyChanged(nameof(CandidateFileName));
