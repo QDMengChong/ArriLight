@@ -24,6 +24,7 @@ public static class MauiProgram
             });
 
         builder.Services.AddSingleton<ILocalizationService>(Localization.Current);
+        builder.Services.AddSingleton<OpenSourceLicenseCatalog>();
         builder.Services.AddSingleton(CrossBluetoothLE.Current);
         builder.Services.AddSingleton<IAdapter>(
             _ => CrossBluetoothLE.Current.Adapter);

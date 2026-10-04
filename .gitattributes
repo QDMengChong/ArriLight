@@ -3,6 +3,10 @@
 ###############################################################################
 * text=auto
 
+# Preserve attributed license files byte-for-byte; their filenames use content hashes.
+ArriLight/Resources/Raw/OpenSourceLicenses/texts/*.txt -text
+tools/license-sources/*.txt -text
+
 ###############################################################################
 # Set default behavior for command prompt diff.
 #

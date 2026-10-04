@@ -23,6 +23,7 @@
     <Compile Include="..\..\ArriLight\Services\LocalizationService.cs" Link="Services\LocalizationService.cs" />
     <Compile Include="..\..\ArriLight\Services\Localization.cs" Link="Services\Localization.cs" />
     <Compile Include="..\..\ArriLight\Services\BackExitGate.cs" Link="Services\BackExitGate.cs" />
+    <Compile Include="..\..\ArriLight\Services\OpenSourceLicenseCatalog.cs" Link="Services\OpenSourceLicenseCatalog.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.cs" Link="Services\AgpLightControlService.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Schedules.cs" Link="Services\AgpLightControlService.Schedules.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpGattTransport.cs" Link="Services\AgpGattTransport.cs" />
@@ -49,5 +50,8 @@
       <Link>Resources\Localization\%(Filename)%(Extension)</Link>
       <LogicalName>ArriLight.Resources.Localization.%(Filename).resources</LogicalName>
     </EmbeddedResource>
+    <None Include="..\..\ArriLight\Resources\Raw\OpenSourceLicenses\**\*"
+          Link="AppAssets\OpenSourceLicenses\%(RecursiveDir)%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

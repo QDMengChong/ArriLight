@@ -10,6 +10,8 @@ namespace ArriLight
             Routing.RegisterRoute(nameof(AboutUsPage), typeof(AboutUsPage));
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
             Routing.RegisterRoute(nameof(LegalDocumentPage), typeof(LegalDocumentPage));
+            Routing.RegisterRoute(nameof(OpenSourceLicensesPage), typeof(OpenSourceLicensesPage));
+            Routing.RegisterRoute(nameof(OpenSourceLicensePage), typeof(OpenSourceLicensePage));
             DeviceControlPageRoutes.Register();
             Routing.RegisterRoute(
                 nameof(HslDeviceControlPage),

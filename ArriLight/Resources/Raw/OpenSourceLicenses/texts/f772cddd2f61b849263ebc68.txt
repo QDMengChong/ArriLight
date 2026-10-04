@@ -1,0 +1,11 @@
+OpenSans-Regular.ttf
+Digitized data copyright © 2010-2011, Google Corporation.
+Version 1.10
+Licensed under the Apache License, Version 2.0
+http://www.apache.org/licenses/LICENSE-2.0
+
+OpenSans-Semibold.ttf
+Digitized data copyright © 2011, Google Corporation.
+Version 1.10
+Licensed under the Apache License, Version 2.0
+http://www.apache.org/licenses/LICENSE-2.0

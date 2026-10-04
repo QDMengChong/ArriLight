@@ -414,4 +414,15 @@ public static class AppResources
     public static string Settings_LanguageRestartRequired => global::ArriLight.Localization.GetString(nameof(Settings_LanguageRestartRequired));
     public static string Firmware_OtaProcessing => global::ArriLight.Localization.GetString(nameof(Firmware_OtaProcessing));
     public static string Navigation_BackAgainToExit => global::ArriLight.Localization.GetString(nameof(Navigation_BackAgainToExit));
+    public static string Licenses_Title => global::ArriLight.Localization.GetString(nameof(Licenses_Title));
+    public static string Licenses_Introduction => global::ArriLight.Localization.GetString(nameof(Licenses_Introduction));
+    public static string Licenses_Search => global::ArriLight.Localization.GetString(nameof(Licenses_Search));
+    public static string Licenses_NoMatches => global::ArriLight.Localization.GetString(nameof(Licenses_NoMatches));
+    public static string Licenses_LoadFailed => global::ArriLight.Localization.GetString(nameof(Licenses_LoadFailed));
+    public static string Licenses_NotFound => global::ArriLight.Localization.GetString(nameof(Licenses_NotFound));
+    public static string Licenses_OriginalText => global::ArriLight.Localization.GetString(nameof(Licenses_OriginalText));
+    public static string Licenses_ProjectWebsite => global::ArriLight.Localization.GetString(nameof(Licenses_ProjectWebsite));
+    public static string Licenses_LinkFailed => global::ArriLight.Localization.GetString(nameof(Licenses_LinkFailed));
+    public static string Licenses_Version => global::ArriLight.Localization.GetString(nameof(Licenses_Version));
+    public static string Licenses_Authors => global::ArriLight.Localization.GetString(nameof(Licenses_Authors));
 }

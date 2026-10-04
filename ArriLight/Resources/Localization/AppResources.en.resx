@@ -1668,4 +1668,37 @@ This is sample text for interface design. The final version should be profession
   <data name="Navigation_BackAgainToExit" xml:space="preserve">
     <value>Press Back again to exit the app</value>
   </data>
+  <data name="Licenses_Title" xml:space="preserve">
+    <value>Open-source licenses</value>
+  </data>
+  <data name="Licenses_Introduction" xml:space="preserve">
+    <value>Thanks to the open-source community. The frameworks, components and fonts used by this project are listed below. Tap a project to read its full license and copyright notices offline.</value>
+  </data>
+  <data name="Licenses_Search" xml:space="preserve">
+    <value>Search projects or licenses</value>
+  </data>
+  <data name="Licenses_NoMatches" xml:space="preserve">
+    <value>No matching open-source projects</value>
+  </data>
+  <data name="Licenses_LoadFailed" xml:space="preserve">
+    <value>Unable to load licenses. Go back and try again.</value>
+  </data>
+  <data name="Licenses_NotFound" xml:space="preserve">
+    <value>The license for this project was not found.</value>
+  </data>
+  <data name="Licenses_OriginalText" xml:space="preserve">
+    <value>The licenses and third-party copyright notices below are shown in their original form.</value>
+  </data>
+  <data name="Licenses_ProjectWebsite" xml:space="preserve">
+    <value>Project website</value>
+  </data>
+  <data name="Licenses_LinkFailed" xml:space="preserve">
+    <value>Unable to open the project website.</value>
+  </data>
+  <data name="Licenses_Version" xml:space="preserve">
+    <value>Version: {0}</value>
+  </data>
+  <data name="Licenses_Authors" xml:space="preserve">
+    <value>Authors: {0}</value>
+  </data>
 </root>

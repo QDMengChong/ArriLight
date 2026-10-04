@@ -15,6 +15,9 @@ public partial class AboutUsPage : ContentPage
     private async void OnPrivacyPolicyTapped(object? sender, TappedEventArgs e) =>
         await Shell.Current.GoToAsync($"{nameof(LegalDocumentPage)}?kind=privacy");
 
+    private async void OnOpenSourceLicensesTapped(object? sender, TappedEventArgs e) =>
+        await Shell.Current.GoToAsync(nameof(OpenSourceLicensesPage));
+
     private async void OnWeChatTapped(object? sender, TappedEventArgs e)
     {
         try

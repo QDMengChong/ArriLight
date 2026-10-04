@@ -1668,4 +1668,37 @@ Product ID：{3}
   <data name="Navigation_BackAgainToExit" xml:space="preserve">
     <value>再按一次返回键退出本程序</value>
   </data>
+  <data name="Licenses_Title" xml:space="preserve">
+    <value>开源许可</value>
+  </data>
+  <data name="Licenses_Introduction" xml:space="preserve">
+    <value>感谢开源社区。本项目使用的框架、组件及字体列于下方。点击项目可离线查看许可证全文和版权声明。</value>
+  </data>
+  <data name="Licenses_Search" xml:space="preserve">
+    <value>搜索项目或许可证</value>
+  </data>
+  <data name="Licenses_NoMatches" xml:space="preserve">
+    <value>没有匹配的开源项目</value>
+  </data>
+  <data name="Licenses_LoadFailed" xml:space="preserve">
+    <value>无法加载开源许可，请返回后重试。</value>
+  </data>
+  <data name="Licenses_NotFound" xml:space="preserve">
+    <value>未找到该开源项目的许可。</value>
+  </data>
+  <data name="Licenses_OriginalText" xml:space="preserve">
+    <value>以下许可证及第三方版权声明保留原文。</value>
+  </data>
+  <data name="Licenses_ProjectWebsite" xml:space="preserve">
+    <value>项目主页</value>
+  </data>
+  <data name="Licenses_LinkFailed" xml:space="preserve">
+    <value>暂时无法打开项目主页。</value>
+  </data>
+  <data name="Licenses_Version" xml:space="preserve">
+    <value>版本：{0}</value>
+  </data>
+  <data name="Licenses_Authors" xml:space="preserve">
+    <value>作者：{0}</value>
+  </data>
 </root>

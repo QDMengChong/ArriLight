@@ -1,0 +1,2874 @@
+{
+  "schemaVersion": 1,
+  "components": [
+    {
+      "id": ".NET for Android",
+      "name": ".NET for Android",
+      "version": "36.1.69",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/android",
+      "authors": ".NET Foundation and Contributors",
+      "copyright": "",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/android"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/f7b09b6ee5286596d12bd4eb.txt",
+          "source": "https://github.com/dotnet/android"
+        }
+      ]
+    },
+    {
+      "id": ".NET for iOS",
+      "name": ".NET for iOS",
+      "version": "26.5.10301",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/macios",
+      "authors": ".NET Foundation and Contributors",
+      "copyright": "",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "LICENSE",
+          "assetPath": "OpenSourceLicenses/texts/2ad5be3c5907b028a63e6ac9.txt",
+          "source": "https://github.com/dotnet/macios"
+        }
+      ]
+    },
+    {
+      "id": ".NET runtime",
+      "name": ".NET runtime",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/runtime",
+      "authors": ".NET Foundation and Contributors",
+      "copyright": "",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/66f1d4e44973185519bb4aa8.txt",
+          "source": "https://github.com/dotnet/runtime"
+        }
+      ]
+    },
+    {
+      "id": "CommunityToolkit.Maui/15.0.1",
+      "name": "CommunityToolkit.Maui",
+      "version": "15.0.1",
+      "license": "MIT",
+      "projectUrl": "https://github.com/CommunityToolkit/Maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "LICENSE",
+          "assetPath": "OpenSourceLicenses/texts/9b6052c88978ec161a2694f0.txt",
+          "source": "https://raw.githubusercontent.com/CommunityToolkit/Maui/95a89987c542fef3d868421940533e59a2129caa/LICENSE"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Logging.Debug/10.0.12",
+      "name": "Microsoft.Extensions.Logging.Debug",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Logging.Debug/10.0.12"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Maui.Controls/10.0.110",
+      "name": "Microsoft.Maui.Controls",
+      "version": "10.0.110",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/d7a68596ab69b06f51ca278a.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Controls/10.0.110"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/45fb89606fe922d1615ee62b.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Controls/10.0.110"
+        }
+      ]
+    },
+    {
+      "id": "Open Sans",
+      "name": "Open Sans",
+      "version": "1.10",
+      "license": "Apache-2.0",
+      "projectUrl": "https://fonts.google.com/specimen/Open+Sans",
+      "authors": "Google Corporation",
+      "copyright": "Digitized data copyright © 2010-2011, Google Corporation.\nDigitized data copyright © 2011, Google Corporation.",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "FONT NOTICES",
+          "assetPath": "OpenSourceLicenses/texts/f772cddd2f61b849263ebc68.txt",
+          "source": "Embedded TTF name records"
+        },
+        {
+          "name": "Apache License 2.0",
+          "assetPath": "OpenSourceLicenses/texts/cfc7749b96f63bd31c3c42b5.txt",
+          "source": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ]
+    },
+    {
+      "id": "Plugin.BLE/3.2.1",
+      "name": "Plugin.BLE",
+      "version": "3.2.1",
+      "license": "Apache-2.0",
+      "projectUrl": "https://github.com/dotnet-bluetooth-le/dotnet-bluetooth-le/",
+      "authors": "Janus Weil, Adrian Seceleanu, Sven-Michael Stübe, Ask Magnussen Bojesen",
+      "copyright": "Apache-2.0",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "LICENSE",
+          "assetPath": "OpenSourceLicenses/texts/cfa9400eccb0b2be0a5e1dcb.txt",
+          "source": "https://raw.githubusercontent.com/dotnet-bluetooth-le/dotnet-bluetooth-le/4802d4a7f24105f66117566f3cc17da4d9ffef7e/LICENSE"
+        }
+      ]
+    },
+    {
+      "id": "ZXing.Net.Maui.Controls/0.10.4",
+      "name": "ZXing.Net.Maui.Controls",
+      "version": "0.10.4",
+      "license": "MIT",
+      "projectUrl": "https://github.com/redth/BigIslandBarcoding",
+      "authors": "Redth",
+      "copyright": "Copyright © Redth",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "LICENSE",
+          "assetPath": "OpenSourceLicenses/texts/730295f505c9154677c9252f.txt",
+          "source": "https://raw.githubusercontent.com/redth/ZXing.Net.Maui/8add6b40723f68f0226c1377ab9c5450d726f977/LICENSE"
+        }
+      ]
+    },
+    {
+      "id": "CommunityToolkit.Maui.Core/15.0.1",
+      "name": "CommunityToolkit.Maui.Core",
+      "version": "15.0.1",
+      "license": "MIT",
+      "projectUrl": "https://github.com/CommunityToolkit/Maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE",
+          "assetPath": "OpenSourceLicenses/texts/9b6052c88978ec161a2694f0.txt",
+          "source": "https://raw.githubusercontent.com/CommunityToolkit/Maui/95a89987c542fef3d868421940533e59a2129caa/LICENSE"
+        }
+      ]
+    },
+    {
+      "id": "GoogleGson/2.13.1.1",
+      "name": "GoogleGson",
+      "version": "2.13.1.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/GoogleGson/2.13.1.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/7e1405f51bf00284ff8b7a63.txt",
+          "source": "https://www.nuget.org/packages/GoogleGson/2.13.1.1"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Configuration/10.0.0",
+      "name": "Microsoft.Extensions.Configuration",
+      "version": "10.0.0",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Configuration/10.0.0"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Configuration.Abstractions/10.0.0",
+      "name": "Microsoft.Extensions.Configuration.Abstractions",
+      "version": "10.0.0",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Configuration.Abstractions/10.0.0"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.DependencyInjection/10.0.12",
+      "name": "Microsoft.Extensions.DependencyInjection",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection/10.0.12"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.DependencyInjection.Abstractions/10.0.12",
+      "name": "Microsoft.Extensions.DependencyInjection.Abstractions",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.DependencyInjection.Abstractions/10.0.12"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Diagnostics.Abstractions/10.0.0",
+      "name": "Microsoft.Extensions.Diagnostics.Abstractions",
+      "version": "10.0.0",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Diagnostics.Abstractions/10.0.0"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.FileProviders.Abstractions/10.0.0",
+      "name": "Microsoft.Extensions.FileProviders.Abstractions",
+      "version": "10.0.0",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.FileProviders.Abstractions/10.0.0"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Hosting.Abstractions/10.0.0",
+      "name": "Microsoft.Extensions.Hosting.Abstractions",
+      "version": "10.0.0",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Hosting.Abstractions/10.0.0"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Logging/10.0.12",
+      "name": "Microsoft.Extensions.Logging",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Logging/10.0.12"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Logging.Abstractions/10.0.12",
+      "name": "Microsoft.Extensions.Logging.Abstractions",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Logging.Abstractions/10.0.12"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Options/10.0.12",
+      "name": "Microsoft.Extensions.Options",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Options/10.0.12"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Extensions.Primitives/10.0.12",
+      "name": "Microsoft.Extensions.Primitives",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Extensions.Primitives/10.0.12"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Maui.Controls.Build.Tasks/10.0.110",
+      "name": "Microsoft.Maui.Controls.Build.Tasks",
+      "version": "10.0.110",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/d7a68596ab69b06f51ca278a.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Controls.Build.Tasks/10.0.110"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/45fb89606fe922d1615ee62b.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Controls.Build.Tasks/10.0.110"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Maui.Controls.Core/10.0.110",
+      "name": "Microsoft.Maui.Controls.Core",
+      "version": "10.0.110",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/d7a68596ab69b06f51ca278a.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Controls.Core/10.0.110"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/45fb89606fe922d1615ee62b.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Controls.Core/10.0.110"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Maui.Controls.Xaml/10.0.110",
+      "name": "Microsoft.Maui.Controls.Xaml",
+      "version": "10.0.110",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/d7a68596ab69b06f51ca278a.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Controls.Xaml/10.0.110"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/45fb89606fe922d1615ee62b.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Controls.Xaml/10.0.110"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Maui.Core/10.0.110",
+      "name": "Microsoft.Maui.Core",
+      "version": "10.0.110",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/d7a68596ab69b06f51ca278a.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Core/10.0.110"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/45fb89606fe922d1615ee62b.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Core/10.0.110"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Maui.Essentials/10.0.110",
+      "name": "Microsoft.Maui.Essentials",
+      "version": "10.0.110",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/d7a68596ab69b06f51ca278a.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Essentials/10.0.110"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/45fb89606fe922d1615ee62b.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Essentials/10.0.110"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Maui.Graphics/10.0.110",
+      "name": "Microsoft.Maui.Graphics",
+      "version": "10.0.110",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/d7a68596ab69b06f51ca278a.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Graphics/10.0.110"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/45fb89606fe922d1615ee62b.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Graphics/10.0.110"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.Maui.Resizetizer/10.0.110",
+      "name": "Microsoft.Maui.Resizetizer",
+      "version": "10.0.110",
+      "license": "MIT",
+      "projectUrl": "https://github.com/dotnet/maui",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/d7a68596ab69b06f51ca278a.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Resizetizer/10.0.110"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/45fb89606fe922d1615ee62b.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.Maui.Resizetizer/10.0.110"
+        }
+      ]
+    },
+    {
+      "id": "Microsoft.NET.ILLink.Tasks/10.0.12",
+      "name": "Microsoft.NET.ILLink.Tasks",
+      "version": "10.0.12",
+      "license": "MIT",
+      "projectUrl": "https://dot.net/",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.TXT",
+          "assetPath": "OpenSourceLicenses/texts/cfc21f5e8bd655ae997eec91.txt",
+          "source": "https://github.com/dotnet/runtime/blob/main/LICENSE.TXT"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.TXT",
+          "assetPath": "OpenSourceLicenses/texts/6d15e10a101c6bfff2ab4429.txt",
+          "source": "https://www.nuget.org/packages/Microsoft.NET.ILLink.Tasks/10.0.12"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Android.Glide/4.16.0.14",
+      "name": "Xamarin.Android.Glide",
+      "version": "4.16.0.14",
+      "license": "MIT AND BSD-2-Clause AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Android.Glide/4.16.0.14"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/05ebf75adcc496443b65df97.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Android.Glide/4.16.0.14"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Android.Glide.Annotations/4.16.0.14",
+      "name": "Xamarin.Android.Glide.Annotations",
+      "version": "4.16.0.14",
+      "license": "MIT AND BSD-2-Clause AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Android.Glide.Annotations/4.16.0.14"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/05ebf75adcc496443b65df97.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Android.Glide.Annotations/4.16.0.14"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Android.Glide.DiskLruCache/4.16.0.14",
+      "name": "Xamarin.Android.Glide.DiskLruCache",
+      "version": "4.16.0.14",
+      "license": "MIT AND BSD-2-Clause AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Android.Glide.DiskLruCache/4.16.0.14"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/05ebf75adcc496443b65df97.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Android.Glide.DiskLruCache/4.16.0.14"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Android.Glide.GifDecoder/4.16.0.14",
+      "name": "Xamarin.Android.Glide.GifDecoder",
+      "version": "4.16.0.14",
+      "license": "MIT AND BSD-2-Clause AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Android.Glide.GifDecoder/4.16.0.14"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/05ebf75adcc496443b65df97.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Android.Glide.GifDecoder/4.16.0.14"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Activity/1.10.1.3",
+      "name": "Xamarin.AndroidX.Activity",
+      "version": "1.10.1.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Activity/1.10.1.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Activity/1.10.1.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Activity.Ktx/1.10.1.3",
+      "name": "Xamarin.AndroidX.Activity.Ktx",
+      "version": "1.10.1.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Activity.Ktx/1.10.1.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Activity.Ktx/1.10.1.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Annotation/1.9.1.5",
+      "name": "Xamarin.AndroidX.Annotation",
+      "version": "1.9.1.5",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Annotation/1.9.1.5"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Annotation/1.9.1.5"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Annotation.Experimental/1.5.1.1",
+      "name": "Xamarin.AndroidX.Annotation.Experimental",
+      "version": "1.5.1.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Annotation.Experimental/1.5.1.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Annotation.Experimental/1.5.1.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Annotation.Jvm/1.9.1.5",
+      "name": "Xamarin.AndroidX.Annotation.Jvm",
+      "version": "1.9.1.5",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Annotation.Jvm/1.9.1.5"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Annotation.Jvm/1.9.1.5"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.AppCompat/1.7.1.1",
+      "name": "Xamarin.AndroidX.AppCompat",
+      "version": "1.7.1.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.AppCompat/1.7.1.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.AppCompat/1.7.1.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.AppCompat.AppCompatResources/1.7.1.1",
+      "name": "Xamarin.AndroidX.AppCompat.AppCompatResources",
+      "version": "1.7.1.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.AppCompat.AppCompatResources/1.7.1.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.AppCompat.AppCompatResources/1.7.1.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Arch.Core.Common/2.2.0.18",
+      "name": "Xamarin.AndroidX.Arch.Core.Common",
+      "version": "2.2.0.18",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Arch.Core.Common/2.2.0.18"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Arch.Core.Common/2.2.0.18"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Arch.Core.Runtime/2.2.0.18",
+      "name": "Xamarin.AndroidX.Arch.Core.Runtime",
+      "version": "2.2.0.18",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Arch.Core.Runtime/2.2.0.18"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Arch.Core.Runtime/2.2.0.18"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Browser/1.8.0.11",
+      "name": "Xamarin.AndroidX.Browser",
+      "version": "1.8.0.11",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Browser/1.8.0.11"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Browser/1.8.0.11"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Camera.Camera2/1.4.2.3",
+      "name": "Xamarin.AndroidX.Camera.Camera2",
+      "version": "1.4.2.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.Camera2/1.4.2.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.Camera2/1.4.2.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Camera.Core/1.4.2.3",
+      "name": "Xamarin.AndroidX.Camera.Core",
+      "version": "1.4.2.3",
+      "license": "MIT AND Apache-2.0 AND BSD-3-Clause",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.Core/1.4.2.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/f5b5975edb9349e941a28fe9.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.Core/1.4.2.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Camera.Lifecycle/1.4.2.3",
+      "name": "Xamarin.AndroidX.Camera.Lifecycle",
+      "version": "1.4.2.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.Lifecycle/1.4.2.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.Lifecycle/1.4.2.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Camera.Video/1.4.2.3",
+      "name": "Xamarin.AndroidX.Camera.Video",
+      "version": "1.4.2.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.Video/1.4.2.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.Video/1.4.2.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Camera.View/1.4.2.3",
+      "name": "Xamarin.AndroidX.Camera.View",
+      "version": "1.4.2.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.View/1.4.2.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Camera.View/1.4.2.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.CardView/1.0.0.36",
+      "name": "Xamarin.AndroidX.CardView",
+      "version": "1.0.0.36",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CardView/1.0.0.36"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CardView/1.0.0.36"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Collection/1.5.0.3",
+      "name": "Xamarin.AndroidX.Collection",
+      "version": "1.5.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Collection/1.5.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Collection/1.5.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Collection.Jvm/1.5.0.3",
+      "name": "Xamarin.AndroidX.Collection.Jvm",
+      "version": "1.5.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Collection.Jvm/1.5.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Collection.Jvm/1.5.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Collection.Ktx/1.5.0.3",
+      "name": "Xamarin.AndroidX.Collection.Ktx",
+      "version": "1.5.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Collection.Ktx/1.5.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Collection.Ktx/1.5.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Concurrent.Futures/1.3.0.1",
+      "name": "Xamarin.AndroidX.Concurrent.Futures",
+      "version": "1.3.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Concurrent.Futures/1.3.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Concurrent.Futures/1.3.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Concurrent.Futures.Ktx/1.3.0.1",
+      "name": "Xamarin.AndroidX.Concurrent.Futures.Ktx",
+      "version": "1.3.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Concurrent.Futures.Ktx/1.3.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Concurrent.Futures.Ktx/1.3.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.ConstraintLayout/2.2.1.3",
+      "name": "Xamarin.AndroidX.ConstraintLayout",
+      "version": "2.2.1.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ConstraintLayout/2.2.1.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ConstraintLayout/2.2.1.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.ConstraintLayout.Core/1.1.1.3",
+      "name": "Xamarin.AndroidX.ConstraintLayout.Core",
+      "version": "1.1.1.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ConstraintLayout.Core/1.1.1.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ConstraintLayout.Core/1.1.1.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.CoordinatorLayout/1.3.0.3",
+      "name": "Xamarin.AndroidX.CoordinatorLayout",
+      "version": "1.3.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CoordinatorLayout/1.3.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CoordinatorLayout/1.3.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Core/1.16.0.3",
+      "name": "Xamarin.AndroidX.Core",
+      "version": "1.16.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Core/1.16.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Core/1.16.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Core.Core.Ktx/1.16.0.3",
+      "name": "Xamarin.AndroidX.Core.Core.Ktx",
+      "version": "1.16.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Core.Core.Ktx/1.16.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Core.Core.Ktx/1.16.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Core.ViewTree/1.0.0.3",
+      "name": "Xamarin.AndroidX.Core.ViewTree",
+      "version": "1.0.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Core.ViewTree/1.0.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Core.ViewTree/1.0.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.CursorAdapter/1.0.0.34",
+      "name": "Xamarin.AndroidX.CursorAdapter",
+      "version": "1.0.0.34",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CursorAdapter/1.0.0.34"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CursorAdapter/1.0.0.34"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.CustomView/1.2.0.1",
+      "name": "Xamarin.AndroidX.CustomView",
+      "version": "1.2.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CustomView/1.2.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CustomView/1.2.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.CustomView.PoolingContainer/1.1.0.1",
+      "name": "Xamarin.AndroidX.CustomView.PoolingContainer",
+      "version": "1.1.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CustomView.PoolingContainer/1.1.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.CustomView.PoolingContainer/1.1.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.DrawerLayout/1.2.0.18",
+      "name": "Xamarin.AndroidX.DrawerLayout",
+      "version": "1.2.0.18",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.DrawerLayout/1.2.0.18"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.DrawerLayout/1.2.0.18"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.DynamicAnimation/1.1.0.3",
+      "name": "Xamarin.AndroidX.DynamicAnimation",
+      "version": "1.1.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.DynamicAnimation/1.1.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.DynamicAnimation/1.1.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Emoji2/1.5.0.6",
+      "name": "Xamarin.AndroidX.Emoji2",
+      "version": "1.5.0.6",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Emoji2/1.5.0.6"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Emoji2/1.5.0.6"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Emoji2.ViewsHelper/1.5.0.6",
+      "name": "Xamarin.AndroidX.Emoji2.ViewsHelper",
+      "version": "1.5.0.6",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Emoji2.ViewsHelper/1.5.0.6"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Emoji2.ViewsHelper/1.5.0.6"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.ExifInterface/1.4.2",
+      "name": "Xamarin.AndroidX.ExifInterface",
+      "version": "1.4.2",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ExifInterface/1.4.2"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ExifInterface/1.4.2"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Fragment/1.8.8.1",
+      "name": "Xamarin.AndroidX.Fragment",
+      "version": "1.8.8.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Fragment/1.8.8.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Fragment/1.8.8.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Fragment.Ktx/1.8.8.1",
+      "name": "Xamarin.AndroidX.Fragment.Ktx",
+      "version": "1.8.8.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Fragment.Ktx/1.8.8.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Fragment.Ktx/1.8.8.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Interpolator/1.0.0.34",
+      "name": "Xamarin.AndroidX.Interpolator",
+      "version": "1.0.0.34",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Interpolator/1.0.0.34"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Interpolator/1.0.0.34"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.Common/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.Common",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Common/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Common/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.Common.Jvm/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.Common.Jvm",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Common.Jvm/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Common.Jvm/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.LiveData/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.LiveData",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.LiveData/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.LiveData/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.LiveData.Core/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.LiveData.Core",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.LiveData.Core/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.LiveData.Core/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.LiveData.Core.Ktx/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.Process/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.Process",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Process/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Process/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.Runtime/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.Runtime",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Runtime/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Runtime/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.Runtime.Android/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.Runtime.Android",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Runtime.Android/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Runtime.Android/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.Runtime.Ktx/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.Runtime.Ktx",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Runtime.Ktx/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Runtime.Ktx/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.Runtime.Ktx.Android/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.Runtime.Ktx.Android",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Runtime.Ktx.Android/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.Runtime.Ktx.Android/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.ViewModel/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.ViewModel",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModel/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModel/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.ViewModel.Android/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.ViewModel.Android",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModel.Android/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModel.Android/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.ViewModel.Ktx/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.ViewModel.Ktx",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModel.Ktx/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModel.Ktx/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.ViewModelSavedState/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.ViewModelSavedState",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModelSavedState/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModelSavedState/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Lifecycle.ViewModelSavedState.Android/2.9.2.1",
+      "name": "Xamarin.AndroidX.Lifecycle.ViewModelSavedState.Android",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModelSavedState.Android/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Lifecycle.ViewModelSavedState.Android/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Loader/1.1.0.34",
+      "name": "Xamarin.AndroidX.Loader",
+      "version": "1.1.0.34",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Loader/1.1.0.34"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Loader/1.1.0.34"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Navigation.Common/2.9.2.1",
+      "name": "Xamarin.AndroidX.Navigation.Common",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Common/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Common/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Navigation.Common.Android/2.9.2.1",
+      "name": "Xamarin.AndroidX.Navigation.Common.Android",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Common.Android/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Common.Android/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Navigation.Fragment/2.9.2.1",
+      "name": "Xamarin.AndroidX.Navigation.Fragment",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Fragment/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Fragment/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Navigation.Runtime/2.9.2.1",
+      "name": "Xamarin.AndroidX.Navigation.Runtime",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Runtime/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Runtime/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Navigation.Runtime.Android/2.9.2.1",
+      "name": "Xamarin.AndroidX.Navigation.Runtime.Android",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Runtime.Android/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.Runtime.Android/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Navigation.UI/2.9.2.1",
+      "name": "Xamarin.AndroidX.Navigation.UI",
+      "version": "2.9.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.UI/2.9.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Navigation.UI/2.9.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.ProfileInstaller.ProfileInstaller/1.4.1.5",
+      "name": "Xamarin.AndroidX.ProfileInstaller.ProfileInstaller",
+      "version": "1.4.1.5",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ProfileInstaller.ProfileInstaller/1.4.1.5"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ProfileInstaller.ProfileInstaller/1.4.1.5"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.RecyclerView/1.4.0.3",
+      "name": "Xamarin.AndroidX.RecyclerView",
+      "version": "1.4.0.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.RecyclerView/1.4.0.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.RecyclerView/1.4.0.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.ResourceInspection.Annotation/1.0.1.22",
+      "name": "Xamarin.AndroidX.ResourceInspection.Annotation",
+      "version": "1.0.1.22",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ResourceInspection.Annotation/1.0.1.22"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ResourceInspection.Annotation/1.0.1.22"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.SavedState/1.3.1.1",
+      "name": "Xamarin.AndroidX.SavedState",
+      "version": "1.3.1.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SavedState/1.3.1.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SavedState/1.3.1.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.SavedState.SavedState.Android/1.3.1.1",
+      "name": "Xamarin.AndroidX.SavedState.SavedState.Android",
+      "version": "1.3.1.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SavedState.SavedState.Android/1.3.1.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SavedState.SavedState.Android/1.3.1.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.SavedState.SavedState.Ktx/1.3.1.1",
+      "name": "Xamarin.AndroidX.SavedState.SavedState.Ktx",
+      "version": "1.3.1.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SavedState.SavedState.Ktx/1.3.1.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SavedState.SavedState.Ktx/1.3.1.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Security.SecurityCrypto/1.1.0.4-alpha07",
+      "name": "Xamarin.AndroidX.Security.SecurityCrypto",
+      "version": "1.1.0.4-alpha07",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Security.SecurityCrypto/1.1.0.4-alpha07"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Security.SecurityCrypto/1.1.0.4-alpha07"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.SlidingPaneLayout/1.2.0.22",
+      "name": "Xamarin.AndroidX.SlidingPaneLayout",
+      "version": "1.2.0.22",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SlidingPaneLayout/1.2.0.22"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SlidingPaneLayout/1.2.0.22"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Startup.StartupRuntime/1.2.0.5",
+      "name": "Xamarin.AndroidX.Startup.StartupRuntime",
+      "version": "1.2.0.5",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Startup.StartupRuntime/1.2.0.5"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Startup.StartupRuntime/1.2.0.5"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.SwipeRefreshLayout/1.1.0.29",
+      "name": "Xamarin.AndroidX.SwipeRefreshLayout",
+      "version": "1.1.0.29",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SwipeRefreshLayout/1.1.0.29"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.SwipeRefreshLayout/1.1.0.29"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Tracing.Tracing/1.3.0.1",
+      "name": "Xamarin.AndroidX.Tracing.Tracing",
+      "version": "1.3.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Tracing.Tracing/1.3.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Tracing.Tracing/1.3.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Tracing.Tracing.Android/1.3.0.1",
+      "name": "Xamarin.AndroidX.Tracing.Tracing.Android",
+      "version": "1.3.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Tracing.Tracing.Android/1.3.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Tracing.Tracing.Android/1.3.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Tracing.Tracing.Ktx/1.3.0.1",
+      "name": "Xamarin.AndroidX.Tracing.Tracing.Ktx",
+      "version": "1.3.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Tracing.Tracing.Ktx/1.3.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Tracing.Tracing.Ktx/1.3.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Transition/1.6.0.1",
+      "name": "Xamarin.AndroidX.Transition",
+      "version": "1.6.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Transition/1.6.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Transition/1.6.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.VectorDrawable/1.2.0.8",
+      "name": "Xamarin.AndroidX.VectorDrawable",
+      "version": "1.2.0.8",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.VectorDrawable/1.2.0.8"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.VectorDrawable/1.2.0.8"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.VectorDrawable.Animated/1.2.0.8",
+      "name": "Xamarin.AndroidX.VectorDrawable.Animated",
+      "version": "1.2.0.8",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.VectorDrawable.Animated/1.2.0.8"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.VectorDrawable.Animated/1.2.0.8"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.VersionedParcelable/1.2.1.3",
+      "name": "Xamarin.AndroidX.VersionedParcelable",
+      "version": "1.2.1.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.VersionedParcelable/1.2.1.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.VersionedParcelable/1.2.1.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.ViewPager/1.1.0.4",
+      "name": "Xamarin.AndroidX.ViewPager",
+      "version": "1.1.0.4",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ViewPager/1.1.0.4"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ViewPager/1.1.0.4"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.ViewPager2/1.1.0.8",
+      "name": "Xamarin.AndroidX.ViewPager2",
+      "version": "1.1.0.8",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ViewPager2/1.1.0.8"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.ViewPager2/1.1.0.8"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Window/1.4.0.1",
+      "name": "Xamarin.AndroidX.Window",
+      "version": "1.4.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Window/1.4.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Window/1.4.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Window.WindowCore/1.4.0.1",
+      "name": "Xamarin.AndroidX.Window.WindowCore",
+      "version": "1.4.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Window.WindowCore/1.4.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Window.WindowCore/1.4.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.AndroidX.Window.WindowCore.Jvm/1.4.0.1",
+      "name": "Xamarin.AndroidX.Window.WindowCore.Jvm",
+      "version": "1.4.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Window.WindowCore.Jvm/1.4.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.AndroidX.Window.WindowCore.Jvm/1.4.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Google.Android.Material/1.12.0.5",
+      "name": "Xamarin.Google.Android.Material",
+      "version": "1.12.0.5",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.Android.Material/1.12.0.5"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.Android.Material/1.12.0.5"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Google.AutoValue.Annotations/1.11.0.8",
+      "name": "Xamarin.Google.AutoValue.Annotations",
+      "version": "1.11.0.8",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.AutoValue.Annotations/1.11.0.8"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/fcc5a0baffb2f1b01b593349.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.AutoValue.Annotations/1.11.0.8"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Google.Code.FindBugs.JSR305/3.0.2.21",
+      "name": "Xamarin.Google.Code.FindBugs.JSR305",
+      "version": "3.0.2.21",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.Code.FindBugs.JSR305/3.0.2.21"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.Code.FindBugs.JSR305/3.0.2.21"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Google.Crypto.Tink.Android/1.18.0.1",
+      "name": "Xamarin.Google.Crypto.Tink.Android",
+      "version": "1.18.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.Crypto.Tink.Android/1.18.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/9133ba7182dfd4dc7c5a3205.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.Crypto.Tink.Android/1.18.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Google.ErrorProne.Annotations/2.41.0.1",
+      "name": "Xamarin.Google.ErrorProne.Annotations",
+      "version": "2.41.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.ErrorProne.Annotations/2.41.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/fcc5a0baffb2f1b01b593349.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.ErrorProne.Annotations/2.41.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Google.Guava.ListenableFuture/1.0.0.29",
+      "name": "Xamarin.Google.Guava.ListenableFuture",
+      "version": "1.0.0.29",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.Guava.ListenableFuture/1.0.0.29"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/1a14e25264f604fca355c489.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Google.Guava.ListenableFuture/1.0.0.29"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Jetbrains.Annotations/26.0.2.3",
+      "name": "Xamarin.Jetbrains.Annotations",
+      "version": "26.0.2.3",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Jetbrains.Annotations/26.0.2.3"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/872d4dac04f9505fd782be74.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Jetbrains.Annotations/26.0.2.3"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.JSpecify/1.0.0.4",
+      "name": "Xamarin.JSpecify",
+      "version": "1.0.0.4",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.JSpecify/1.0.0.4"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/550c765e696f8b24ca17254f.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.JSpecify/1.0.0.4"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.Kotlin.StdLib/2.2.0.1",
+      "name": "Xamarin.Kotlin.StdLib",
+      "version": "2.2.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Kotlin.StdLib/2.2.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/550c765e696f8b24ca17254f.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.Kotlin.StdLib/2.2.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.KotlinX.Coroutines.Android/1.10.2.1",
+      "name": "Xamarin.KotlinX.Coroutines.Android",
+      "version": "1.10.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Coroutines.Android/1.10.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/7e1405f51bf00284ff8b7a63.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Coroutines.Android/1.10.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.KotlinX.Coroutines.Core/1.10.2.1",
+      "name": "Xamarin.KotlinX.Coroutines.Core",
+      "version": "1.10.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Coroutines.Core/1.10.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/7e1405f51bf00284ff8b7a63.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Coroutines.Core/1.10.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.KotlinX.Coroutines.Core.Jvm/1.10.2.1",
+      "name": "Xamarin.KotlinX.Coroutines.Core.Jvm",
+      "version": "1.10.2.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Coroutines.Core.Jvm/1.10.2.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/7e1405f51bf00284ff8b7a63.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Coroutines.Core.Jvm/1.10.2.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.KotlinX.Serialization.Core/1.9.0.1",
+      "name": "Xamarin.KotlinX.Serialization.Core",
+      "version": "1.9.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Serialization.Core/1.9.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/7e1405f51bf00284ff8b7a63.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Serialization.Core/1.9.0.1"
+        }
+      ]
+    },
+    {
+      "id": "Xamarin.KotlinX.Serialization.Core.Jvm/1.9.0.1",
+      "name": "Xamarin.KotlinX.Serialization.Core.Jvm",
+      "version": "1.9.0.1",
+      "license": "MIT AND Apache-2.0",
+      "projectUrl": "https://aka.ms/android-libraries",
+      "authors": "Microsoft",
+      "copyright": "© Microsoft Corporation. All rights reserved.",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE.md",
+          "assetPath": "OpenSourceLicenses/texts/7f92be6c840f2584494d4986.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Serialization.Core.Jvm/1.9.0.1"
+        },
+        {
+          "name": "THIRD-PARTY-NOTICES.txt",
+          "assetPath": "OpenSourceLicenses/texts/7e1405f51bf00284ff8b7a63.txt",
+          "source": "https://www.nuget.org/packages/Xamarin.KotlinX.Serialization.Core.Jvm/1.9.0.1"
+        }
+      ]
+    },
+    {
+      "id": "ZXing.Net/0.16.11",
+      "name": "ZXing.Net",
+      "version": "0.16.11",
+      "license": "Apache-2.0",
+      "projectUrl": "https://github.com/micjahn/ZXing.Net/",
+      "authors": "Michael Jahn",
+      "copyright": "",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE",
+          "assetPath": "OpenSourceLicenses/texts/c71d239df91726fc519c6eb7.txt",
+          "source": "https://raw.githubusercontent.com/micjahn/ZXing.Net/master/COPYING"
+        }
+      ]
+    },
+    {
+      "id": "ZXing.Net.Maui/0.10.4",
+      "name": "ZXing.Net.Maui",
+      "version": "0.10.4",
+      "license": "MIT",
+      "projectUrl": "https://github.com/redth/ZXing.Net.Maui",
+      "authors": "Redth",
+      "copyright": "Copyright © Redth",
+      "isDirect": false,
+      "documents": [
+        {
+          "name": "LICENSE",
+          "assetPath": "OpenSourceLicenses/texts/730295f505c9154677c9252f.txt",
+          "source": "https://raw.githubusercontent.com/redth/ZXing.Net.Maui/8add6b40723f68f0226c1377ab9c5450d726f977/LICENSE"
+        }
+      ]
+    }
+  ]
+}

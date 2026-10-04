@@ -7,6 +7,7 @@
     Title="{x:Static strings:AppResources.About_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
+    <ScrollView>
     <VerticalStackLayout Padding="20,24" Spacing="12">
         <Border Style="{StaticResource MenuCardStyle}">
             <Border.GestureRecognizers>
@@ -65,5 +66,19 @@
                 <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
             </Grid>
         </Border>
+        <Border Style="{StaticResource MenuCardStyle}">
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnOpenSourceLicensesTapped" />
+            </Border.GestureRecognizers>
+            <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
+                <Border Style="{StaticResource MenuIconContainerStyle}">
+                    <Image Margin="12" Source="about_agreement.svg" />
+                </Border>
+                <Label Grid.Column="1" Style="{StaticResource MenuTitleStyle}"
+                       Text="{x:Static strings:AppResources.Licenses_Title}" VerticalTextAlignment="Center" />
+                <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
+            </Grid>
+        </Border>
     </VerticalStackLayout>
+    </ScrollView>
 </ContentPage>
