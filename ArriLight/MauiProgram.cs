@@ -11,6 +11,7 @@ public static class MauiProgram
 {
     public static MauiApp CreateMauiApp()
     {
+        Localization.Initialize();
         var builder = MauiApp.CreateBuilder();
         builder
             .UseMauiApp<App>()
@@ -22,6 +23,7 @@ public static class MauiProgram
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
             });
 
+        builder.Services.AddSingleton<ILocalizationService>(Localization.Current);
         builder.Services.AddSingleton(CrossBluetoothLE.Current);
         builder.Services.AddSingleton<IAdapter>(
             _ => CrossBluetoothLE.Current.Adapter);

@@ -3,6 +3,7 @@
     x:Class="ArriLight.DeviceControlPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
     x:DataType="local:DeviceControlPage"
@@ -33,13 +34,13 @@
             IsEnabled="{Binding CanRefreshStatus}"
             Order="Primary"
             Priority="0"
-            Text="刷新" />
+            Text="{x:Static strings:AppResources.Common_Refresh}" />
         <ToolbarItem
             Clicked="OnMoreClicked"
             IconImageSource="profile_settings.svg"
             Order="Primary"
             Priority="1"
-            Text="更多" />
+            Text="{x:Static strings:AppResources.Common_More}" />
     </ContentPage.ToolbarItems>
 
     <Grid x:Name="ControlPageContent" RowDefinitions="*,Auto">
@@ -56,12 +57,12 @@
                                 <Label
                                     FontFamily="OpenSansSemibold"
                                     FontSize="18"
-                                    Text="灯光调节"
+                                    Text="{x:Static strings:AppResources.Control_Title}"
                                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                                 <Label
                                     x:Name="LightControlDescription"
                                     FontSize="12"
-                                    Text="亮度控制"
+                                    Text="{x:Static strings:AppResources.Control_BrightnessDescription}"
                                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                             </VerticalStackLayout>
                             <toolkit:LazyView
@@ -156,7 +157,7 @@
                         x:Name="MasterPowerLabel"
                         FontFamily="OpenSansSemibold"
                         FontSize="15"
-                        Text="关闭"
+                        Text="{x:Static strings:AppResources.Common_TurnOff}"
                         TextColor="White"
                         VerticalTextAlignment="Center" />
                 </HorizontalStackLayout>

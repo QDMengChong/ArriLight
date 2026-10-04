@@ -26,15 +26,15 @@ public static class DeviceShareCode
     {
         ArgumentNullException.ThrowIfNull(device);
         if (device.Token is null || device.Capabilities is null)
-            throw new InvalidOperationException("设备缺少绑定授权或能力信息，请先完成设备绑定后再分享。");
+            throw new InvalidOperationException(AppResources.Share_PairingRequired);
 
         var content = new DeviceShareContent(device.Name, device.Address, device.Token, device.Capabilities.Value);
         if (!TryNormalize(content, out var normalized))
-            throw new InvalidOperationException("设备名称、地址或绑定授权无效，无法生成分享二维码。");
+            throw new InvalidOperationException(AppResources.Share_InvalidDeviceInformation);
 
         var value = Prefix + JsonSerializer.Serialize(normalized, JsonOptions);
         if (value.Length > MaxEncodedLength)
-            throw new InvalidOperationException("设备信息过多，无法生成清晰的单个分享二维码。");
+            throw new InvalidOperationException(AppResources.Share_TooMuchInformation);
 
         return value;
     }

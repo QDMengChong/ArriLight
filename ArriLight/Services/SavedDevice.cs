@@ -26,4 +26,20 @@ public sealed record SavedDevice(
     IReadOnlyList<SavedControlPreset>? CustomPresets = null,
     int TimerSeconds = 60,
     AgpCapabilities? Capabilities = null,
-    string? HardwareRevision = null);
+    string? HardwareRevision = null)
+{
+    public const string UnknownFirmwareVersion = "unknown";
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public bool HasKnownFirmwareVersion =>
+        !string.IsNullOrWhiteSpace(FirmwareVersion) &&
+        FirmwareVersion != UnknownFirmwareVersion;
+
+    [System.Text.Json.Serialization.JsonIgnore]
+    public string DisplayName => IsDemo ? (Address, Name) switch
+    {
+        ("02:00:00:00:00:01", "客厅主灯" or "Living room main light") => AppResources.Demo_LivingRoom,
+        ("02:00:00:00:00:02", "卧室氛围灯" or "Bedroom ambient light") => AppResources.Demo_Bedroom,
+        _ => Name
+    } : Name;
+}

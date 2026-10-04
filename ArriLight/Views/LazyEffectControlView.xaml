@@ -3,14 +3,15 @@
     x:Class="ArriLight.LazyEffectControlView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight">
     <VerticalStackLayout Spacing="14">
         <Grid ColumnDefinitions="*,Auto">
-            <Label Style="{StaticResource MenuTitleStyle}" Text="特效" />
+            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Effect_Title}" />
             <Label
                 Grid.Column="1"
                 FontSize="11"
-                Text="长按设置/查看参数"
+                Text="{x:Static strings:AppResources.Effect_LongPressHint}"
                 TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                 VerticalTextAlignment="Center" />
         </Grid>
@@ -20,7 +21,7 @@
                 Clicked="OnEffectClicked"
                 Pressed="OnEffectPressed"
                 Released="OnEffectReleased"
-                Text="常亮"
+                Text="{x:Static strings:AppResources.Effect_Steady}"
                 CommandParameter="0" />
             <Button
                 x:Name="BlinkEffectButtonElement"
@@ -28,7 +29,7 @@
                 Clicked="OnEffectClicked"
                 Pressed="OnEffectPressed"
                 Released="OnEffectReleased"
-                Text="闪烁"
+                Text="{x:Static strings:AppResources.Effect_Blink}"
                 CommandParameter="1" />
             <Button
                 x:Name="BreatheEffectButtonElement"
@@ -36,7 +37,7 @@
                 Clicked="OnEffectClicked"
                 Pressed="OnEffectPressed"
                 Released="OnEffectReleased"
-                Text="呼吸灯"
+                Text="{x:Static strings:AppResources.Effect_Breathe}"
                 CommandParameter="2" />
         </Grid>
     </VerticalStackLayout>

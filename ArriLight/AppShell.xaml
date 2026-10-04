@@ -3,25 +3,26 @@
     x:Class="ArriLight.AppShell"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     Title="ArriLight"
     FlyoutBehavior="Disabled">
 
     <TabBar>
         <ShellContent
-            Title="设备"
+            Title="{x:Static strings:AppResources.Tab_Devices}"
             Icon="tab_devices.svg"
             ContentTemplate="{DataTemplate local:MainPage}"
             Route="DevicesPage" />
 
         <ShellContent
-            Title="商城"
+            Title="{x:Static strings:AppResources.Tab_Store}"
             Icon="tab_store.svg"
             ContentTemplate="{DataTemplate local:StorePage}"
             Route="StorePage" />
 
         <ShellContent
-            Title="我的"
+            Title="{x:Static strings:AppResources.Tab_Profile}"
             Icon="tab_profile.svg"
             ContentTemplate="{DataTemplate local:ProfilePage}"
             Route="ProfilePage" />

@@ -3,6 +3,7 @@
     x:Class="ArriLight.LazyPresetControlView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight">
     <VerticalStackLayout
         x:Name="CustomPresetSectionElement"
@@ -11,7 +12,7 @@
             <Label
                 FontFamily="OpenSansSemibold"
                 FontSize="18"
-                Text="自定义配置"
+                Text="{x:Static strings:AppResources.Preset_Title}"
                 TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
             <HorizontalStackLayout
                 Grid.Column="1"
@@ -20,7 +21,7 @@
                 <Label
                     x:Name="PresetModeLabelElement"
                     FontSize="12"
-                    Text="最多 6 个"
+                    Text="{x:Static strings:AppResources.Preset_MaximumCount}"
                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                     VerticalTextAlignment="Center" />
                 <local:TimedPresetButton
@@ -29,7 +30,7 @@
                     Clicked="OnFinishReorderClicked"
                     FontSize="11"
                     IsVisible="False"
-                    Text="完成" />
+                    Text="{x:Static strings:AppResources.Common_Done}" />
             </HorizontalStackLayout>
         </Grid>
 

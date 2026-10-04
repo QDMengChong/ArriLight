@@ -3,6 +3,7 @@
     x:Class="ArriLight.LazyEffectSettingsOverlayView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     BackgroundColor="#88000000"
     Padding="28">
@@ -23,7 +24,7 @@
             <Label
                 FontSize="14"
                 HorizontalTextAlignment="Center"
-                Text="调整周期（200～10000 ms）"
+                Text="{x:Static strings:AppResources.Effect_AdjustPeriod}"
                 TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
             <Label
                 x:Name="EffectSettingsPeriodLabelElement"
@@ -43,13 +44,13 @@
                 <Button
                     BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
                     Clicked="OnEffectSettingsCancelClicked"
-                    Text="取消"
+                    Text="{x:Static strings:AppResources.Common_Cancel}"
                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                 <Button
                     Grid.Column="1"
                     BackgroundColor="{StaticResource Primary}"
                     Clicked="OnEffectSettingsApplyClicked"
-                    Text="应用"
+                    Text="{x:Static strings:AppResources.Common_Apply}"
                     TextColor="White" />
             </Grid>
         </VerticalStackLayout>

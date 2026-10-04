@@ -284,7 +284,7 @@ public sealed class DeviceShareCodeTests
         Assert.NotEqual(source.AddedAt, imported.AddedAt);
         Assert.False(imported.IsPinned);
         Assert.False(imported.IsDemo);
-        Assert.Equal("未知", imported.FirmwareVersion);
+        Assert.Equal(SavedDevice.UnknownFirmwareVersion, imported.FirmwareVersion);
         Assert.Equal(new BlinkEffectParameters(1_000), imported.BlinkEffectParameters);
         Assert.Equal(new BreatheEffectParameters(1_000), imported.BreatheEffectParameters);
         Assert.NotNull(imported.CustomPresets);

@@ -3,6 +3,7 @@
     x:Class="ArriLight.ProfilePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     Shell.NavBarIsVisible="False"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -22,12 +23,12 @@
                     <Label
                         FontFamily="OpenSansSemibold"
                         FontSize="28"
-                        Text="我的"
+                        Text="{x:Static strings:AppResources.Tab_Profile}"
                         TextColor="White" />
                     <Label
                         FontSize="13"
                         Opacity="0.8"
-                        Text="服务、信息与应用设置"
+                        Text="{x:Static strings:AppResources.Profile_Description}"
                         TextColor="White" />
                 </VerticalStackLayout>
             </Border>
@@ -41,8 +42,8 @@
                             <Image Margin="12" Source="profile_messages.svg" />
                         </Border>
                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="消息中心" />
-                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="查看通知与服务消息" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Messages_Title}" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Messages_MenuDescription}" />
                         </VerticalStackLayout>
                         <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
                     </Grid>
@@ -56,8 +57,8 @@
                             <Image Margin="12" Source="profile_settings.svg" />
                         </Border>
                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="设置" />
-                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="主题与应用偏好" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Settings_Title}" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Settings_MenuDescription}" />
                         </VerticalStackLayout>
                         <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
                     </Grid>
@@ -71,8 +72,8 @@
                             <Image Margin="12" Source="profile_version.svg" />
                         </Border>
                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="应用版本" />
-                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="版本信息与更新内容" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Version_Title}" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Version_MenuDescription}" />
                         </VerticalStackLayout>
                         <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
                     </Grid>
@@ -86,8 +87,8 @@
                             <Image Margin="12" Source="profile_about.svg" />
                         </Border>
                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="关于我们" />
-                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="协议、隐私与联系方式" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.About_Title}" />
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.About_MenuDescription}" />
                         </VerticalStackLayout>
                         <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
                     </Grid>

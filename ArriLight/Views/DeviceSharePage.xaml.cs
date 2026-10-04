@@ -3,7 +3,7 @@ namespace ArriLight;
 public partial class DeviceSharePage : ContentPage, IQueryAttributable
 {
     private readonly DeviceRepository _repository;
-    private string _deviceName = "灯光设备";
+    private string _deviceName = AppResources.Device_DefaultName;
     private string _deviceAddress = string.Empty;
     private string _shareCode = string.Empty;
     private string _shareMessage = string.Empty;
@@ -77,15 +77,15 @@ public partial class DeviceSharePage : ContentPage, IQueryAttributable
         ShareCode = string.Empty;
         if (_repository.GetByAddress(DeviceAddress) is not { } device)
         {
-            ShareMessage = "设备记录不存在，无法生成分享二维码。";
+            ShareMessage = AppResources.Share_RecordMissing;
             return;
         }
 
-        DeviceName = device.Name;
+        DeviceName = device.DisplayName;
         try
         {
             ShareCode = DeviceShareCode.Encode(device);
-            ShareMessage = "二维码仅包含设备名称、地址、绑定授权和设备能力。接收者可控制此设备，灯光状态等资料会从设备读取。";
+            ShareMessage = AppResources.Share_ContentsDescription;
         }
         catch (Exception exception) when (exception is ArgumentException or InvalidOperationException)
         {

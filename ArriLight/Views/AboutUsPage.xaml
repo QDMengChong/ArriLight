@@ -3,7 +3,8 @@
     x:Class="ArriLight.AboutUsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    Title="关于我们"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
+    Title="{x:Static strings:AppResources.About_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <VerticalStackLayout Padding="20,24" Spacing="12">
@@ -15,7 +16,7 @@
                 <Border Style="{StaticResource MenuIconContainerStyle}">
                     <Image Margin="12" Source="about_agreement.svg" />
                 </Border>
-                <Label Grid.Column="1" Style="{StaticResource MenuTitleStyle}" Text="用户协议" VerticalTextAlignment="Center" />
+                <Label Grid.Column="1" Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Legal_AgreementTitle}" VerticalTextAlignment="Center" />
                 <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
             </Grid>
         </Border>
@@ -28,7 +29,7 @@
                 <Border Style="{StaticResource MenuIconContainerStyle}">
                     <Image Margin="12" Source="about_privacy.svg" />
                 </Border>
-                <Label Grid.Column="1" Style="{StaticResource MenuTitleStyle}" Text="隐私政策" VerticalTextAlignment="Center" />
+                <Label Grid.Column="1" Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Legal_PrivacyTitle}" VerticalTextAlignment="Center" />
                 <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
             </Grid>
         </Border>
@@ -42,8 +43,8 @@
                     <Image Margin="11" Source="about_wechat.svg" />
                 </Border>
                 <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                    <Label Style="{StaticResource MenuTitleStyle}" Text="微信公众号" />
-                    <Label Style="{StaticResource MenuDescriptionStyle}" Text="打开微信后搜索并关注" />
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.About_WeChatAccount}" />
+                    <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.About_WeChatInstructions}" />
                 </VerticalStackLayout>
                 <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
             </Grid>
@@ -58,8 +59,8 @@
                     <Image Margin="12" Source="about_phone.svg" />
                 </Border>
                 <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                    <Label Style="{StaticResource MenuTitleStyle}" Text="联系我们" />
-                    <Label Style="{StaticResource MenuDescriptionStyle}" Text="400-000-0000（示例）" />
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.About_Contact}" />
+                    <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.About_PhoneExample}" />
                 </VerticalStackLayout>
                 <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
             </Grid>

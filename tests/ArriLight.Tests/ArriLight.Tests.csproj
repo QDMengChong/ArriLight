@@ -3,6 +3,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <NeutralLanguage>zh-Hans</NeutralLanguage>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
@@ -15,6 +16,13 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Exercise the application services without starting a MAUI platform host. -->
+    <Compile Include="..\..\ArriLight\GlobalUsings.cs" Link="GlobalUsings.cs" />
+    <Compile Include="..\..\ArriLight\Resources\Localization\AppResources.cs" Link="Resources\Localization\AppResources.cs" />
+    <Compile Include="..\..\ArriLight\Services\LanguagePreference.cs" Link="Services\LanguagePreference.cs" />
+    <Compile Include="..\..\ArriLight\Services\ILocalizationService.cs" Link="Services\ILocalizationService.cs" />
+    <Compile Include="..\..\ArriLight\Services\LocalizationService.cs" Link="Services\LocalizationService.cs" />
+    <Compile Include="..\..\ArriLight\Services\Localization.cs" Link="Services\Localization.cs" />
+    <Compile Include="..\..\ArriLight\Services\BackExitGate.cs" Link="Services\BackExitGate.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.cs" Link="Services\AgpLightControlService.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Schedules.cs" Link="Services\AgpLightControlService.Schedules.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpGattTransport.cs" Link="Services\AgpGattTransport.cs" />
@@ -35,5 +43,11 @@
     <Compile Include="..\..\ArriLight\Views\DeviceControlPage.Transition.cs" Link="Views\DeviceControlPage.Transition.cs" />
     <Compile Include="..\..\ArriLight\Services\PreparedControlPageRouteFactory.cs" Link="Services\PreparedControlPageRouteFactory.cs" />
     <Compile Include="..\..\ArriLight\Views\DeviceControlPage.EffectSettings.cs" Link="Views\DeviceControlPage.EffectSettings.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="..\..\ArriLight\Resources\Localization\AppResources*.resx">
+      <Link>Resources\Localization\%(Filename)%(Extension)</Link>
+      <LogicalName>ArriLight.Resources.Localization.%(Filename).resources</LogicalName>
+    </EmbeddedResource>
   </ItemGroup>
 </Project>

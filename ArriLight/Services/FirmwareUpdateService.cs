@@ -68,7 +68,7 @@ public sealed class FirmwareCandidate
     internal FileResult? LocalFile { get; }
 
     public string SourceText =>
-        SourceKind == FirmwareSourceKind.Online ? "在线固件" : "本地固件";
+        SourceKind == FirmwareSourceKind.Online ? AppResources.Firmware_OnlineSource : AppResources.Firmware_LocalSource;
 
     public string ProtocolText =>
         Protocol == OtaProtocol.Slb ? "SLB" : "Single Bank";
@@ -118,7 +118,7 @@ public sealed class FirmwareUpdateConfiguration
             string.IsNullOrWhiteSpace(getWorkerUrl))
         {
             throw new InvalidOperationException(
-                $"应用配置文件 {ConfigurationAssetName} 未完整配置在线固件服务地址。");
+                Localization.Format(nameof(AppResources.Firmware_ServiceConfigurationMissing), ConfigurationAssetName));
         }
 
         return (listWorkerUrl.Trim(), getWorkerUrl.Trim());
@@ -161,17 +161,17 @@ public sealed class FirmwareUpdateService(
         if (string.IsNullOrWhiteSpace(hardwareVersion))
         {
             throw new ArgumentException(
-                "设备未提供硬件版本，无法选择匹配的固件。",
+                AppResources.Firmware_HardwareVersionMissing,
                 nameof(hardwareVersion));
         }
 
         var workerUrls = await configuration.LoadWorkerUrlsAsync(cancellationToken);
         var listWorkerUri = ValidateWorkerUri(
             workerUrls.ListWorkerUrl,
-            "在线固件列表 Worker 地址");
+            AppResources.Firmware_ListWorkerAddress);
         var getWorkerUri = ValidateWorkerUri(
             workerUrls.GetWorkerUrl,
-            "在线固件下载 Worker 地址");
+            AppResources.Firmware_DownloadWorkerAddress);
         var requestUri = AppendQuery(
             listWorkerUri,
             ("hardwareVersion", hardwareVersion.Trim()),
@@ -196,7 +196,7 @@ public sealed class FirmwareUpdateService(
                 responseStream,
                 JsonOptions,
                 cancellationToken)
-            ?? throw new InvalidDataException("固件列表 Worker 返回为空。");
+            ?? throw new InvalidDataException(AppResources.Firmware_EmptyListResponse);
 
         if (string.IsNullOrWhiteSpace(result.FileName))
         {
@@ -212,7 +212,7 @@ public sealed class FirmwareUpdateService(
             !fileName.EndsWith(".hex16", StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
-                "固件列表 Worker 返回的文件名不是 .hex16 文件。");
+                AppResources.Firmware_InvalidOnlineExtension);
         }
 
         var version = string.IsNullOrWhiteSpace(result.Version)
@@ -220,7 +220,7 @@ public sealed class FirmwareUpdateService(
             : result.Version.Trim();
         if (string.IsNullOrWhiteSpace(version))
             throw new InvalidDataException(
-                "固件列表 Worker 未返回可识别的固件版本。");
+                AppResources.Firmware_InvalidOnlineVersion);
 
         var downloadUri = AppendQuery(
             getWorkerUri,
@@ -231,7 +231,7 @@ public sealed class FirmwareUpdateService(
             protocol,
             version,
             fileName,
-            $"{hardwareVersion.Trim()} 在线固件。",
+            Localization.Format(nameof(AppResources.Firmware_OnlineDescription), hardwareVersion.Trim()),
             null,
             downloadUri,
             NormalizeSha256(result.Sha256),
@@ -262,7 +262,7 @@ public sealed class FirmwareUpdateService(
 
         var metadata = firmware.Metadata;
         var version = string.IsNullOrWhiteSpace(metadata.BootVersion)
-            ? "本地文件"
+            ? AppResources.Firmware_LocalFile
             : metadata.BootVersion;
         diagnostics.Information(
             "OTA/Local",
@@ -273,7 +273,7 @@ public sealed class FirmwareUpdateService(
             firmware.Protocol,
             version,
             logicalFileName,
-            $"已加载并通过格式校验的本地 {GetProtocolText(firmware.Protocol)} 固件。",
+            Localization.Format(nameof(AppResources.Firmware_LocalValidated), GetProtocolText(firmware.Protocol)),
             metadata.ProductId,
             null,
             null,
@@ -304,7 +304,7 @@ public sealed class FirmwareUpdateService(
                 new FirmwareUpdateProgress(
                     FirmwareUpdateStage.Connecting,
                     0,
-                    $"正在连接设备并准备 {candidate.ProtocolText} OTA。"));
+                    Localization.Format(nameof(AppResources.Firmware_PreparingProtocol), candidate.ProtocolText)));
 
             try
             {
@@ -381,7 +381,7 @@ public sealed class FirmwareUpdateService(
                 new FirmwareUpdateProgress(
                     FirmwareUpdateStage.Completed,
                     100,
-                    "升级成功！"));
+                    AppResources.Firmware_UpdateSucceeded));
         }
         finally
         {
@@ -407,14 +407,14 @@ public sealed class FirmwareUpdateService(
         if (candidate.SourceKind == FirmwareSourceKind.Local)
         {
             var file = candidate.LocalFile
-                ?? throw new InvalidOperationException("本地固件文件引用已失效。");
+                ?? throw new InvalidOperationException(AppResources.Firmware_LocalReferenceExpired);
             return new PreparedFirmware(
                 token => file.OpenReadAsync(),
                 null);
         }
 
         var downloadUri = candidate.DownloadUri
-            ?? throw new InvalidOperationException("在线固件缺少下载地址。");
+            ?? throw new InvalidOperationException(AppResources.Firmware_DownloadAddressMissing);
         var cacheDirectory = Path.Combine(FileSystem.CacheDirectory, "ota");
         Directory.CreateDirectory(cacheDirectory);
         var cachePath = Path.Combine(
@@ -428,7 +428,7 @@ public sealed class FirmwareUpdateService(
             new FirmwareUpdateProgress(
                 FirmwareUpdateStage.Downloading,
                 0,
-                "正在下载固件…"));
+                AppResources.Firmware_Downloading));
 
         using var response = await httpClient.GetAsync(
             downloadUri,
@@ -470,7 +470,7 @@ public sealed class FirmwareUpdateService(
                             new FirmwareUpdateProgress(
                                 FirmwareUpdateStage.Downloading,
                                 percentage,
-                                $"正在下载固件… {percentage}%"));
+                                Localization.Format(nameof(AppResources.Firmware_DownloadProgress), percentage)));
                         diagnostics.Debug(
                             "OTA/Download",
                             $"下载进度 {percentage}%（{transferred}/{totalLength} bytes）。");
@@ -523,7 +523,7 @@ public sealed class FirmwareUpdateService(
         if (!string.Equals(actual, expectedSha256, StringComparison.OrdinalIgnoreCase))
         {
             throw new InvalidDataException(
-                $"固件 SHA-256 校验失败，expected={expectedSha256}，actual={actual}。");
+                Localization.Format(nameof(AppResources.Firmware_HashMismatch), expectedSha256, actual));
         }
 
         diagnostics.Information(
@@ -534,26 +534,26 @@ public sealed class FirmwareUpdateService(
     private static string ToUserMessage(OtaProgress progress) =>
         progress.State switch
         {
-            OtaState.Connecting => "正在连接 OTA 设备…",
-            OtaState.ConnectedDiscovering => "已连接，正在发现 OTA 服务…",
+            OtaState.Connecting => AppResources.Firmware_ConnectingOta,
+            OtaState.ConnectedDiscovering => AppResources.Firmware_DiscoveringOta,
             OtaState.SingleBankAppService or OtaState.SingleBankOtaService =>
-                "已发现 Single Bank OTA 服务。",
+                AppResources.Firmware_SingleBankDiscovered,
             OtaState.SlbService or OtaState.ConfirmedSlb or OtaState.SlbReady =>
-                "SLB OTA 服务已准备完成。",
+                AppResources.Firmware_SlbReady,
             OtaState.ConfirmedSingleBankApp or OtaState.SingleBankAppReady =>
-                "Single Bank APP 模式已准备完成，正在切换 OTA 模式。",
+                AppResources.Firmware_SwitchingToOta,
             OtaState.AppModeEndWaitingScan =>
-                "正在等待设备切换到 OTA 模式并重新广播…",
+                AppResources.Firmware_WaitingForOtaAdvertisement,
             OtaState.FoundOtaDevice =>
-                "已找到 Single Bank OTA 设备，正在重新连接。",
+                AppResources.Firmware_ReconnectingSingleBank,
             OtaState.ConfirmedSingleBankOta or OtaState.SingleBankOtaReady =>
-                "Single Bank OTA 服务已准备完成。",
-            OtaState.FeedbackBootVersion => "已读取设备版本并校验固件。",
+                AppResources.Firmware_SingleBankReady,
+            OtaState.FeedbackBootVersion => AppResources.Firmware_VersionValidated,
             OtaState.FeedbackProgress =>
-                $"正在传输固件… {progress.Percentage:0.0}%",
+                Localization.Format(nameof(AppResources.Firmware_TransferProgress), progress.Percentage),
             OtaState.UpgradeCompleteWaitingDisconnect =>
-                "设备已确认固件，等待重启。",
-            _ => progress.Message
+                AppResources.Firmware_WaitingForRestart,
+            _ => AppResources.Firmware_OtaProcessing
         };
 
     private static OtaProtocol GetFirmwareProtocol(string fileName)
@@ -566,7 +566,7 @@ public sealed class FirmwareUpdateService(
             return OtaProtocol.SingleBank;
 
         throw new NotSupportedException(
-            "当前 APP 支持 SLB .bin，以及 Single Bank .hex、.hex4、.hex16、.hexe16、.res 固件。");
+            AppResources.Firmware_SupportedFormats);
     }
 
     private static string GetProtocolText(OtaProtocol protocol) =>
@@ -605,7 +605,7 @@ public sealed class FirmwareUpdateService(
             normalized.Any(character => !Uri.IsHexDigit(character)))
         {
             throw new InvalidDataException(
-                "在线固件清单中的 SHA-256 必须是 64 个十六进制字符。");
+                AppResources.Firmware_InvalidHash);
         }
 
         return normalized.ToUpperInvariant();
@@ -617,7 +617,7 @@ public sealed class FirmwareUpdateService(
             uri.Scheme is not ("http" or "https"))
         {
             throw new ArgumentException(
-                $"{description}必须是有效的 HTTP/HTTPS URL。");
+                Localization.Format(nameof(AppResources.Firmware_InvalidUrl), description));
         }
 
         return uri;

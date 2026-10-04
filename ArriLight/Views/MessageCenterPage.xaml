@@ -3,9 +3,10 @@
     x:Class="ArriLight.MessageCenterPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:MessageCenterPage"
-    Title="消息中心"
+    Title="{x:Static strings:AppResources.Messages_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <CollectionView
@@ -16,7 +17,7 @@
             <Label
                 Margin="20,22,20,14"
                 FontSize="13"
-                Text="最近消息"
+                Text="{x:Static strings:AppResources.Messages_Recent}"
                 TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         </CollectionView.Header>
         <CollectionView.ItemsLayout>

@@ -21,11 +21,11 @@ public partial class AboutUsPage : ContentPage
         {
             var opened = await Launcher.Default.TryOpenAsync("weixin://");
             if (!opened)
-                await DisplayAlertAsync("无法打开微信", "请确认设备已安装微信。", "知道了");
+                await DisplayAlertAsync(AppResources.About_WeChatUnavailable, AppResources.About_InstallWeChat, AppResources.Common_Ok);
         }
         catch
         {
-            await DisplayAlertAsync("无法打开微信", "请确认设备已安装微信。", "知道了");
+            await DisplayAlertAsync(AppResources.About_WeChatUnavailable, AppResources.About_InstallWeChat, AppResources.Common_Ok);
         }
     }
 
@@ -37,7 +37,7 @@ public partial class AboutUsPage : ContentPage
         }
         catch
         {
-            await DisplayAlertAsync("无法打开拨号", $"请手动拨打 {ContactPhoneNumber}。", "知道了");
+            await DisplayAlertAsync(AppResources.About_DialerUnavailable, Localization.Format(nameof(AppResources.About_CallManually), ContactPhoneNumber), AppResources.Common_Ok);
         }
     }
 }

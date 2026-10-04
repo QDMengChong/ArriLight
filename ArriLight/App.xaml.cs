@@ -1,4 +1,4 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace ArriLight
 {
@@ -15,6 +15,7 @@ namespace ArriLight
 
         protected override Window CreateWindow(IActivationState? activationState)
         {
+            Localization.ApplySavedPreferenceForNewWindow();
             var window = new Window(new AppShell());
             window.Stopped += OnWindowStopped;
             window.Resumed += OnWindowResumed;

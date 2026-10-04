@@ -9,7 +9,7 @@ public partial class AppVersionPage : ContentPage
     private int _versionTapCount;
     private DateTimeOffset _lastVersionTapAt;
 
-    public string VersionText => $"版本 {AppInfo.Current.VersionString}（{AppInfo.Current.BuildString}）";
+    public string VersionText => Localization.Format(nameof(AppResources.Version_Display), AppInfo.Current.VersionString, AppInfo.Current.BuildString);
 
     public AppVersionPage()
     {
@@ -32,22 +32,22 @@ public partial class AppVersionPage : ContentPage
         _versionTapCount = 0;
         var enabling = !_diagnostics.IsEnabled;
         var confirmed = await DisplayAlertAsync(
-            "调试文件输出",
+            AppResources.Version_DebugFileOutput,
             enabling
-                ? $"是否打开调试文件输出？\n\n日志文件：\n{_diagnostics.LogFilePath}\n"
-                : $"调试文件输出当前已开启。\n\n日志文件：\n{_diagnostics.LogFilePath}\n\n是否关闭文件输出？",
-            enabling ? "打开" : "关闭",
-            "取消");
+                ? Localization.Format(nameof(AppResources.Version_EnableDebugPrompt), _diagnostics.LogFilePath)
+                : Localization.Format(nameof(AppResources.Version_DisableDebugPrompt), _diagnostics.LogFilePath),
+            enabling ? AppResources.Common_Enable : AppResources.Common_TurnOff,
+            AppResources.Common_Cancel);
 
         if (!confirmed)
             return;
 
         _diagnostics.IsEnabled = enabling;
         await DisplayAlertAsync(
-            "调试文件输出",
+            AppResources.Version_DebugFileOutput,
             enabling
-                ? $"已打开。\n日志将追加写入：\n{_diagnostics.LogFilePath}"
-                : "文件输出已关闭，已有日志会保留。",
-            "知道了");
+                ? Localization.Format(nameof(AppResources.Version_DebugEnabled), _diagnostics.LogFilePath)
+                : AppResources.Version_DebugDisabled,
+            AppResources.Common_Ok);
     }
 }

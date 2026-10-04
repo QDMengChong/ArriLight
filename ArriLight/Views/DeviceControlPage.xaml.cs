@@ -26,10 +26,10 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private AgpControlPageKind _controlPageKind;
     private AgpCapabilities _supportedCapabilities = AgpCapabilities.Lightness;
 
-    private string _deviceName = "设备管理";
+    private string _deviceName = AppResources.Device_Management;
     private string _deviceAddress = string.Empty;
-    private string _connectionStatusText = "尚未连接";
-    private string _connectionButtonText = "连接";
+    private string _connectionStatusText = AppResources.Ble_NotYetConnected;
+    private string _connectionButtonText = AppResources.Ble_Connect;
     private Color _connectionStatusColor = Color.FromArgb("#A9B2C3");
     private bool _canConnect = true;
     private bool _isReady;
@@ -263,7 +263,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             _isDemo = device.IsDemo;
             timing.Mark($"载入控制页; isDemo={_isDemo}");
             OnPropertyChanged(nameof(CanRefreshStatus));
-            DeviceName = device.Name;
+            DeviceName = device.DisplayName;
             LoadEffectParameters(device);
             LoadCustomPresets(device.CustomPresets ?? []);
             _capabilityViewsTask = null;
@@ -279,8 +279,8 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             UpdateEffectVisual();
             if (device.IsDemo)
             {
-                ConnectionStatusText = "演示设备不执行真实蓝牙连接";
-                ConnectionButtonText = "演示";
+                ConnectionStatusText = AppResources.Demo_NoConnection;
+                ConnectionButtonText = AppResources.Demo_Label;
                 CanConnect = false;
                 _hasKnownCapabilities = true;
             }
@@ -295,7 +295,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 ApplyConnectionSnapshot(_connectionService.GetSnapshot(DeviceAddress));
                 // OnNavigatedTo schedules scan teardown and AGP preparation
                 // after the page transition. Appearing only applies local state.
-                ConnectionStatusText = "正在准备设备连接…";
+                ConnectionStatusText = AppResources.Ble_PreparingDeviceConnection;
                 CanConnect = false;
             }
             timing.SetResult(device.IsDemo ? "demo" : "page-prepared");
@@ -408,7 +408,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             timing.Mark("控制资料已应用到页面，控制初始化完成");
             timing.SetResult("ready");
             if (refreshStatus)
-                ToastService.Show("设备状态已刷新");
+                ToastService.Show(AppResources.Device_StatusRefreshed);
         }
         catch (OperationCanceledException) when (initializationCancellation.IsCancellationRequested)
         {
@@ -425,9 +425,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             if (showError)
             {
                 await DisplayAlertAsync(
-                    "连接失败",
-                    $"设备无法建立 AGP 灯控会话：{exception.Message}",
-                    "知道了");
+                    AppResources.Ble_ConnectionFailed,
+                    Localization.Format(nameof(AppResources.Agp_SessionFailed), exception.Message),
+                    AppResources.Common_Ok);
             }
 
             try
@@ -488,12 +488,12 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         ConnectionStatusText = snapshot.Message;
         ConnectionButtonText = snapshot.State switch
         {
-            BluetoothSessionState.Scanning => "搜索中",
-            BluetoothSessionState.Connecting => "连接中",
-            BluetoothSessionState.Connected => "已连接",
-            BluetoothSessionState.Updating => "升级中",
-            BluetoothSessionState.Error => "重试",
-            _ => "连接"
+            BluetoothSessionState.Scanning => AppResources.Ble_Scanning,
+            BluetoothSessionState.Connecting => AppResources.Ble_Connecting,
+            BluetoothSessionState.Connected => AppResources.Ble_Connected,
+            BluetoothSessionState.Updating => AppResources.Firmware_Updating,
+            BluetoothSessionState.Error => AppResources.Common_Retry,
+            _ => AppResources.Ble_Connect
         };
         CanConnect = snapshot.State is
             BluetoothSessionState.Disconnected or BluetoothSessionState.Error;
@@ -606,7 +606,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 "Light/EffectSettings",
                 $"特效参数设置失败：device={DeviceAddress}, mode={mode}。",
                 exception);
-            ToastService.Show("无法打开特效参数设置，请重试");
+            ToastService.Show(AppResources.Effect_SettingsUnavailable);
         }
     }
 
@@ -658,7 +658,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         {
             timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error("Light/Effect", $"发送特效指令失败：{DeviceName}。", exception);
-            ToastService.Show("特效指令发送失败");
+            ToastService.Show(AppResources.Effect_CommandFailed);
         }
     }
 
@@ -747,16 +747,16 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
         if (Presets.All(preset => preset.IsSaved))
         {
-            await DisplayAlertAsync("配置已满", "最多可以保存 6 个自定义配置。", "知道了");
+            await DisplayAlertAsync(AppResources.Preset_Full, AppResources.Preset_MaximumReached, AppResources.Common_Ok);
             return;
         }
 
         var name = await DisplayPromptAsync(
-            "保存自定义配置",
-            "为当前灯光设置命名",
-            accept: "保存",
-            cancel: "取消",
-            placeholder: "例如：晚间阅读",
+            AppResources.Preset_SaveCustom,
+            AppResources.Preset_NamePrompt,
+            accept: AppResources.Common_Save,
+            cancel: AppResources.Common_Cancel,
+            placeholder: AppResources.Preset_NameExample,
             maxLength: 12);
 
         if (string.IsNullOrWhiteSpace(name))
@@ -831,20 +831,22 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private async Task ShowPresetContextMenuAsync(ControlPreset preset)
     {
+        var deleteAction = AppResources.Common_Delete;
+        var reorderAction = AppResources.Preset_Reorder;
         var action = await DisplayActionSheetAsync(
             preset.DisplayName,
-            "取消",
+            AppResources.Common_Cancel,
             null,
-            "删除",
-            "调整位置");
+            deleteAction,
+            reorderAction);
 
-        if (action == "删除")
+        if (action == deleteAction)
         {
             var confirmed = await DisplayAlertAsync(
-                "删除配置",
-                $"确定删除“{preset.DisplayName}”吗？",
-                "删除",
-                "取消");
+                AppResources.Preset_Delete,
+                Localization.Format(nameof(AppResources.Preset_DeleteConfirmation), preset.DisplayName),
+                AppResources.Common_Delete,
+                AppResources.Common_Cancel);
 
             var index = Presets.IndexOf(preset);
             if (confirmed && index >= 0)
@@ -853,13 +855,13 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 PersistCustomPresets();
             }
         }
-        else if (action == "调整位置")
+        else if (action == reorderAction)
         {
             SetReorderMode(true);
             await DisplayAlertAsync(
-                "调整位置",
-                "长按一个已保存配置并拖到目标位置。完成一次拖放后会自动退出排序模式。",
-                "开始调整");
+                AppResources.Preset_Reorder,
+                AppResources.Preset_ReorderInstructions,
+                AppResources.Preset_StartReordering);
         }
     }
 
@@ -868,9 +870,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (!preset.IsSaved)
         {
             await DisplayAlertAsync(
-                "空配置位",
-                "点击上方“保存配置”可保存当前灯光设置。",
-                "知道了");
+                AppResources.Preset_EmptySlot,
+                AppResources.Preset_SaveInstructions,
+                AppResources.Common_Ok);
             return;
         }
 
@@ -962,7 +964,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         foreach (var preset in Presets)
             preset.IsReorderMode = enabled;
 
-        PresetModeLabel.Text = enabled ? "拖动调整位置" : "最多 6 个";
+        PresetModeLabel.Text = enabled ? AppResources.Preset_DragToReorder : AppResources.Preset_MaximumCount;
         FinishReorderButton.IsVisible = enabled;
     }
 
@@ -1003,7 +1005,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
         if (!int.TryParse(DelaySecondsEntry.Text, out var seconds) || seconds is < 1 or > 86400)
         {
-            ToastService.Show("发送失败：请输入 1 至 86400 秒");
+            ToastService.Show(AppResources.Timer_InvalidSeconds);
             return;
         }
 
@@ -1021,7 +1023,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 exception);
         }
 
-        ToastService.Show(sent ? "计时指令发送成功" : "计时指令发送失败");
+        ToastService.Show(sent ? AppResources.Timer_SendSucceeded : AppResources.Timer_SendFailed);
     }
 
     private async Task<bool> SendTimerCommandAsync(string timerMode, int seconds)
@@ -1052,9 +1054,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         var wasTimedOn = TimerModePicker.SelectedIndex == 1;
         var supportsTimedOn = capabilities.HasFlag(AgpCapabilities.RelativeTimer);
         TimerModePicker.Items.Clear();
-        TimerModePicker.Items.Add("计时关灯");
+        TimerModePicker.Items.Add(AppResources.Timer_Off);
         if (supportsTimedOn)
-            TimerModePicker.Items.Add("计时开灯");
+            TimerModePicker.Items.Add(AppResources.Timer_On);
         TimerModePicker.SelectedIndex = supportsTimedOn && wasTimedOn ? 1 : 0;
     }
 
@@ -1122,7 +1124,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
                 new Point(0, 0),
                 new Point(1, 0));
             MasterPowerIcon.Source = "power_white.svg";
-            MasterPowerLabel.Text = "关闭";
+            MasterPowerLabel.Text = AppResources.Common_TurnOff;
             MasterPowerLabel.TextColor = Colors.White;
             return;
         }
@@ -1131,7 +1133,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         MasterPowerPill.Background = new SolidColorBrush(
             isDark ? Color.FromArgb("#303B4D") : Color.FromArgb("#E8ECF3"));
         MasterPowerIcon.Source = "power_off.svg";
-        MasterPowerLabel.Text = "开启";
+        MasterPowerLabel.Text = AppResources.Common_TurnOn;
         MasterPowerLabel.TextColor = isDark
             ? Color.FromArgb("#D9E0EC")
             : Color.FromArgb("#566174");
@@ -1293,10 +1295,10 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         }
         LightControlDescription.Text = _controlPageKind switch
         {
-            AgpControlPageKind.Hsl => "HSL 色彩与亮度控制",
-            AgpControlPageKind.Ctl => "CTL 色温与亮度控制",
-            AgpControlPageKind.HslAndCtl => "HSL 色盘与 CTL 色温环控制",
-            _ => "亮度控制"
+            AgpControlPageKind.Hsl => AppResources.Control_HslDescription,
+            AgpControlPageKind.Ctl => AppResources.Control_CtlDescription,
+            AgpControlPageKind.HslAndCtl => AppResources.Control_CombinedDescription,
+            _ => AppResources.Control_BrightnessDescription
         };
     }
 
@@ -1673,9 +1675,9 @@ public sealed class ControlPreset : INotifyPropertyChanged
 
     public string DetailText =>
         IsReorderMode
-            ? "拖动调整"
+            ? AppResources.Preset_Drag
             : !IsSaved
-                ? "点击查看"
+                ? AppResources.Preset_TapToView
                 : HasEffect
                     ? EffectName(EffectMode!.Value)
                     : HasBrightness || HasTemperature
@@ -1729,7 +1731,7 @@ public sealed class ControlPreset : INotifyPropertyChanged
             effectPeriodMilliseconds);
 
     public static ControlPreset Empty() => new(
-        "空配置", false, null, null, null, null, null, null, null);
+        AppResources.Preset_Empty, false, null, null, null, null, null, null, null);
 
     internal SavedControlPreset ToSaved(int slot) => new(
         slot,
@@ -1758,7 +1760,7 @@ public sealed class ControlPreset : INotifyPropertyChanged
         }
 
         return new(
-            string.IsNullOrWhiteSpace(saved.DisplayName) ? "未命名配置" : saved.DisplayName,
+            string.IsNullOrWhiteSpace(saved.DisplayName) ? AppResources.Preset_Unnamed : saved.DisplayName,
             true,
             saved.Hue,
             saved.Saturation,
@@ -1798,9 +1800,9 @@ public sealed class ControlPreset : INotifyPropertyChanged
 
     private static string EffectName(AgpLightMode mode) => mode switch
     {
-        AgpLightMode.Blink => "闪烁",
-        AgpLightMode.Breathe => "呼吸灯",
-        _ => "常亮"
+        AgpLightMode.Blink => AppResources.Effect_Blink,
+        AgpLightMode.Breathe => AppResources.Effect_Breathe,
+        _ => AppResources.Effect_Steady
     };
 
     private static Color CreateTemperatureColor(double? temperature, double? brightness)

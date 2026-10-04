@@ -3,6 +3,7 @@
     x:Class="ArriLight.MainPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:MainPage"
     Shell.NavBarIsVisible="False"
@@ -26,12 +27,12 @@
                         <Label
                             FontFamily="OpenSansSemibold"
                             FontSize="28"
-                            Text="设备"
+                            Text="{x:Static strings:AppResources.Tab_Devices}"
                             TextColor="White" />
                         <Label
                             FontSize="13"
                             Opacity="0.78"
-                            Text="管理你的灯光设备"
+                            Text="{x:Static strings:AppResources.Home_Description}"
                             TextColor="White" />
                     </VerticalStackLayout>
 
@@ -48,7 +49,7 @@
                             BackgroundColor="Transparent"
                             Clicked="OnScanQrCodeClicked"
                             Source="action_scan.svg"
-                            SemanticProperties.Description="扫描二维码" />
+                            SemanticProperties.Description="{x:Static strings:AppResources.Qr_ScanDescription}" />
                     </Border>
 
                     <Border
@@ -63,7 +64,7 @@
                             BackgroundColor="Transparent"
                             Clicked="OnAddDeviceClicked"
                             Source="action_add.svg"
-                            SemanticProperties.Description="添加设备" />
+                            SemanticProperties.Description="{x:Static strings:AppResources.Device_Add}" />
                     </Border>
                 </Grid>
 
@@ -75,7 +76,7 @@
                             Fill="{StaticResource Success}" />
                         <Label
                             FontSize="13"
-                            Text="蓝牙设备服务已就绪"
+                            Text="{x:Static strings:AppResources.Home_ServiceReady}"
                             TextColor="#DFFFFFFF"
                             VerticalTextAlignment="Center" />
                     </HorizontalStackLayout>
@@ -103,12 +104,12 @@
                 <Label
                     FontFamily="OpenSansSemibold"
                     FontSize="20"
-                    Text="我的设备"
+                    Text="{x:Static strings:AppResources.Home_MyDevices}"
                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                 <Label
                     Grid.Column="1"
                     FontSize="13"
-                    Text="点击设备进行控制"
+                    Text="{x:Static strings:AppResources.Home_TapToControl}"
                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                     VerticalTextAlignment="Center" />
             </Grid>
@@ -132,12 +133,12 @@
                             FontFamily="OpenSansSemibold"
                             FontSize="17"
                             HorizontalTextAlignment="Center"
-                            Text="还没有添加设备"
+                            Text="{x:Static strings:AppResources.Home_Empty}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Label
                             FontSize="13"
                             HorizontalTextAlignment="Center"
-                            Text="点击右上角的 + 添加你的第一盏灯"
+                            Text="{x:Static strings:AppResources.Home_AddFirstHint}"
                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     </VerticalStackLayout>
                 </CollectionView.EmptyView>
@@ -176,7 +177,7 @@
                                     <Image
                                         Margin="16"
                                         Source="device_light.svg"
-                                        SemanticProperties.Description="灯光设备" />
+                                        SemanticProperties.Description="{x:Static strings:AppResources.Device_DefaultName}" />
                                 </Border>
 
                                 <VerticalStackLayout
@@ -242,7 +243,7 @@
                                         IsEnabled="{Binding IsEnabled}"
                                         Opacity="{Binding PowerOpacity}"
                                         Source="{Binding PowerIcon}"
-                                        SemanticProperties.Description="快速开关灯光" />
+                                        SemanticProperties.Description="{x:Static strings:AppResources.Home_QuickPowerDescription}" />
                                 </Border>
                                 </Grid>
 
@@ -259,7 +260,7 @@
                                     Source="chevron_right.svg"
                                     VerticalOptions="Center"
                                     WidthRequest="18"
-                                    SemanticProperties.Description="进入设备控制" />
+                                    SemanticProperties.Description="{x:Static strings:AppResources.Home_ControlDescription}" />
                                 </Grid>
                             </Grid>
                         </Border>

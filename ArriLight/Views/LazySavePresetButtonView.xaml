@@ -3,11 +3,12 @@
     x:Class="ArriLight.LazySavePresetButtonView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight">
     <Button
         x:Name="SavePresetButtonElement"
         Padding="12,8"
         Clicked="OnSavePresetClicked"
         FontSize="12"
-        Text="保存配置" />
+        Text="{x:Static strings:AppResources.Preset_Save}" />
 </local:TimedLazyContentView>

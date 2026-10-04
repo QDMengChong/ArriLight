@@ -71,10 +71,10 @@ public partial class DeviceControlPage
 
     // Separate entry points allow either effect to gain its own controls later.
     private Task ShowBlinkSettingsAsync() => ShowEffectPeriodSettingsAsync(
-        AgpLightMode.Blink, "闪烁参数", _blinkEffectParameters.PeriodMilliseconds);
+        AgpLightMode.Blink, AppResources.Effect_BlinkSettings, _blinkEffectParameters.PeriodMilliseconds);
 
     private Task ShowBreatheSettingsAsync() => ShowEffectPeriodSettingsAsync(
-        AgpLightMode.Breathe, "呼吸灯参数", _breatheEffectParameters.PeriodMilliseconds);
+        AgpLightMode.Breathe, AppResources.Effect_BreatheSettings, _breatheEffectParameters.PeriodMilliseconds);
 
     private async Task ShowEffectPeriodSettingsAsync(AgpLightMode mode, string title, ushort initialPeriod)
     {
@@ -181,7 +181,7 @@ public partial class DeviceControlPage
             AgpModelCodec.MinimumEffectPeriodMilliseconds,
             AgpModelCodec.MaximumEffectPeriodMilliseconds);
 
-    private static string FormatEffectPeriod(ushort period) => $"周期长度：{period} ms";
+    private static string FormatEffectPeriod(ushort period) => Localization.Format(nameof(AppResources.Effect_PeriodDisplay), period);
 
 #if ANDROID
     private bool TryShowEffectSettingsDialog(
@@ -211,7 +211,7 @@ public partial class DeviceControlPage
         titleLabel.Typeface = Android.Graphics.Typeface.DefaultBold;
         card.AddView(titleLabel, EffectDialogLayout(activity, 14));
         card.AddView(
-            EffectDialogText(activity, "调整周期（200～10000 ms）", 14, secondaryColor),
+            EffectDialogText(activity, AppResources.Effect_AdjustPeriod, 14, secondaryColor),
             EffectDialogLayout(activity, 14));
         var periodLabel = EffectDialogText(activity, FormatEffectPeriod(period), 16, textColor);
         card.AddView(periodLabel, EffectDialogLayout(activity, 10));
@@ -222,7 +222,7 @@ public partial class DeviceControlPage
                    AgpModelCodec.MinimumEffectPeriodMilliseconds) / EffectPeriodStepMilliseconds,
             Progress = (period - AgpModelCodec.MinimumEffectPeriodMilliseconds) /
                        EffectPeriodStepMilliseconds,
-            ContentDescription = "周期长度",
+            ContentDescription = AppResources.Effect_Period,
             ProgressTintList = Android.Content.Res.ColorStateList.ValueOf(primaryColor),
             ThumbTintList = Android.Content.Res.ColorStateList.ValueOf(primaryColor)
         };
@@ -239,7 +239,7 @@ public partial class DeviceControlPage
         {
             Orientation = Android.Widget.Orientation.Horizontal
         };
-        var cancel = new Android.Widget.Button(activity) { Text = "取消", TextSize = 16 };
+        var cancel = new Android.Widget.Button(activity) { Text = AppResources.Common_Cancel, TextSize = 16 };
         cancel.SetTextColor(textColor);
         cancel.Background = EffectDialogBackground(
             activity, Android.Graphics.Color.ParseColor(isDark ? "#263652" : "#EDF3FF"), 12);
@@ -249,7 +249,7 @@ public partial class DeviceControlPage
         {
             RightMargin = EffectDialogPixels(activity, 6)
         });
-        var apply = new Android.Widget.Button(activity) { Text = "应用", TextSize = 16 };
+        var apply = new Android.Widget.Button(activity) { Text = AppResources.Common_Apply, TextSize = 16 };
         apply.SetTextColor(Android.Graphics.Color.White);
         apply.Background = EffectDialogBackground(activity, primaryColor, 12);
         apply.Click += (_, _) => CompleteEffectSettings(SelectedPeriod());

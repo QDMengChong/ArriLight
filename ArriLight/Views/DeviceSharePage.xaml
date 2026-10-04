@@ -3,15 +3,16 @@
     x:Class="ArriLight.DeviceSharePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     xmlns:zxing="clr-namespace:ZXing.Net.Maui.Controls;assembly=ZXing.Net.MAUI.Controls"
     x:DataType="local:DeviceSharePage"
-    Title="分享设备"
+    Title="{x:Static strings:AppResources.Share_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
     <ScrollView>
         <VerticalStackLayout Padding="24,36" Spacing="18" HorizontalOptions="Center">
             <Label FontFamily="OpenSansSemibold" FontSize="22" HorizontalTextAlignment="Center" Text="{Binding DeviceName}" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-            <Label FontSize="14" HorizontalTextAlignment="Center" Text="让对方使用 ArriLight 首页的扫码按钮添加设备" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            <Label FontSize="14" HorizontalTextAlignment="Center" Text="{x:Static strings:AppResources.Share_RecipientInstructions}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
             <Border Padding="20" BackgroundColor="White" IsVisible="{Binding HasShareCode}" Stroke="#E2E7EF" StrokeShape="RoundRectangle 24" StrokeThickness="1">
                 <zxing:BarcodeGeneratorView
                     Format="QrCode"

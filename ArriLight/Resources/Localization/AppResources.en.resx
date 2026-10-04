@@ -1,0 +1,1671 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Agp_DeviceNotAuthenticated" xml:space="preserve">
+    <value>Device {0} has not completed ArriLight pairing authentication.</value>
+    <comment>AgpLightControlService.cs:52</comment>
+  </data>
+  <data name="Ble_AppNotInForeground" xml:space="preserve">
+    <value>The app is not in the foreground. BLE operations have stopped.</value>
+    <comment>AgpLightControlService.cs:290; AgpLightControlService.cs:301</comment>
+  </data>
+  <data name="Ble_AddressRequired" xml:space="preserve">
+    <value>The device address cannot be empty.</value>
+    <comment>AgpLightControlService.cs:372; AgpLightControlService.cs:725; AgpLightControlService.cs:1011</comment>
+  </data>
+  <data name="Ble_ConnectionAttemptTimedOut" xml:space="preserve">
+    <value>This connection attempt exceeded {0:0.#} seconds</value>
+    <comment>AgpLightControlService.cs:411</comment>
+  </data>
+  <data name="Agp_TokenPairingUnsupported" xml:space="preserve">
+    <value>The device does not support token pairing.</value>
+    <comment>AgpLightControlService.cs:435</comment>
+  </data>
+  <data name="Agp_PairingWindowClosed" xml:space="preserve">
+    <value>The pairing window has closed. Hold both buttons for 1 second and add the device again when the blue indicator flashes.</value>
+    <comment>AgpLightControlService.cs:441</comment>
+  </data>
+  <data name="Agp_InvalidToken" xml:space="preserve">
+    <value>The device returned an invalid AGP token.</value>
+    <comment>AgpLightControlService.cs:445</comment>
+  </data>
+  <data name="Agp_PairingRecordMissing" xml:space="preserve">
+    <value>The device returned a token and capabilities, but its local record is missing. Pairing information could not be saved.</value>
+    <comment>AgpLightControlService.cs:449</comment>
+  </data>
+  <data name="Common_Unknown" xml:space="preserve">
+    <value>Unknown</value>
+    <comment>AgpLightControlService.cs:673; DeviceRepository.cs:33</comment>
+  </data>
+  <data name="Device_Removed" xml:space="preserve">
+    <value>The device has been removed. Add it again before continuing.</value>
+    <comment>AgpLightControlService.cs:740; AgpLightControlService.cs:1026</comment>
+  </data>
+  <data name="Ble_ReleaseFailed" xml:space="preserve">
+    <value>Some device connections could not be released.</value>
+    <comment>AgpLightControlService.cs:973; BluetoothConnectionService.cs:311</comment>
+  </data>
+  <data name="Agp_CapabilityUnsupported" xml:space="preserve">
+    <value>The device does not support AGP capability {0}.</value>
+    <comment>AgpLightControlService.cs:1238</comment>
+  </data>
+  <data name="Agp_CommandFailed" xml:space="preserve">
+    <value>AGP command failed: {0}.</value>
+    <comment>AgpLightControlService.cs:1250</comment>
+  </data>
+  <data name="Schedule_InvalidSlotCount" xml:space="preserve">
+    <value>The device returned an invalid number of schedule slots.</value>
+    <comment>AgpLightControlService.Schedules.cs:37</comment>
+  </data>
+  <data name="Schedule_ContentMissing" xml:space="preserve">
+    <value>The device did not return the schedule contents.</value>
+    <comment>AgpLightControlService.Schedules.cs:47</comment>
+  </data>
+  <data name="Schedule_SlotMismatch" xml:space="preserve">
+    <value>The returned schedule slot does not match the request.</value>
+    <comment>AgpLightControlService.Schedules.cs:49</comment>
+  </data>
+  <data name="Ble_NotConnected" xml:space="preserve">
+    <value>Not connected</value>
+    <comment>BluetoothConnectionService.cs:120; BluetoothConnectionService.cs:943; BluetoothConnectionService.cs:1234</comment>
+  </data>
+  <data name="Ble_ReadFailed" xml:space="preserve">
+    <value>Device read failed (GATT status: {0}).</value>
+    <comment>BluetoothConnectionService.cs:483</comment>
+  </data>
+  <data name="Ble_DisconnectedDuringSubscription" xml:space="preserve">
+    <value>The device disconnected while enabling notifications. Connect again.</value>
+    <comment>BluetoothConnectionService.cs:544</comment>
+  </data>
+  <data name="Ble_ConnectedUpdating" xml:space="preserve">
+    <value>Connected, performing OTA update</value>
+    <comment>BluetoothConnectionService.cs:616</comment>
+  </data>
+  <data name="Ble_DeviceConnected" xml:space="preserve">
+    <value>Device connected</value>
+    <comment>BluetoothConnectionService.cs:628; BluetoothConnectionService.cs:694</comment>
+  </data>
+  <data name="Ble_DisconnectedAfterOta" xml:space="preserve">
+    <value>OTA finished; device disconnected</value>
+    <comment>BluetoothConnectionService.cs:633</comment>
+  </data>
+  <data name="Ble_BackgroundConnectionStopped" xml:space="preserve">
+    <value>The app entered the background. BLE connection attempts have stopped.</value>
+    <comment>BluetoothConnectionService.cs:647</comment>
+  </data>
+  <data name="Ble_FindingDevice" xml:space="preserve">
+    <value>Finding device</value>
+    <comment>BluetoothConnectionService.cs:666</comment>
+  </data>
+  <data name="Ble_ConnectingDevice" xml:space="preserve">
+    <value>Connecting to device</value>
+    <comment>BluetoothConnectionService.cs:673</comment>
+  </data>
+  <data name="Ble_ConnectionFailedDetail" xml:space="preserve">
+    <value>Connection failed: {0}</value>
+    <comment>BluetoothConnectionService.cs:712</comment>
+  </data>
+  <data name="Ble_ServiceMissing" xml:space="preserve">
+    <value>The device does not provide service {0}.</value>
+    <comment>BluetoothConnectionService.cs:740</comment>
+  </data>
+  <data name="Ble_CharacteristicMissing" xml:space="preserve">
+    <value>Service {0} does not provide characteristic {1}.</value>
+    <comment>BluetoothConnectionService.cs:747</comment>
+  </data>
+  <data name="Ble_DeviceDisconnected" xml:space="preserve">
+    <value>Device disconnected</value>
+    <comment>BluetoothConnectionService.cs:1127</comment>
+  </data>
+  <data name="Ble_ConnectionLost" xml:space="preserve">
+    <value>Connection unexpectedly lost</value>
+    <comment>BluetoothConnectionService.cs:1143</comment>
+  </data>
+  <data name="Ble_ConnectionError" xml:space="preserve">
+    <value>Connection error</value>
+    <comment>BluetoothConnectionService.cs:1161</comment>
+  </data>
+  <data name="Ble_ScanTimedOut" xml:space="preserve">
+    <value>Scanning for device {0} timed out. Move your phone closer to the light and try again.</value>
+    <comment>BluetoothDiscoveryService.cs:146</comment>
+  </data>
+  <data name="Device_UnnamedBle" xml:space="preserve">
+    <value>Unnamed BLE device</value>
+    <comment>BluetoothDiscoveryService.cs:415</comment>
+  </data>
+  <data name="Ble_Disabled" xml:space="preserve">
+    <value>Bluetooth is off. Turn on Bluetooth first.</value>
+    <comment>BluetoothDiscoveryService.cs:436</comment>
+  </data>
+  <data name="Ble_NearbyPermissionRequired" xml:space="preserve">
+    <value>Nearby devices permission is required. Allow ArriLight to find nearby devices in system settings.</value>
+    <comment>BluetoothDiscoveryService.cs:449</comment>
+  </data>
+  <data name="Ble_LocationPermissionRequired" xml:space="preserve">
+    <value>Location permission is required. Allow ArriLight to scan for Bluetooth devices in system settings.</value>
+    <comment>BluetoothDiscoveryService.cs:458</comment>
+  </data>
+  <data name="Agp_TokenLengthInvalid" xml:space="preserve">
+    <value>The device token must contain 4 bytes.</value>
+    <comment>DeviceRepository.cs:123; DeviceRepository.cs:150</comment>
+  </data>
+  <data name="Demo_LivingRoom" xml:space="preserve">
+    <value>Living room main light</value>
+    <comment>DeviceRepository.cs:303</comment>
+  </data>
+  <data name="Demo_Bedroom" xml:space="preserve">
+    <value>Bedroom ambient light</value>
+    <comment>DeviceRepository.cs:309</comment>
+  </data>
+  <data name="Share_PairingRequired" xml:space="preserve">
+    <value>The device is missing pairing authorization or capability information. Complete pairing before sharing.</value>
+    <comment>DeviceShareCode.cs:29</comment>
+  </data>
+  <data name="Share_InvalidDeviceInformation" xml:space="preserve">
+    <value>The device name, address, or pairing authorization is invalid. A share QR code could not be generated.</value>
+    <comment>DeviceShareCode.cs:33</comment>
+  </data>
+  <data name="Share_TooMuchInformation" xml:space="preserve">
+    <value>The device information is too large to generate a clear single QR code.</value>
+    <comment>DeviceShareCode.cs:37</comment>
+  </data>
+  <data name="Firmware_OnlineSource" xml:space="preserve">
+    <value>Online firmware</value>
+    <comment>FirmwareUpdateService.cs:71</comment>
+  </data>
+  <data name="Firmware_LocalSource" xml:space="preserve">
+    <value>Local firmware</value>
+    <comment>FirmwareUpdateService.cs:71</comment>
+  </data>
+  <data name="Firmware_ServiceConfigurationMissing" xml:space="preserve">
+    <value>App configuration file {0} does not fully specify the online firmware service URLs.</value>
+    <comment>FirmwareUpdateService.cs:121</comment>
+  </data>
+  <data name="Firmware_HardwareVersionMissing" xml:space="preserve">
+    <value>The device did not provide a hardware revision. Matching firmware cannot be selected.</value>
+    <comment>FirmwareUpdateService.cs:164</comment>
+  </data>
+  <data name="Firmware_ListWorkerAddress" xml:space="preserve">
+    <value>online firmware list Worker URL</value>
+    <comment>FirmwareUpdateService.cs:171</comment>
+  </data>
+  <data name="Firmware_DownloadWorkerAddress" xml:space="preserve">
+    <value>online firmware download Worker URL</value>
+    <comment>FirmwareUpdateService.cs:174</comment>
+  </data>
+  <data name="Firmware_EmptyListResponse" xml:space="preserve">
+    <value>The firmware list Worker returned an empty response.</value>
+    <comment>FirmwareUpdateService.cs:199</comment>
+  </data>
+  <data name="Firmware_InvalidOnlineExtension" xml:space="preserve">
+    <value>The firmware list Worker returned a file that is not a .hex16 file.</value>
+    <comment>FirmwareUpdateService.cs:215</comment>
+  </data>
+  <data name="Firmware_InvalidOnlineVersion" xml:space="preserve">
+    <value>The firmware list Worker did not return a recognizable firmware version.</value>
+    <comment>FirmwareUpdateService.cs:223</comment>
+  </data>
+  <data name="Firmware_OnlineDescription" xml:space="preserve">
+    <value>Online firmware for {0}.</value>
+    <comment>FirmwareUpdateService.cs:234</comment>
+  </data>
+  <data name="Firmware_LocalFile" xml:space="preserve">
+    <value>Local file</value>
+    <comment>FirmwareUpdateService.cs:265</comment>
+  </data>
+  <data name="Firmware_LocalValidated" xml:space="preserve">
+    <value>Local {0} firmware loaded and format validated.</value>
+    <comment>FirmwareUpdateService.cs:276</comment>
+  </data>
+  <data name="Firmware_PreparingProtocol" xml:space="preserve">
+    <value>Connecting to the device and preparing {0} OTA.</value>
+    <comment>FirmwareUpdateService.cs:307</comment>
+  </data>
+  <data name="Firmware_UpdateSucceeded" xml:space="preserve">
+    <value>Update successful!</value>
+    <comment>FirmwareUpdateService.cs:384; FirmwareUpdatePage.xaml.cs:306</comment>
+  </data>
+  <data name="Firmware_LocalReferenceExpired" xml:space="preserve">
+    <value>The local firmware file reference has expired.</value>
+    <comment>FirmwareUpdateService.cs:410</comment>
+  </data>
+  <data name="Firmware_DownloadAddressMissing" xml:space="preserve">
+    <value>The online firmware download URL is missing.</value>
+    <comment>FirmwareUpdateService.cs:417</comment>
+  </data>
+  <data name="Firmware_Downloading" xml:space="preserve">
+    <value>Downloading firmware…</value>
+    <comment>FirmwareUpdateService.cs:431</comment>
+  </data>
+  <data name="Firmware_DownloadProgress" xml:space="preserve">
+    <value>Downloading firmware… {0}%</value>
+    <comment>FirmwareUpdateService.cs:473</comment>
+  </data>
+  <data name="Firmware_HashMismatch" xml:space="preserve">
+    <value>Firmware SHA-256 verification failed: expected={0}, actual={1}.</value>
+    <comment>FirmwareUpdateService.cs:526</comment>
+  </data>
+  <data name="Firmware_ConnectingOta" xml:space="preserve">
+    <value>Connecting to OTA device…</value>
+    <comment>FirmwareUpdateService.cs:537</comment>
+  </data>
+  <data name="Firmware_DiscoveringOta" xml:space="preserve">
+    <value>Connected, discovering OTA services…</value>
+    <comment>FirmwareUpdateService.cs:538</comment>
+  </data>
+  <data name="Firmware_SingleBankDiscovered" xml:space="preserve">
+    <value>Single Bank OTA service discovered.</value>
+    <comment>FirmwareUpdateService.cs:540</comment>
+  </data>
+  <data name="Firmware_SlbReady" xml:space="preserve">
+    <value>SLB OTA service is ready.</value>
+    <comment>FirmwareUpdateService.cs:542</comment>
+  </data>
+  <data name="Firmware_SwitchingToOta" xml:space="preserve">
+    <value>Single Bank APP mode is ready. Switching to OTA mode.</value>
+    <comment>FirmwareUpdateService.cs:544</comment>
+  </data>
+  <data name="Firmware_WaitingForOtaAdvertisement" xml:space="preserve">
+    <value>Waiting for the device to enter OTA mode and advertise again…</value>
+    <comment>FirmwareUpdateService.cs:546</comment>
+  </data>
+  <data name="Firmware_ReconnectingSingleBank" xml:space="preserve">
+    <value>Single Bank OTA device found. Reconnecting.</value>
+    <comment>FirmwareUpdateService.cs:548</comment>
+  </data>
+  <data name="Firmware_SingleBankReady" xml:space="preserve">
+    <value>Single Bank OTA service is ready.</value>
+    <comment>FirmwareUpdateService.cs:550</comment>
+  </data>
+  <data name="Firmware_VersionValidated" xml:space="preserve">
+    <value>Device version read and firmware validated.</value>
+    <comment>FirmwareUpdateService.cs:551</comment>
+  </data>
+  <data name="Firmware_TransferProgress" xml:space="preserve">
+    <value>Transferring firmware… {0:0.0}%</value>
+    <comment>FirmwareUpdateService.cs:553</comment>
+  </data>
+  <data name="Firmware_WaitingForRestart" xml:space="preserve">
+    <value>The device confirmed the firmware. Waiting for restart.</value>
+    <comment>FirmwareUpdateService.cs:555</comment>
+  </data>
+  <data name="Firmware_SupportedFormats" xml:space="preserve">
+    <value>This app supports SLB .bin and Single Bank .hex, .hex4, .hex16, .hexe16, and .res firmware.</value>
+    <comment>FirmwareUpdateService.cs:569</comment>
+  </data>
+  <data name="Firmware_InvalidHash" xml:space="preserve">
+    <value>The firmware manifest SHA-256 must contain 64 hexadecimal characters.</value>
+    <comment>FirmwareUpdateService.cs:608</comment>
+  </data>
+  <data name="Firmware_InvalidUrl" xml:space="preserve">
+    <value>{0} must be a valid HTTP/HTTPS URL.</value>
+    <comment>FirmwareUpdateService.cs:620</comment>
+  </data>
+  <data name="Common_ServicesNotInitialized" xml:space="preserve">
+    <value>Application services have not been initialized.</value>
+    <comment>ServiceHelper.cs:10</comment>
+  </data>
+  <data name="About_WeChatUnavailable" xml:space="preserve">
+    <value>Unable to open WeChat</value>
+    <comment>AboutUsPage.xaml.cs:24; AboutUsPage.xaml.cs:28</comment>
+  </data>
+  <data name="About_InstallWeChat" xml:space="preserve">
+    <value>Make sure WeChat is installed on your device.</value>
+    <comment>AboutUsPage.xaml.cs:24; AboutUsPage.xaml.cs:28</comment>
+  </data>
+  <data name="Common_Ok" xml:space="preserve">
+    <value>OK</value>
+    <comment>AboutUsPage.xaml.cs:24; AboutUsPage.xaml.cs:28; AboutUsPage.xaml.cs:40</comment>
+  </data>
+  <data name="About_DialerUnavailable" xml:space="preserve">
+    <value>Unable to open dialer</value>
+    <comment>AboutUsPage.xaml.cs:40</comment>
+  </data>
+  <data name="About_CallManually" xml:space="preserve">
+    <value>Please dial {0} manually.</value>
+    <comment>AboutUsPage.xaml.cs:40</comment>
+  </data>
+  <data name="Version_Display" xml:space="preserve">
+    <value>Version {0} ({1})</value>
+    <comment>AppVersionPage.xaml.cs:12</comment>
+  </data>
+  <data name="Version_DebugFileOutput" xml:space="preserve">
+    <value>Debug file logging</value>
+    <comment>AppVersionPage.xaml.cs:35; AppVersionPage.xaml.cs:47</comment>
+  </data>
+  <data name="Version_EnableDebugPrompt" xml:space="preserve">
+    <value>Enable debug file logging?
+
+Log file:
+{0}
+</value>
+    <comment>AppVersionPage.xaml.cs:37</comment>
+  </data>
+  <data name="Version_DisableDebugPrompt" xml:space="preserve">
+    <value>Debug file logging is enabled.
+
+Log file:
+{0}
+
+Disable file logging?</value>
+    <comment>AppVersionPage.xaml.cs:38</comment>
+  </data>
+  <data name="Common_Enable" xml:space="preserve">
+    <value>Enable</value>
+    <comment>AppVersionPage.xaml.cs:39</comment>
+  </data>
+  <data name="Common_TurnOff" xml:space="preserve">
+    <value>Turn off</value>
+    <comment>AppVersionPage.xaml.cs:39; DeviceControlPage.xaml.cs:1125; DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Cancel</value>
+    <comment>AppVersionPage.xaml.cs:40; BluetoothScanPage.xaml.cs:270; DeviceControlPage.EffectSettings.cs:242</comment>
+  </data>
+  <data name="Version_DebugEnabled" xml:space="preserve">
+    <value>Enabled.
+Logs will be appended to:
+{0}</value>
+    <comment>AppVersionPage.xaml.cs:49</comment>
+  </data>
+  <data name="Version_DebugDisabled" xml:space="preserve">
+    <value>File logging is disabled. Existing logs will be retained.</value>
+    <comment>AppVersionPage.xaml.cs:50</comment>
+  </data>
+  <data name="Scan_Ready" xml:space="preserve">
+    <value>Ready to search</value>
+    <comment>BluetoothScanPage.xaml.cs:18</comment>
+  </data>
+  <data name="Scan_WaitingForAdvertisement" xml:space="preserve">
+    <value>Waiting for device advertisements…</value>
+    <comment>BluetoothScanPage.xaml.cs:19; BluetoothScanPage.xaml.cs:111</comment>
+  </data>
+  <data name="Scan_KeepPowered" xml:space="preserve">
+    <value>Searching. Keep the light powered on</value>
+    <comment>BluetoothScanPage.xaml.cs:112</comment>
+  </data>
+  <data name="Scan_CompletedCount" xml:space="preserve">
+    <value>Search complete. Devices found: {0}</value>
+    <comment>BluetoothScanPage.xaml.cs:120</comment>
+  </data>
+  <data name="Scan_NoAvailableDevices" xml:space="preserve">
+    <value>No devices available to add</value>
+    <comment>BluetoothScanPage.xaml.cs:121</comment>
+  </data>
+  <data name="Scan_Stopped" xml:space="preserve">
+    <value>Search stopped</value>
+    <comment>BluetoothScanPage.xaml.cs:126</comment>
+  </data>
+  <data name="Scan_TemporarilyUnavailable" xml:space="preserve">
+    <value>Unable to search for devices right now</value>
+    <comment>BluetoothScanPage.xaml.cs:130</comment>
+  </data>
+  <data name="Scan_Unavailable" xml:space="preserve">
+    <value>Unable to search</value>
+    <comment>BluetoothScanPage.xaml.cs:132</comment>
+  </data>
+  <data name="Scan_Failed" xml:space="preserve">
+    <value>Search failed</value>
+    <comment>BluetoothScanPage.xaml.cs:136; BluetoothScanPage.xaml.cs:139</comment>
+  </data>
+  <data name="Scan_TryLater" xml:space="preserve">
+    <value>Try searching again later</value>
+    <comment>BluetoothScanPage.xaml.cs:137</comment>
+  </data>
+  <data name="Scan_FailedDetail" xml:space="preserve">
+    <value>Bluetooth search did not complete: {0}</value>
+    <comment>BluetoothScanPage.xaml.cs:140</comment>
+  </data>
+  <data name="Scan_FoundCount" xml:space="preserve">
+    <value>Searching. Devices found: {0}</value>
+    <comment>BluetoothScanPage.xaml.cs:190</comment>
+  </data>
+  <data name="Device_AlreadyAdded" xml:space="preserve">
+    <value>Device already added</value>
+    <comment>BluetoothScanPage.xaml.cs:260; QrCodeScanPage.xaml.cs:89</comment>
+  </data>
+  <data name="Device_AlreadyInList" xml:space="preserve">
+    <value>This Bluetooth device is already in your device list.</value>
+    <comment>BluetoothScanPage.xaml.cs:261; QrCodeScanPage.xaml.cs:90</comment>
+  </data>
+  <data name="Device_NamePrompt" xml:space="preserve">
+    <value>Name device</value>
+    <comment>BluetoothScanPage.xaml.cs:267; QrCodeScanPage.xaml.cs:97</comment>
+  </data>
+  <data name="Device_AddressDisplay" xml:space="preserve">
+    <value>Device address: {0}</value>
+    <comment>BluetoothScanPage.xaml.cs:268</comment>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>Save</value>
+    <comment>BluetoothScanPage.xaml.cs:269; DeviceControlPage.xaml.cs:757; DeviceMorePage.xaml.cs:104</comment>
+  </data>
+  <data name="Device_NameExample" xml:space="preserve">
+    <value>Example: Living room main light</value>
+    <comment>BluetoothScanPage.xaml.cs:271; QrCodeScanPage.xaml.cs:101</comment>
+  </data>
+  <data name="Common_SaveFailed" xml:space="preserve">
+    <value>Save failed</value>
+    <comment>BluetoothScanPage.xaml.cs:281; QrCodeScanPage.xaml.cs:114</comment>
+  </data>
+  <data name="Device_NameRequiredOrDuplicate" xml:space="preserve">
+    <value>The device name cannot be empty, or the device already exists.</value>
+    <comment>BluetoothScanPage.xaml.cs:282; QrCodeScanPage.xaml.cs:115</comment>
+  </data>
+  <data name="Pairing_TimedOut" xml:space="preserve">
+    <value>Pairing timed out. Make sure the pairing window is open and other phones have disconnected, then try again.</value>
+    <comment>BluetoothScanPage.xaml.cs:305</comment>
+  </data>
+  <data name="Pairing_Cancelled" xml:space="preserve">
+    <value>Adding cancelled. The device was not added.</value>
+    <comment>BluetoothScanPage.xaml.cs:306</comment>
+  </data>
+  <data name="Device_AddFailedDetail" xml:space="preserve">
+    <value>Unable to add device: {0}</value>
+    <comment>BluetoothScanPage.xaml.cs:312</comment>
+  </data>
+  <data name="Device_AddSucceeded" xml:space="preserve">
+    <value>Device added</value>
+    <comment>BluetoothScanPage.xaml.cs:334</comment>
+  </data>
+  <data name="Pairing_Connecting" xml:space="preserve">
+    <value>Connecting to PW01. Please wait…</value>
+    <comment>BluetoothScanPage.xaml.cs:360</comment>
+  </data>
+  <data name="Pairing_Retrying" xml:space="preserve">
+    <value>Connection incomplete. Recovering the Bluetooth connection and retrying automatically…</value>
+    <comment>BluetoothScanPage.xaml.cs:362</comment>
+  </data>
+  <data name="Pairing_ReadingInformation" xml:space="preserve">
+    <value>Connected, retrieving pairing information…</value>
+    <comment>BluetoothScanPage.xaml.cs:363</comment>
+  </data>
+  <data name="Pairing_TimeRemaining" xml:space="preserve">
+    <value>Pairing time remaining: {0} seconds</value>
+    <comment>BluetoothScanPage.xaml.cs:434</comment>
+  </data>
+  <data name="Pairing_InProgress" xml:space="preserve">
+    <value>Pairing device</value>
+    <comment>BluetoothScanPage.xaml.cs:473; BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Pairing_Instructions" xml:space="preserve">
+    <value>Keep the light powered on. The blue indicator should flash during pairing. If it has stopped, hold both buttons for 1 second to reopen the pairing window.</value>
+    <comment>BluetoothScanPage.xaml.cs:488; BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Pairing_CancelAdding" xml:space="preserve">
+    <value>Cancel adding</value>
+    <comment>BluetoothScanPage.xaml.cs:503; BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Ble_PreparationFailed" xml:space="preserve">
+    <value>Connection preparation failed. Try again</value>
+    <comment>DeviceControlPage.ConnectionLifecycle.cs:143</comment>
+  </data>
+  <data name="Effect_BlinkSettings" xml:space="preserve">
+    <value>Blink settings</value>
+    <comment>DeviceControlPage.EffectSettings.cs:74</comment>
+  </data>
+  <data name="Effect_BreatheSettings" xml:space="preserve">
+    <value>Breathing settings</value>
+    <comment>DeviceControlPage.EffectSettings.cs:77</comment>
+  </data>
+  <data name="Effect_PeriodDisplay" xml:space="preserve">
+    <value>Cycle length: {0} ms</value>
+    <comment>DeviceControlPage.EffectSettings.cs:184</comment>
+  </data>
+  <data name="Effect_AdjustPeriod" xml:space="preserve">
+    <value>Adjust cycle (200–10000 ms)</value>
+    <comment>DeviceControlPage.EffectSettings.cs:214; LazyEffectSettingsOverlayView.xaml:Text</comment>
+  </data>
+  <data name="Effect_Period" xml:space="preserve">
+    <value>Cycle length</value>
+    <comment>DeviceControlPage.EffectSettings.cs:225</comment>
+  </data>
+  <data name="Common_Apply" xml:space="preserve">
+    <value>Apply</value>
+    <comment>DeviceControlPage.EffectSettings.cs:252; LazyEffectSettingsOverlayView.xaml:Text</comment>
+  </data>
+  <data name="Device_Management" xml:space="preserve">
+    <value>Device management</value>
+    <comment>DeviceControlPage.xaml.cs:29</comment>
+  </data>
+  <data name="Ble_NotYetConnected" xml:space="preserve">
+    <value>Not yet connected</value>
+    <comment>DeviceControlPage.xaml.cs:31</comment>
+  </data>
+  <data name="Ble_Connect" xml:space="preserve">
+    <value>Connect</value>
+    <comment>DeviceControlPage.xaml.cs:32; DeviceControlPage.xaml.cs:496</comment>
+  </data>
+  <data name="Demo_NoConnection" xml:space="preserve">
+    <value>Demo devices do not use a real Bluetooth connection</value>
+    <comment>DeviceControlPage.xaml.cs:282; FirmwareUpdatePage.xaml.cs:155</comment>
+  </data>
+  <data name="Demo_Label" xml:space="preserve">
+    <value>Demo</value>
+    <comment>DeviceControlPage.xaml.cs:283</comment>
+  </data>
+  <data name="Ble_PreparingDeviceConnection" xml:space="preserve">
+    <value>Preparing device connection…</value>
+    <comment>DeviceControlPage.xaml.cs:298</comment>
+  </data>
+  <data name="Device_StatusRefreshed" xml:space="preserve">
+    <value>Device status refreshed</value>
+    <comment>DeviceControlPage.xaml.cs:411</comment>
+  </data>
+  <data name="Ble_ConnectionFailed" xml:space="preserve">
+    <value>Connection failed</value>
+    <comment>DeviceControlPage.xaml.cs:428</comment>
+  </data>
+  <data name="Agp_SessionFailed" xml:space="preserve">
+    <value>Unable to establish an AGP light control session: {0}</value>
+    <comment>DeviceControlPage.xaml.cs:429</comment>
+  </data>
+  <data name="Ble_Scanning" xml:space="preserve">
+    <value>Searching</value>
+    <comment>DeviceControlPage.xaml.cs:491</comment>
+  </data>
+  <data name="Ble_Connecting" xml:space="preserve">
+    <value>Connecting</value>
+    <comment>DeviceControlPage.xaml.cs:492; MainPage.xaml.cs:489</comment>
+  </data>
+  <data name="Ble_Connected" xml:space="preserve">
+    <value>Connected</value>
+    <comment>DeviceControlPage.xaml.cs:493</comment>
+  </data>
+  <data name="Firmware_Updating" xml:space="preserve">
+    <value>Updating</value>
+    <comment>DeviceControlPage.xaml.cs:494</comment>
+  </data>
+  <data name="Common_Retry" xml:space="preserve">
+    <value>Retry</value>
+    <comment>DeviceControlPage.xaml.cs:495</comment>
+  </data>
+  <data name="Effect_SettingsUnavailable" xml:space="preserve">
+    <value>Unable to open effect settings. Try again</value>
+    <comment>DeviceControlPage.xaml.cs:609</comment>
+  </data>
+  <data name="Effect_CommandFailed" xml:space="preserve">
+    <value>Unable to send effect command</value>
+    <comment>DeviceControlPage.xaml.cs:661</comment>
+  </data>
+  <data name="Preset_Full" xml:space="preserve">
+    <value>Presets full</value>
+    <comment>DeviceControlPage.xaml.cs:750</comment>
+  </data>
+  <data name="Preset_MaximumReached" xml:space="preserve">
+    <value>You can save up to 6 custom presets.</value>
+    <comment>DeviceControlPage.xaml.cs:750</comment>
+  </data>
+  <data name="Preset_SaveCustom" xml:space="preserve">
+    <value>Save custom preset</value>
+    <comment>DeviceControlPage.xaml.cs:755</comment>
+  </data>
+  <data name="Preset_NamePrompt" xml:space="preserve">
+    <value>Name the current light settings</value>
+    <comment>DeviceControlPage.xaml.cs:756</comment>
+  </data>
+  <data name="Preset_NameExample" xml:space="preserve">
+    <value>Example: Evening reading</value>
+    <comment>DeviceControlPage.xaml.cs:759</comment>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>Delete</value>
+    <comment>DeviceControlPage.xaml.cs:838; DeviceControlPage.xaml.cs:841; DeviceControlPage.xaml.cs:846</comment>
+  </data>
+  <data name="Preset_Reorder" xml:space="preserve">
+    <value>Reorder</value>
+    <comment>DeviceControlPage.xaml.cs:839; DeviceControlPage.xaml.cs:856; DeviceControlPage.xaml.cs:860</comment>
+  </data>
+  <data name="Preset_Delete" xml:space="preserve">
+    <value>Delete preset</value>
+    <comment>DeviceControlPage.xaml.cs:844</comment>
+  </data>
+  <data name="Preset_DeleteConfirmation" xml:space="preserve">
+    <value>Delete “{0}”?</value>
+    <comment>DeviceControlPage.xaml.cs:845</comment>
+  </data>
+  <data name="Preset_ReorderInstructions" xml:space="preserve">
+    <value>Hold a saved preset and drag it to the desired slot. Reorder mode ends after one drag and drop.</value>
+    <comment>DeviceControlPage.xaml.cs:861</comment>
+  </data>
+  <data name="Preset_StartReordering" xml:space="preserve">
+    <value>Start reordering</value>
+    <comment>DeviceControlPage.xaml.cs:862</comment>
+  </data>
+  <data name="Preset_EmptySlot" xml:space="preserve">
+    <value>Empty preset slot</value>
+    <comment>DeviceControlPage.xaml.cs:871</comment>
+  </data>
+  <data name="Preset_SaveInstructions" xml:space="preserve">
+    <value>Tap “Save preset” above to save the current light settings.</value>
+    <comment>DeviceControlPage.xaml.cs:872</comment>
+  </data>
+  <data name="Preset_DragToReorder" xml:space="preserve">
+    <value>Drag to reorder</value>
+    <comment>DeviceControlPage.xaml.cs:965</comment>
+  </data>
+  <data name="Preset_MaximumCount" xml:space="preserve">
+    <value>Up to 6</value>
+    <comment>DeviceControlPage.xaml.cs:965; LazyPresetControlView.xaml:Text</comment>
+  </data>
+  <data name="Timer_InvalidSeconds" xml:space="preserve">
+    <value>Unable to send: enter 1 to 86400 seconds</value>
+    <comment>DeviceControlPage.xaml.cs:1006</comment>
+  </data>
+  <data name="Timer_SendSucceeded" xml:space="preserve">
+    <value>Timer command sent</value>
+    <comment>DeviceControlPage.xaml.cs:1024</comment>
+  </data>
+  <data name="Timer_SendFailed" xml:space="preserve">
+    <value>Unable to send timer command</value>
+    <comment>DeviceControlPage.xaml.cs:1024</comment>
+  </data>
+  <data name="Timer_Off" xml:space="preserve">
+    <value>Turn off after</value>
+    <comment>DeviceControlPage.xaml.cs:1055; LazyTimerControlView.xaml:x:String</comment>
+  </data>
+  <data name="Timer_On" xml:space="preserve">
+    <value>Turn on after</value>
+    <comment>DeviceControlPage.xaml.cs:1057; LazyTimerControlView.xaml:x:String</comment>
+  </data>
+  <data name="Common_TurnOn" xml:space="preserve">
+    <value>Turn on</value>
+    <comment>DeviceControlPage.xaml.cs:1134</comment>
+  </data>
+  <data name="Control_HslDescription" xml:space="preserve">
+    <value>HSL color and brightness control</value>
+    <comment>DeviceControlPage.xaml.cs:1296</comment>
+  </data>
+  <data name="Control_CtlDescription" xml:space="preserve">
+    <value>CTL color temperature and brightness control</value>
+    <comment>DeviceControlPage.xaml.cs:1297</comment>
+  </data>
+  <data name="Control_CombinedDescription" xml:space="preserve">
+    <value>HSL color wheel and CTL temperature ring control</value>
+    <comment>DeviceControlPage.xaml.cs:1298</comment>
+  </data>
+  <data name="Control_BrightnessDescription" xml:space="preserve">
+    <value>Brightness control</value>
+    <comment>DeviceControlPage.xaml.cs:1299; DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Preset_Drag" xml:space="preserve">
+    <value>Drag to reorder</value>
+    <comment>DeviceControlPage.xaml.cs:1676</comment>
+  </data>
+  <data name="Preset_TapToView" xml:space="preserve">
+    <value>Tap to view</value>
+    <comment>DeviceControlPage.xaml.cs:1678</comment>
+  </data>
+  <data name="Preset_Empty" xml:space="preserve">
+    <value>Empty preset</value>
+    <comment>DeviceControlPage.xaml.cs:1732</comment>
+  </data>
+  <data name="Preset_Unnamed" xml:space="preserve">
+    <value>Unnamed preset</value>
+    <comment>DeviceControlPage.xaml.cs:1761</comment>
+  </data>
+  <data name="Effect_Blink" xml:space="preserve">
+    <value>Blink</value>
+    <comment>DeviceControlPage.xaml.cs:1801; LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Effect_Breathe" xml:space="preserve">
+    <value>Breathing</value>
+    <comment>DeviceControlPage.xaml.cs:1802; LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Effect_Steady" xml:space="preserve">
+    <value>Steady</value>
+    <comment>DeviceControlPage.xaml.cs:1803; LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Device_Rename" xml:space="preserve">
+    <value>Rename device</value>
+    <comment>DeviceMorePage.xaml.cs:102</comment>
+  </data>
+  <data name="Device_NewNamePrompt" xml:space="preserve">
+    <value>Enter a new device name</value>
+    <comment>DeviceMorePage.xaml.cs:103</comment>
+  </data>
+  <data name="Device_Unbind" xml:space="preserve">
+    <value>Unpair</value>
+    <comment>DeviceMorePage.xaml.cs:145; DeviceMorePage.xaml.cs:147; DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_RemoveConfirmation" xml:space="preserve">
+    <value>Remove “{0}” from your device list?</value>
+    <comment>DeviceMorePage.xaml.cs:146</comment>
+  </data>
+  <data name="Device_UnbindFailed" xml:space="preserve">
+    <value>Unable to unpair</value>
+    <comment>DeviceMorePage.xaml.cs:159</comment>
+  </data>
+  <data name="Device_UnbindRetained" xml:space="preserve">
+    <value>The device connection could not be released. Its record has been retained. Try again.</value>
+    <comment>DeviceMorePage.xaml.cs:160</comment>
+  </data>
+  <data name="Device_DefaultName" xml:space="preserve">
+    <value>Light device</value>
+    <comment>DeviceSharePage.xaml.cs:6; FirmwareUpdatePage.xaml.cs:14; SchedulePage.xaml.cs:15</comment>
+  </data>
+  <data name="Share_RecordMissing" xml:space="preserve">
+    <value>The device record is missing. A share QR code could not be generated.</value>
+    <comment>DeviceSharePage.xaml.cs:80</comment>
+  </data>
+  <data name="Share_ContentsDescription" xml:space="preserve">
+    <value>The QR code contains only the device name, address, pairing authorization, and capabilities. Recipients can control this device. Light state and other information will be read from the device.</value>
+    <comment>DeviceSharePage.xaml.cs:88</comment>
+  </data>
+  <data name="Ble_PreparingConnection" xml:space="preserve">
+    <value>Preparing connection…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:17</comment>
+  </data>
+  <data name="Firmware_SelectSource" xml:space="preserve">
+    <value>Check online or load local OTA firmware</value>
+    <comment>FirmwareUpdatePage.xaml.cs:18</comment>
+  </data>
+  <data name="Firmware_AvailableVersion" xml:space="preserve">
+    <value>Available version {0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:106</comment>
+  </data>
+  <data name="Firmware_LocalTitle" xml:space="preserve">
+    <value>Local {0} firmware</value>
+    <comment>FirmwareUpdatePage.xaml.cs:107</comment>
+  </data>
+  <data name="Ble_NotConnectedDetail" xml:space="preserve">
+    <value>Not connected: {0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:186</comment>
+  </data>
+  <data name="Firmware_HardwareNotRead" xml:space="preserve">
+    <value>The device hardware revision has not been read. Matching online firmware cannot be queried.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:194</comment>
+  </data>
+  <data name="Firmware_CheckingOnline" xml:space="preserve">
+    <value>Checking online firmware…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:199</comment>
+  </data>
+  <data name="Firmware_UpdateAvailable" xml:space="preserve">
+    <value>Version {0} is available. Download and update with one tap.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:210</comment>
+  </data>
+  <data name="Firmware_AlreadyLatest" xml:space="preserve">
+    <value>Version {0} is already up to date.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:211; FirmwareUpdatePage.xaml.cs:217</comment>
+  </data>
+  <data name="Firmware_SelectFile" xml:space="preserve">
+    <value>Select OTA firmware (.bin, .hex, .hex4, .hex16, .hexe16, .res)</value>
+    <comment>FirmwareUpdatePage.xaml.cs:227</comment>
+  </data>
+  <data name="Firmware_ValidatingLocal" xml:space="preserve">
+    <value>Validating local firmware…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:234</comment>
+  </data>
+  <data name="Firmware_LocalReady" xml:space="preserve">
+    <value>Local {0} firmware format validated. Waiting for update confirmation.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:240</comment>
+  </data>
+  <data name="Firmware_ConfirmUpdate" xml:space="preserve">
+    <value>Confirm firmware update</value>
+    <comment>FirmwareUpdatePage.xaml.cs:247</comment>
+  </data>
+  <data name="Firmware_UpdateConfirmation" xml:space="preserve">
+    <value>Update device “{0}”.
+
+Protocol: {1}
+File: {2}
+Product ID: {3}
+
+Keep the device powered and phone Bluetooth on during the update. Stay on this page.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:248</comment>
+  </data>
+  <data name="Firmware_UpdateNow" xml:space="preserve">
+    <value>Update now</value>
+    <comment>FirmwareUpdatePage.xaml.cs:249</comment>
+  </data>
+  <data name="Firmware_LocalCancelled" xml:space="preserve">
+    <value>Local firmware update cancelled.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:253</comment>
+  </data>
+  <data name="Firmware_DownloadingBeforeUpdate" xml:space="preserve">
+    <value>Downloading firmware. The update will start automatically when the download finishes…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:278</comment>
+  </data>
+  <data name="Firmware_PreparingLocalUpdate" xml:space="preserve">
+    <value>Preparing local firmware update…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:279</comment>
+  </data>
+  <data name="Firmware_Cancelling" xml:space="preserve">
+    <value>Cancelling. Wait for the current BLE operation to finish…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:316</comment>
+  </data>
+  <data name="Firmware_OperationCancelled" xml:space="preserve">
+    <value>Operation cancelled. If firmware transfer has started, scan for the device again and check its status.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:337</comment>
+  </data>
+  <data name="Firmware_ValidationFailed" xml:space="preserve">
+    <value>Firmware validation failed: {0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:352</comment>
+  </data>
+  <data name="Firmware_NetworkFailed" xml:space="preserve">
+    <value>Network request failed: {0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:364</comment>
+  </data>
+  <data name="Firmware_SwitchDisconnect" xml:space="preserve">
+    <value>Bluetooth disconnected while Single Bank was switching to OTA mode (GATT 133). The current SDK does not resume by scanning for the bootloader after this transition disconnect.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:371</comment>
+  </data>
+  <data name="Firmware_BleTransferFailed" xml:space="preserve">
+    <value>Bluetooth transfer failed: {0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:372</comment>
+  </data>
+  <data name="Common_OperationFailed" xml:space="preserve">
+    <value>Operation failed: {0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:378</comment>
+  </data>
+  <data name="Firmware_SlbServiceMissing" xml:space="preserve">
+    <value>The device does not provide the SLB OTA service. Check the firmware and device mode.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:452</comment>
+  </data>
+  <data name="Firmware_DeviceMismatch" xml:space="preserve">
+    <value>The firmware does not match the device Product ID, boot version, or OTA mode.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:454</comment>
+  </data>
+  <data name="Firmware_MtuFailed" xml:space="preserve">
+    <value>BLE MTU negotiation failed. Reconnect, move closer to the device, and try again.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:456</comment>
+  </data>
+  <data name="Firmware_SlbCharacteristicsInvalid" xml:space="preserve">
+    <value>The device SLB OTA characteristics are incomplete or have incorrect properties.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:458</comment>
+  </data>
+  <data name="Firmware_OtaConnectionFailed" xml:space="preserve">
+    <value>Unable to connect to the OTA device. Check its power and Bluetooth range.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:460</comment>
+  </data>
+  <data name="Firmware_Rejected" xml:space="preserve">
+    <value>The device rejected the firmware, the offset is invalid, or final verification failed.</value>
+    <comment>FirmwareUpdatePage.xaml.cs:462</comment>
+  </data>
+  <data name="Firmware_OtaFailed" xml:space="preserve">
+    <value>OTA update failed ({0}): {1}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:463</comment>
+  </data>
+  <data name="Legal_AgreementTitle" xml:space="preserve">
+    <value>User agreement</value>
+    <comment>LegalDocumentPage.xaml.cs:8; LegalDocumentPage.xaml.cs:34; AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="Legal_PrivacyTitle" xml:space="preserve">
+    <value>Privacy policy</value>
+    <comment>LegalDocumentPage.xaml.cs:34; AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="Home_DeviceCount" xml:space="preserve">
+    <value>Devices: {0}</value>
+    <comment>MainPage.xaml.cs:40</comment>
+  </data>
+  <data name="Device_Online" xml:space="preserve">
+    <value>Online</value>
+    <comment>MainPage.xaml.cs:214; MainPage.xaml.cs:238</comment>
+  </data>
+  <data name="Device_Offline" xml:space="preserve">
+    <value>Offline</value>
+    <comment>MainPage.xaml.cs:214; MainPage.xaml.cs:239</comment>
+  </data>
+  <data name="Device_SavedWaiting" xml:space="preserve">
+    <value>Saved · Awaiting connection</value>
+    <comment>MainPage.xaml.cs:240</comment>
+  </data>
+  <data name="Control_SendFailed" xml:space="preserve">
+    <value>Unable to send. Try again</value>
+    <comment>MainPage.xaml.cs:304</comment>
+  </data>
+  <data name="Home_OpenDeviceFailed" xml:space="preserve">
+    <value>Unable to open device. Try again</value>
+    <comment>MainPage.xaml.cs:386</comment>
+  </data>
+  <data name="Messages_WelcomeTitle" xml:space="preserve">
+    <value>Welcome to ArriLight</value>
+    <comment>MessageCenterPage.xaml.cs:9</comment>
+  </data>
+  <data name="Messages_WelcomeContent" xml:space="preserve">
+    <value>Thank you for joining! Go to Devices to add and connect your first light.</value>
+    <comment>MessageCenterPage.xaml.cs:9</comment>
+  </data>
+  <data name="Messages_TodayTime" xml:space="preserve">
+    <value>Today 09:30</value>
+    <comment>MessageCenterPage.xaml.cs:9</comment>
+  </data>
+  <data name="Messages_StatusTitle" xml:space="preserve">
+    <value>Device status reminder</value>
+    <comment>MessageCenterPage.xaml.cs:10</comment>
+  </data>
+  <data name="Messages_StatusContent" xml:space="preserve">
+    <value>The living room main light is back online. You can control its brightness and color again.</value>
+    <comment>MessageCenterPage.xaml.cs:10</comment>
+  </data>
+  <data name="Messages_YesterdayTime" xml:space="preserve">
+    <value>Yesterday 18:42</value>
+    <comment>MessageCenterPage.xaml.cs:10</comment>
+  </data>
+  <data name="Qr_CameraUnavailable" xml:space="preserve">
+    <value>Camera unavailable</value>
+    <comment>QrCodeScanPage.xaml.cs:40</comment>
+  </data>
+  <data name="Qr_CameraPermissionMissing" xml:space="preserve">
+    <value>Camera permission is required for live scanning. You can still select a QR code image from your photos.</value>
+    <comment>QrCodeScanPage.xaml.cs:41</comment>
+  </data>
+  <data name="Qr_Invalid" xml:space="preserve">
+    <value>Invalid QR code</value>
+    <comment>QrCodeScanPage.xaml.cs:78</comment>
+  </data>
+  <data name="Qr_InvalidShareCode" xml:space="preserve">
+    <value>This is not a valid device share code. Generate a new QR code from the device information page.</value>
+    <comment>QrCodeScanPage.xaml.cs:79</comment>
+  </data>
+  <data name="Qr_ScanAgain" xml:space="preserve">
+    <value>Scan again</value>
+    <comment>QrCodeScanPage.xaml.cs:80; QrCodeScanPage.xaml.cs:91; QrCodeScanPage.xaml.cs:116</comment>
+  </data>
+  <data name="Qr_ImportPrompt" xml:space="preserve">
+    <value>Device address: {0}
+The device name, address, pairing authorization, and capabilities will be saved. The app will connect to read other information.</value>
+    <comment>QrCodeScanPage.xaml.cs:98</comment>
+  </data>
+  <data name="Qr_SavedReadingInformation" xml:space="preserve">
+    <value>Device saved. Reading device information…</value>
+    <comment>QrCodeScanPage.xaml.cs:121</comment>
+  </data>
+  <data name="Qr_InformationNotRead" xml:space="preserve">
+    <value>Information not yet read</value>
+    <comment>QrCodeScanPage.xaml.cs:136</comment>
+  </data>
+  <data name="Qr_InformationTimedOut" xml:space="preserve">
+    <value>The device was added, but reading its information timed out. Open its control page to read it again.</value>
+    <comment>QrCodeScanPage.xaml.cs:138</comment>
+  </data>
+  <data name="Qr_InformationReadFailed" xml:space="preserve">
+    <value>The device was added, but its information could not be read: {0}. Open its control page to retry.</value>
+    <comment>QrCodeScanPage.xaml.cs:139</comment>
+  </data>
+  <data name="Qr_SelectShareImage" xml:space="preserve">
+    <value>Select a device share QR code</value>
+    <comment>QrCodeScanPage.xaml.cs:169</comment>
+  </data>
+  <data name="Qr_NotFound" xml:space="preserve">
+    <value>No QR code found</value>
+    <comment>QrCodeScanPage.xaml.cs:196</comment>
+  </data>
+  <data name="Qr_ImageNotReadable" xml:space="preserve">
+    <value>No QR code was found in the selected image. Choose a clearer image showing the entire code.</value>
+    <comment>QrCodeScanPage.xaml.cs:197</comment>
+  </data>
+  <data name="Qr_SelectAgain" xml:space="preserve">
+    <value>Choose again</value>
+    <comment>QrCodeScanPage.xaml.cs:198</comment>
+  </data>
+  <data name="Qr_ImageSelectionFailed" xml:space="preserve">
+    <value>Unable to select image</value>
+    <comment>QrCodeScanPage.xaml.cs:208</comment>
+  </data>
+  <data name="Qr_ImageSelectionUnsupported" xml:space="preserve">
+    <value>This device does not support selecting an image from photos.</value>
+    <comment>QrCodeScanPage.xaml.cs:209</comment>
+  </data>
+  <data name="Qr_PhotoPermissionRequired" xml:space="preserve">
+    <value>Photo permission required</value>
+    <comment>QrCodeScanPage.xaml.cs:216</comment>
+  </data>
+  <data name="Qr_AllowPhotos" xml:space="preserve">
+    <value>Allow access to photos in system settings and try again.</value>
+    <comment>QrCodeScanPage.xaml.cs:217</comment>
+  </data>
+  <data name="Qr_DecodeFailed" xml:space="preserve">
+    <value>Recognition failed</value>
+    <comment>QrCodeScanPage.xaml.cs:224</comment>
+  </data>
+  <data name="Qr_DecodeFailedDetail" xml:space="preserve">
+    <value>Image recognition did not complete: {0}</value>
+    <comment>QrCodeScanPage.xaml.cs:225</comment>
+  </data>
+  <data name="Qr_TorchOff" xml:space="preserve">
+    <value>Turn off flashlight</value>
+    <comment>QrCodeScanPage.xaml.cs:235</comment>
+  </data>
+  <data name="Qr_TorchOn" xml:space="preserve">
+    <value>Turn on flashlight</value>
+    <comment>QrCodeScanPage.xaml.cs:235; QrCodeScanPage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Daily" xml:space="preserve">
+    <value>Daily</value>
+    <comment>SchedulePage.xaml.cs:17; SchedulePage.xaml.cs:18; SchedulePage.xaml.cs:50</comment>
+  </data>
+  <data name="Schedule_Count" xml:space="preserve">
+    <value>Schedules: {0}</value>
+    <comment>SchedulePage.xaml.cs:47</comment>
+  </data>
+  <data name="Schedule_Once" xml:space="preserve">
+    <value>Once</value>
+    <comment>SchedulePage.xaml.cs:50; SchedulePage.xaml.cs:238</comment>
+  </data>
+  <data name="Schedule_Weekly" xml:space="preserve">
+    <value>Weekly</value>
+    <comment>SchedulePage.xaml.cs:50</comment>
+  </data>
+  <data name="Schedule_Monthly" xml:space="preserve">
+    <value>Monthly</value>
+    <comment>SchedulePage.xaml.cs:50</comment>
+  </data>
+  <data name="Schedule_Loading" xml:space="preserve">
+    <value>Reading device schedules…</value>
+    <comment>SchedulePage.xaml.cs:80</comment>
+  </data>
+  <data name="Device_RecordMissing" xml:space="preserve">
+    <value>The device record is missing. Add the device again.</value>
+    <comment>SchedulePage.xaml.cs:86</comment>
+  </data>
+  <data name="Schedule_DemoUnavailable" xml:space="preserve">
+    <value>Demo devices have no schedules</value>
+    <comment>SchedulePage.xaml.cs:103</comment>
+  </data>
+  <data name="Schedule_Unsupported" xml:space="preserve">
+    <value>Device does not support schedules</value>
+    <comment>SchedulePage.xaml.cs:104</comment>
+  </data>
+  <data name="Schedule_NotLoaded" xml:space="preserve">
+    <value>Device schedules have not been read</value>
+    <comment>SchedulePage.xaml.cs:115</comment>
+  </data>
+  <data name="Schedule_LoadFailed" xml:space="preserve">
+    <value>Unable to read schedules</value>
+    <comment>SchedulePage.xaml.cs:117</comment>
+  </data>
+  <data name="Schedule_SelectWeekdays" xml:space="preserve">
+    <value>Select weekdays</value>
+    <comment>SchedulePage.xaml.cs:175</comment>
+  </data>
+  <data name="Schedule_Monday" xml:space="preserve">
+    <value>Mon</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:532</comment>
+  </data>
+  <data name="Schedule_Tuesday" xml:space="preserve">
+    <value>Tue</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:533</comment>
+  </data>
+  <data name="Schedule_Wednesday" xml:space="preserve">
+    <value>Wed</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:534</comment>
+  </data>
+  <data name="Schedule_Thursday" xml:space="preserve">
+    <value>Thu</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:535</comment>
+  </data>
+  <data name="Schedule_Friday" xml:space="preserve">
+    <value>Fri</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:536</comment>
+  </data>
+  <data name="Schedule_Saturday" xml:space="preserve">
+    <value>Sat</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:537</comment>
+  </data>
+  <data name="Schedule_Sunday" xml:space="preserve">
+    <value>Sun</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:538</comment>
+  </data>
+  <data name="Schedule_SelectMonthDays" xml:space="preserve">
+    <value>Select days of the month</value>
+    <comment>SchedulePage.xaml.cs:185</comment>
+  </data>
+  <data name="Schedule_DayNumber" xml:space="preserve">
+    <value>Day {0}</value>
+    <comment>SchedulePage.xaml.cs:190; SchedulePage.xaml.cs:244</comment>
+  </data>
+  <data name="Schedule_SelectDate" xml:space="preserve">
+    <value>Select dates</value>
+    <comment>SchedulePage.xaml.cs:211</comment>
+  </data>
+  <data name="Schedule_DateRequired" xml:space="preserve">
+    <value>Select at least one day to run the schedule.</value>
+    <comment>SchedulePage.xaml.cs:211</comment>
+  </data>
+  <data name="Schedule_ChooseWeekday" xml:space="preserve">
+    <value>Choose weekdays</value>
+    <comment>SchedulePage.xaml.cs:242</comment>
+  </data>
+  <data name="Schedule_ChooseDate" xml:space="preserve">
+    <value>Choose dates</value>
+    <comment>SchedulePage.xaml.cs:245</comment>
+  </data>
+  <data name="Schedule_Full" xml:space="preserve">
+    <value>Schedules full</value>
+    <comment>SchedulePage.xaml.cs:309</comment>
+  </data>
+  <data name="Schedule_AvailableSlots" xml:space="preserve">
+    <value>There are {0} AGP schedule slots available.</value>
+    <comment>SchedulePage.xaml.cs:310</comment>
+  </data>
+  <data name="Common_SendFailed" xml:space="preserve">
+    <value>Send failed</value>
+    <comment>SchedulePage.xaml.cs:319</comment>
+  </data>
+  <data name="Schedule_SendFailed" xml:space="preserve">
+    <value>Unable to send the schedule command. Make sure the device is connected.</value>
+    <comment>SchedulePage.xaml.cs:319</comment>
+  </data>
+  <data name="Schedule_Delete" xml:space="preserve">
+    <value>Delete schedule</value>
+    <comment>SchedulePage.xaml.cs:334</comment>
+  </data>
+  <data name="Schedule_DeleteConfirmation" xml:space="preserve">
+    <value>Delete the “{1}” schedule at {0}?</value>
+    <comment>SchedulePage.xaml.cs:335</comment>
+  </data>
+  <data name="Common_DeleteFailed" xml:space="preserve">
+    <value>Delete failed</value>
+    <comment>SchedulePage.xaml.cs:353</comment>
+  </data>
+  <data name="Schedule_DeleteRejected" xml:space="preserve">
+    <value>The device did not accept the delete schedule command.</value>
+    <comment>SchedulePage.xaml.cs:353</comment>
+  </data>
+  <data name="Schedule_WaitForLoad" xml:space="preserve">
+    <value>Wait for the device schedules to finish loading</value>
+    <comment>SchedulePage.xaml.cs:442</comment>
+  </data>
+  <data name="Schedule_ReloadRequired" xml:space="preserve">
+    <value>Reopen this page to read the device schedules before continuing</value>
+    <comment>SchedulePage.xaml.cs:444</comment>
+  </data>
+  <data name="Schedule_DeviceUnsupported" xml:space="preserve">
+    <value>This device does not support schedules</value>
+    <comment>SchedulePage.xaml.cs:446</comment>
+  </data>
+  <data name="Schedule_OnceDate" xml:space="preserve">
+    <value>Once ({0:yyyy-MM-dd})</value>
+    <comment>SchedulePage.xaml.cs:462</comment>
+  </data>
+  <data name="Schedule_InvalidRepeatType" xml:space="preserve">
+    <value>The device returned an invalid schedule repeat type.</value>
+    <comment>SchedulePage.xaml.cs:470</comment>
+  </data>
+  <data name="Schedule_ActionOn" xml:space="preserve">
+    <value>Turn on</value>
+    <comment>SchedulePage.xaml.cs:474; SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_ActionOff" xml:space="preserve">
+    <value>Turn off</value>
+    <comment>SchedulePage.xaml.cs:474; SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_LastDay" xml:space="preserve">
+    <value>Last day of each month</value>
+    <comment>SchedulePage.xaml.cs:483</comment>
+  </data>
+  <data name="Schedule_UtcMonthlyDay" xml:space="preserve">
+    <value>Day {0} of each month in UTC (next local day)</value>
+    <comment>SchedulePage.xaml.cs:488</comment>
+  </data>
+  <data name="Schedule_MonthlyDay" xml:space="preserve">
+    <value>Day {0} of each month</value>
+    <comment>SchedulePage.xaml.cs:489</comment>
+  </data>
+  <data name="Tab_Devices" xml:space="preserve">
+    <value>Devices</value>
+    <comment>AppShell.xaml:Title; MainPage.xaml:Text</comment>
+  </data>
+  <data name="Tab_Store" xml:space="preserve">
+    <value>Store</value>
+    <comment>AppShell.xaml:Title; StorePage.xaml:Text</comment>
+  </data>
+  <data name="Tab_Profile" xml:space="preserve">
+    <value>Me</value>
+    <comment>AppShell.xaml:Title; ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="About_Title" xml:space="preserve">
+    <value>About us</value>
+    <comment>AboutUsPage.xaml:Title; ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="About_WeChatAccount" xml:space="preserve">
+    <value>WeChat official account</value>
+    <comment>AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="About_WeChatInstructions" xml:space="preserve">
+    <value>Open WeChat, search for our account, and follow it</value>
+    <comment>AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="About_Contact" xml:space="preserve">
+    <value>Contact us</value>
+    <comment>AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="About_PhoneExample" xml:space="preserve">
+    <value>400-000-0000 (example)</value>
+    <comment>AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="Version_Title" xml:space="preserve">
+    <value>App version</value>
+    <comment>AppVersionPage.xaml:Title; ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Version_WhatsNew" xml:space="preserve">
+    <value>What's new</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Version_DevicesUpdate" xml:space="preserve">
+    <value>• New device management home page and bottom navigation</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Version_InformationUpdate" xml:space="preserve">
+    <value>• Added message center, version information, and about page</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Version_ThemeUpdate" xml:space="preserve">
+    <value>• Support for system, light, and dark themes</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Version_AndroidUpdate" xml:space="preserve">
+    <value>• Improved Android interface and interactions</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Device_Add" xml:space="preserve">
+    <value>Add device</value>
+    <comment>BluetoothScanPage.xaml:Title; MainPage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Scan_Title" xml:space="preserve">
+    <value>Search for nearby lights</value>
+    <comment>BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Scan_NamingHint" xml:space="preserve">
+    <value>Select a device, then give it a name</value>
+    <comment>BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Scan_SearchAgain" xml:space="preserve">
+    <value>Search again</value>
+    <comment>BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Common_Refresh" xml:space="preserve">
+    <value>Refresh</value>
+    <comment>DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Common_More" xml:space="preserve">
+    <value>More</value>
+    <comment>DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Control_Title" xml:space="preserve">
+    <value>Light control</value>
+    <comment>DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Manual_Title" xml:space="preserve">
+    <value>User guide</value>
+    <comment>DeviceManualPage.xaml:Title; DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Manual_Heading" xml:space="preserve">
+    <value>ArriLight lighting user guide</value>
+    <comment>DeviceManualPage.xaml:Text</comment>
+  </data>
+  <data name="Manual_Content" xml:space="preserve">
+    <value>1. Power on the light and turn on your phone's Bluetooth.
+
+2. Tap “+” on the home page to search for nearby devices, or scan a device share QR code to add one.
+
+3. Open a device to adjust its color, color temperature, and brightness, and save your favorite presets.
+
+4. Keep the device online before using timers and schedules.
+
+5. Do not turn off the light or Bluetooth, or exit the app, during a firmware update.</value>
+    <comment>DeviceManualPage.xaml:Text</comment>
+  </data>
+  <data name="Manual_Placeholder" xml:space="preserve">
+    <value>The final product manual may replace or expand this page in a later version.</value>
+    <comment>DeviceManualPage.xaml:Text</comment>
+  </data>
+  <data name="Device_Information" xml:space="preserve">
+    <value>Device information</value>
+    <comment>DeviceMorePage.xaml:Title</comment>
+  </data>
+  <data name="Device_Name" xml:space="preserve">
+    <value>Device name</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_AddedAt" xml:space="preserve">
+    <value>Added on</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_Id" xml:space="preserve">
+    <value>Device ID</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_Title" xml:space="preserve">
+    <value>Firmware update</value>
+    <comment>DeviceMorePage.xaml:Text; FirmwareUpdatePage.xaml:Title</comment>
+  </data>
+  <data name="Share_Title" xml:space="preserve">
+    <value>Share device</value>
+    <comment>DeviceMorePage.xaml:Text; DeviceSharePage.xaml:Title</comment>
+  </data>
+  <data name="Share_QrCode" xml:space="preserve">
+    <value>QR code</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_Pin" xml:space="preserve">
+    <value>Pin to top</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_PinDescription" xml:space="preserve">
+    <value>Show first in the home device list</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Share_RecipientInstructions" xml:space="preserve">
+    <value>Recipients can add the device using the scan button on the ArriLight home page</value>
+    <comment>DeviceSharePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_CurrentVersion" xml:space="preserve">
+    <value>Current version</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_Check" xml:space="preserve">
+    <value>Check firmware</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_CheckOnline" xml:space="preserve">
+    <value>Check online</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_LoadLocal" xml:space="preserve">
+    <value>Load local firmware</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_Status" xml:space="preserve">
+    <value>Update status</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_DownloadAndUpdate" xml:space="preserve">
+    <value>Download and update</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_CancelUpdate" xml:space="preserve">
+    <value>Cancel update</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_KeepPowered" xml:space="preserve">
+    <value>Keep the light powered on and your phone's Bluetooth enabled during the update. Stay close to the device.</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Effect_Title" xml:space="preserve">
+    <value>Effects</value>
+    <comment>LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Effect_LongPressHint" xml:space="preserve">
+    <value>Hold to view or edit settings</value>
+    <comment>LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Preset_Title" xml:space="preserve">
+    <value>Custom presets</value>
+    <comment>LazyPresetControlView.xaml:Text</comment>
+  </data>
+  <data name="Common_Done" xml:space="preserve">
+    <value>Done</value>
+    <comment>LazyPresetControlView.xaml:Text</comment>
+  </data>
+  <data name="Preset_Save" xml:space="preserve">
+    <value>Save preset</value>
+    <comment>LazySavePresetButtonView.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Settings" xml:space="preserve">
+    <value>Schedules</value>
+    <comment>LazyScheduleControlView.xaml:Text; SchedulePage.xaml:Title; SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Manage" xml:space="preserve">
+    <value>Manage automatic on/off schedules</value>
+    <comment>LazyScheduleControlView.xaml:Text</comment>
+  </data>
+  <data name="Temperature_Warm" xml:space="preserve">
+    <value>Warm</value>
+    <comment>LazyTemperatureLegendView.xaml:Text</comment>
+  </data>
+  <data name="Temperature_Title" xml:space="preserve">
+    <value>Color temperature</value>
+    <comment>LazyTemperatureLegendView.xaml:Text</comment>
+  </data>
+  <data name="Temperature_Cool" xml:space="preserve">
+    <value>Cool</value>
+    <comment>LazyTemperatureLegendView.xaml:Text</comment>
+  </data>
+  <data name="Timer_Mode" xml:space="preserve">
+    <value>Timer mode</value>
+    <comment>LazyTimerControlView.xaml:Title</comment>
+  </data>
+  <data name="Timer_Seconds" xml:space="preserve">
+    <value>s</value>
+    <comment>LazyTimerControlView.xaml:Text</comment>
+  </data>
+  <data name="Timer_SendDescription" xml:space="preserve">
+    <value>Send timer command</value>
+    <comment>LazyTimerControlView.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Legal_UpdatedDate" xml:space="preserve">
+    <value>Updated: July 23, 2026</value>
+    <comment>LegalDocumentPage.xaml:Text</comment>
+  </data>
+  <data name="Home_Description" xml:space="preserve">
+    <value>Manage your lights</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Qr_ScanDescription" xml:space="preserve">
+    <value>Scan QR code</value>
+    <comment>MainPage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Home_ServiceReady" xml:space="preserve">
+    <value>Bluetooth device service is ready</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_MyDevices" xml:space="preserve">
+    <value>My devices</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_TapToControl" xml:space="preserve">
+    <value>Tap a device to control it</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_Empty" xml:space="preserve">
+    <value>No devices added yet</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_AddFirstHint" xml:space="preserve">
+    <value>Tap + in the upper right to add your first light</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_QuickPowerDescription" xml:space="preserve">
+    <value>Quickly turn the light on or off</value>
+    <comment>MainPage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Home_ControlDescription" xml:space="preserve">
+    <value>Open device controls</value>
+    <comment>MainPage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Messages_Title" xml:space="preserve">
+    <value>Message center</value>
+    <comment>MessageCenterPage.xaml:Title; ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Messages_Recent" xml:space="preserve">
+    <value>Recent messages</value>
+    <comment>MessageCenterPage.xaml:Text</comment>
+  </data>
+  <data name="Profile_Description" xml:space="preserve">
+    <value>Services, information, and app settings</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Messages_MenuDescription" xml:space="preserve">
+    <value>View notifications and service messages</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>Settings</value>
+    <comment>ProfilePage.xaml:Text; SettingsPage.xaml:Title</comment>
+  </data>
+  <data name="Settings_MenuDescription" xml:space="preserve">
+    <value>Theme and app preferences</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Version_MenuDescription" xml:space="preserve">
+    <value>Version information and release notes</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="About_MenuDescription" xml:space="preserve">
+    <value>Agreement, privacy, and contact information</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Qr_Title" xml:space="preserve">
+    <value>Scan to add</value>
+    <comment>QrCodeScanPage.xaml:Title</comment>
+  </data>
+  <data name="Qr_FrameHint" xml:space="preserve">
+    <value>Place a device share QR code inside the frame</value>
+    <comment>QrCodeScanPage.xaml:Text</comment>
+  </data>
+  <data name="Qr_PhotosHint" xml:space="preserve">
+    <value>You can also select a saved QR code from your photos</value>
+    <comment>QrCodeScanPage.xaml:Text</comment>
+  </data>
+  <data name="Qr_SelectPhotos" xml:space="preserve">
+    <value>Choose from photos</value>
+    <comment>QrCodeScanPage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_AddToolbar" xml:space="preserve">
+    <value>+ Add</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_PageDescription" xml:space="preserve">
+    <value>Manage automatic on/off schedules</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Added" xml:space="preserve">
+    <value>Saved schedules</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Empty" xml:space="preserve">
+    <value>No schedules yet</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_AddFirstHint" xml:space="preserve">
+    <value>Tap “+ Add” in the upper right to create a schedule</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_DeleteDescription" xml:space="preserve">
+    <value>Delete schedule</value>
+    <comment>SchedulePage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Schedule_AddTitle" xml:space="preserve">
+    <value>Add schedule</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_RepeatMode" xml:space="preserve">
+    <value>Repeat</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Action" xml:space="preserve">
+    <value>Action</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Time" xml:space="preserve">
+    <value>Time</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Common_Add" xml:space="preserve">
+    <value>Add</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_MultipleSelectionHint" xml:space="preserve">
+    <value>Select one or more</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>Confirm</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Settings_Appearance" xml:space="preserve">
+    <value>Appearance</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Common_FollowSystem" xml:space="preserve">
+    <value>Follow system</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Settings_SystemThemeDescription" xml:space="preserve">
+    <value>Automatically use your system's appearance</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Settings_LightTheme" xml:space="preserve">
+    <value>Light theme</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Settings_DarkTheme" xml:space="preserve">
+    <value>Dark theme</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Settings_ThemePersistenceHint" xml:space="preserve">
+    <value>Your theme choice is saved on this device and applied at the next launch.</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Store_Placeholder" xml:space="preserve">
+    <value>Content will be added in a later version</value>
+    <comment>StorePage.xaml:Text</comment>
+  </data>
+  <data name="Legal_AgreementContent" xml:space="preserve">
+    <value>Welcome to ArriLight. Read and understand this agreement before using the app.
+
+1. This app discovers, connects to, and controls compatible lighting devices.
+
+2. Follow applicable laws and regulations, and keep your account and device access permissions secure.
+
+3. Device compatibility, service coverage, and final terms will be completed before product release.
+
+This is sample text for interface design and is not a final legal document.</value>
+    <comment>LegalDocumentPage</comment>
+  </data>
+  <data name="Legal_PrivacyContent" xml:space="preserve">
+    <value>We value your privacy and the security of your personal information.
+
+1. Bluetooth permission is used only to discover, connect to, and control nearby compatible devices.
+
+2. Camera permission is used only when you choose to scan a code to add a device.
+
+3. Without your authorization, we will not use personal information for purposes unrelated to the app's core functions.
+
+This is sample text for interface design. The final version should be professionally reviewed before release.</value>
+    <comment>LegalDocumentPage</comment>
+  </data>
+  <data name="Common_NotProvided" xml:space="preserve">
+    <value>Not provided</value>
+  </data>
+  <data name="Common_ListSeparator" xml:space="preserve">
+    <value>, </value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Language</value>
+  </data>
+  <data name="Settings_SystemLanguageDescription" xml:space="preserve">
+    <value>Use Chinese or English according to your system language</value>
+  </data>
+  <data name="Settings_ChineseLanguage" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="Settings_EnglishLanguage" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_LanguagePersistenceHint" xml:space="preserve">
+    <value>Your language choice is saved on this device and takes effect at the next launch.</value>
+  </data>
+  <data name="Settings_LanguageRestartRequired" xml:space="preserve">
+    <value>Language preference saved. Close and reopen the app to apply it.</value>
+  </data>
+  <data name="Firmware_OtaProcessing" xml:space="preserve">
+    <value>Processing OTA update…</value>
+  </data>
+  <data name="Navigation_BackAgainToExit" xml:space="preserve">
+    <value>Press Back again to exit the app</value>
+  </data>
+</root>

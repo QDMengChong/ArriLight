@@ -3,6 +3,7 @@
     x:Class="ArriLight.LazyScheduleControlView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight">
     <Border
         x:Name="ScheduleSettingsCardElement"
@@ -15,8 +16,8 @@
                 <Image Margin="12" Source="control_schedule.svg" />
             </Border>
             <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                <Label Style="{StaticResource MenuTitleStyle}" Text="定时设置" />
-                <Label Style="{StaticResource MenuDescriptionStyle}" Text="管理自动开关灯计划" />
+                <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Schedule_Settings}" />
+                <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Schedule_Manage}" />
             </VerticalStackLayout>
             <Image Grid.Column="2" Style="{StaticResource MenuChevronStyle}" />
         </Grid>

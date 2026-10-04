@@ -34,7 +34,7 @@ public sealed partial class AgpLightControlService
                 var list = await handle.Client.GetScheduleListAsync(cancellationToken);
                 EnsureSuccess(list.Result);
                 if (list.MaximumSlots is 0 or > AgpModelCodec.MaximumScheduleSlots)
-                    throw new InvalidOperationException("设备返回的日程槽数量无效。");
+                    throw new InvalidOperationException(AppResources.Schedule_InvalidSlotCount);
 
                 var schedules = new List<AgpSchedule>();
                 // The list mask identifies enabled slots. Read every slot so
@@ -44,9 +44,9 @@ public sealed partial class AgpLightControlService
                     var response = await handle.Client.GetScheduleAsync(slot, cancellationToken);
                     EnsureSuccess(response.Result);
                     var schedule = response.Schedule ??
-                        throw new InvalidOperationException("设备未返回日程内容。");
+                        throw new InvalidOperationException(AppResources.Schedule_ContentMissing);
                     if (schedule.Slot != slot)
-                        throw new InvalidOperationException("设备返回的日程槽与请求不一致。");
+                        throw new InvalidOperationException(AppResources.Schedule_SlotMismatch);
 
                     if (schedule is
                         {

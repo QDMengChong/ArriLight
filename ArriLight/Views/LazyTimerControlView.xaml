@@ -3,11 +3,12 @@
     x:Class="ArriLight.LazyTimerControlView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight">
     <Border
         x:Name="RelativeTimerCardElement"
         Style="{StaticResource MenuCardStyle}">
-        <Grid ColumnDefinitions="112,*,44" ColumnSpacing="10">
+        <Grid ColumnDefinitions="Auto,*,44" ColumnSpacing="10">
             <VerticalStackLayout Spacing="3" VerticalOptions="Center">
                 <Picker
                     x:Name="TimerModePickerElement"
@@ -16,10 +17,10 @@
                     HorizontalOptions="Start"
                     SelectedIndex="0"
                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                    Title="计时模式">
+                    Title="{x:Static strings:AppResources.Timer_Mode}">
                     <Picker.Items>
-                        <x:String>计时关灯</x:String>
-                        <x:String>计时开灯</x:String>
+                        <x:Static Member="strings:AppResources.Timer_Off" />
+                        <x:Static Member="strings:AppResources.Timer_On" />
                         </Picker.Items>
                 </Picker>
             </VerticalStackLayout>
@@ -44,7 +45,7 @@
                     <Label
                         Grid.Column="1"
                         FontSize="12"
-                        Text="秒"
+                        Text="{x:Static strings:AppResources.Timer_Seconds}"
                         TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                         VerticalTextAlignment="Center" />
                 </Grid>
@@ -64,7 +65,7 @@
                     BackgroundColor="Transparent"
                     Clicked="OnTimerSendClicked"
                     Source="action_send.svg"
-                    SemanticProperties.Description="发送计时指令" />
+                    SemanticProperties.Description="{x:Static strings:AppResources.Timer_SendDescription}" />
             </Border>
         </Grid>
     </Border>

@@ -3,7 +3,8 @@
     x:Class="ArriLight.SettingsPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    Title="设置"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
+    Title="{x:Static strings:AppResources.Settings_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <ScrollView>
@@ -11,15 +12,15 @@
         <Label
             Margin="4,0,0,4"
             FontSize="13"
-            Text="外观"
+            Text="{x:Static strings:AppResources.Settings_Appearance}"
             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
 
         <Border Style="{StaticResource MenuCardStyle}">
             <VerticalStackLayout Spacing="0">
                 <Grid ColumnDefinitions="*,Auto" Padding="0,2,0,12">
                     <VerticalStackLayout Spacing="3">
-                        <Label Style="{StaticResource MenuTitleStyle}" Text="跟随系统" />
-                        <Label Style="{StaticResource MenuDescriptionStyle}" Text="自动使用系统的外观设置" />
+                        <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Common_FollowSystem}" />
+                        <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Settings_SystemThemeDescription}" />
                     </VerticalStackLayout>
                     <RadioButton
                         x:Name="SystemThemeRadio"
@@ -30,7 +31,7 @@
                 </Grid>
                 <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                 <Grid ColumnDefinitions="*,Auto" Padding="0,12">
-                    <Label Style="{StaticResource MenuTitleStyle}" Text="浅色主题" VerticalTextAlignment="Center" />
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Settings_LightTheme}" VerticalTextAlignment="Center" />
                     <RadioButton
                         x:Name="LightThemeRadio"
                         Grid.Column="1"
@@ -40,7 +41,7 @@
                 </Grid>
                 <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                 <Grid ColumnDefinitions="*,Auto" Padding="0,12,0,2">
-                    <Label Style="{StaticResource MenuTitleStyle}" Text="深色主题" VerticalTextAlignment="Center" />
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Settings_DarkTheme}" VerticalTextAlignment="Center" />
                     <RadioButton
                         x:Name="DarkThemeRadio"
                         Grid.Column="1"
@@ -54,8 +55,67 @@
         <Label
             Margin="4,8,0,0"
             FontSize="12"
-            Text="主题选择会保存在本机，并在下次启动时自动应用。"
+            Text="{x:Static strings:AppResources.Settings_ThemePersistenceHint}"
             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+
+        <Label
+            Margin="4,12,0,4"
+            FontSize="13"
+            Text="{x:Static strings:AppResources.Settings_Language}"
+            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+
+        <Border Style="{StaticResource MenuCardStyle}">
+            <VerticalStackLayout Spacing="0">
+                <Grid ColumnDefinitions="*,Auto" Padding="0,2,0,12">
+                    <VerticalStackLayout Spacing="3">
+                        <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Common_FollowSystem}" />
+                        <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Settings_SystemLanguageDescription}" />
+                    </VerticalStackLayout>
+                    <RadioButton
+                        x:Name="SystemLanguageRadio"
+                        Grid.Column="1"
+                        GroupName="AppLanguage"
+                        Value="system"
+                        CheckedChanged="OnLanguageChecked"
+                        VerticalOptions="Center" />
+                </Grid>
+                <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                <Grid ColumnDefinitions="*,Auto" Padding="0,12">
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Settings_ChineseLanguage}" VerticalTextAlignment="Center" />
+                    <RadioButton
+                        x:Name="ChineseLanguageRadio"
+                        Grid.Column="1"
+                        GroupName="AppLanguage"
+                        Value="zh-Hans"
+                        CheckedChanged="OnLanguageChecked"
+                        VerticalOptions="Center" />
+                </Grid>
+                <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                <Grid ColumnDefinitions="*,Auto" Padding="0,12,0,2">
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Settings_EnglishLanguage}" VerticalTextAlignment="Center" />
+                    <RadioButton
+                        x:Name="EnglishLanguageRadio"
+                        Grid.Column="1"
+                        GroupName="AppLanguage"
+                        Value="en"
+                        CheckedChanged="OnLanguageChecked"
+                        VerticalOptions="Center" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+        <Label
+            Margin="4,8,0,0"
+            FontSize="12"
+            Text="{x:Static strings:AppResources.Settings_LanguagePersistenceHint}"
+            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+        <Label
+            x:Name="LanguageRestartNotice"
+            Margin="4,0"
+            FontSize="12"
+            IsVisible="False"
+            Text="{x:Static strings:AppResources.Settings_LanguageRestartRequired}"
+            TextColor="{StaticResource Primary}" />
 
     </VerticalStackLayout>
     </ScrollView>

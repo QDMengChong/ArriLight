@@ -3,9 +3,10 @@
     x:Class="ArriLight.SchedulePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:SchedulePage"
-    Title="定时设置"
+    Title="{x:Static strings:AppResources.Schedule_Settings}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <Shell.TitleView>
@@ -13,7 +14,7 @@
             <Label
                 FontFamily="OpenSansSemibold"
                 FontSize="17"
-                Text="定时设置"
+                Text="{x:Static strings:AppResources.Schedule_Settings}"
                 TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
                 VerticalTextAlignment="Center" />
             <Border
@@ -29,7 +30,7 @@
                     Clicked="OnAddScheduleClicked"
                     FontFamily="OpenSansSemibold"
                     FontSize="13"
-                    Text="+ 添加"
+                    Text="{x:Static strings:AppResources.Schedule_AddToolbar}"
                     TextColor="White" />
             </Border>
         </Grid>
@@ -57,7 +58,7 @@
                         <Label
                             FontSize="12"
                             Opacity="0.78"
-                            Text="管理自动开灯或关灯计划"
+                            Text="{x:Static strings:AppResources.Schedule_PageDescription}"
                             TextColor="White" />
                     </VerticalStackLayout>
                     <VerticalStackLayout
@@ -68,7 +69,7 @@
                             FontFamily="OpenSansSemibold"
                             FontSize="15"
                             HorizontalTextAlignment="End"
-                            Text="已添加的定时"
+                            Text="{x:Static strings:AppResources.Schedule_Added}"
                             TextColor="White" />
                         <Label
                             FontSize="11"
@@ -97,12 +98,12 @@
                             FontFamily="OpenSansSemibold"
                             FontSize="16"
                             HorizontalTextAlignment="Center"
-                            Text="还没有定时计划"
+                            Text="{x:Static strings:AppResources.Schedule_Empty}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Label
                             FontSize="12"
                             HorizontalTextAlignment="Center"
-                            Text="点击右上角“+ 添加”创建计划"
+                            Text="{x:Static strings:AppResources.Schedule_AddFirstHint}"
                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     </VerticalStackLayout>
                 </CollectionView.EmptyView>
@@ -142,7 +143,7 @@
                                     HeightRequest="42"
                                     Source="control_delete.svg"
                                     WidthRequest="42"
-                                    SemanticProperties.Description="删除定时计划" />
+                                    SemanticProperties.Description="{x:Static strings:AppResources.Schedule_DeleteDescription}" />
                                 <Switch
                                     Grid.Column="3"
                                     IsToggled="{Binding IsEnabled, Mode=OneWay}"
@@ -176,13 +177,13 @@
                     <Label
                         FontFamily="OpenSansSemibold"
                         FontSize="19"
-                        Text="添加定时"
+                        Text="{x:Static strings:AppResources.Schedule_AddTitle}"
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
 
                     <Grid ColumnDefinitions="86,*,100" ColumnSpacing="8">
                         <Label
                             Style="{StaticResource MenuTitleStyle}"
-                            Text="重复方式"
+                            Text="{x:Static strings:AppResources.Schedule_RepeatMode}"
                             VerticalTextAlignment="Center" />
                         <Picker
                             x:Name="RepeatModePicker"
@@ -207,7 +208,7 @@
                     <Grid ColumnDefinitions="86,*" ColumnSpacing="8">
                         <Label
                             Style="{StaticResource MenuTitleStyle}"
-                            Text="执行动作"
+                            Text="{x:Static strings:AppResources.Schedule_Action}"
                             VerticalTextAlignment="Center" />
                         <Border
                             Grid.Column="1"
@@ -222,7 +223,7 @@
                                     Clicked="OnActionOnClicked"
                                     CornerRadius="13"
                                     FontSize="13"
-                                    Text="定时开" />
+                                    Text="{x:Static strings:AppResources.Schedule_ActionOn}" />
                                 <Button
                                     x:Name="ActionOffButton"
                                     Grid.Column="1"
@@ -230,7 +231,7 @@
                                     Clicked="OnActionOffClicked"
                                     CornerRadius="13"
                                     FontSize="13"
-                                    Text="定时关" />
+                                    Text="{x:Static strings:AppResources.Schedule_ActionOff}" />
                             </Grid>
                         </Border>
                     </Grid>
@@ -242,7 +243,7 @@
                     <Grid ColumnDefinitions="86,*" ColumnSpacing="8">
                         <Label
                             Style="{StaticResource MenuTitleStyle}"
-                            Text="执行时间"
+                            Text="{x:Static strings:AppResources.Schedule_Time}"
                             VerticalTextAlignment="Center" />
                         <TimePicker
                             x:Name="ScheduleTimePicker"
@@ -256,12 +257,12 @@
                         <Button
                             BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource DarkIconBackground}}"
                             Clicked="OnAddScheduleCancelClicked"
-                            Text="取消"
+                            Text="{x:Static strings:AppResources.Common_Cancel}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Button
                             Grid.Column="1"
                             Clicked="OnAddScheduleConfirmClicked"
-                            Text="添加" />
+                            Text="{x:Static strings:AppResources.Common_Add}" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
@@ -293,7 +294,7 @@
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Label
                             FontSize="12"
-                            Text="可以选择一个或多个"
+                            Text="{x:Static strings:AppResources.Schedule_MultipleSelectionHint}"
                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     </VerticalStackLayout>
 
@@ -336,12 +337,12 @@
                         <Button
                             BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource DarkIconBackground}}"
                             Clicked="OnRepeatPopupCancelClicked"
-                            Text="取消"
+                            Text="{x:Static strings:AppResources.Common_Cancel}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Button
                             Grid.Column="1"
                             Clicked="OnRepeatPopupConfirmClicked"
-                            Text="确定" />
+                            Text="{x:Static strings:AppResources.Common_Confirm}" />
                     </Grid>
                 </Grid>
             </Border>

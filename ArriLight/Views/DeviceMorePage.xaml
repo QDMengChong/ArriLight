@@ -3,9 +3,10 @@
     x:Class="ArriLight.DeviceMorePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:DeviceMorePage"
-    Title="设备信息"
+    Title="{x:Static strings:AppResources.Device_Information}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <Grid RowDefinitions="*,Auto">
@@ -41,7 +42,7 @@
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnRenameTapped" />
                             </Grid.GestureRecognizers>
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="设备名称" VerticalTextAlignment="Center" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_Name}" VerticalTextAlignment="Center" />
                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
                                 <Label
                                     FontSize="14"
@@ -53,12 +54,12 @@
                         </Grid>
                         <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="加入时间" VerticalTextAlignment="Center" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_AddedAt}" VerticalTextAlignment="Center" />
                             <Label Grid.Column="1" FontSize="14" Text="{Binding AddedAtText}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
                         </Grid>
                         <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="设备 ID" VerticalTextAlignment="Center" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_Id}" VerticalTextAlignment="Center" />
                             <Label Grid.Column="1" FontSize="13" Text="{Binding DeviceId}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
                         </Grid>
                     </VerticalStackLayout>
@@ -70,7 +71,7 @@
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnManualTapped" />
                             </Grid.GestureRecognizers>
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="使用说明" VerticalTextAlignment="Center" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Manual_Title}" VerticalTextAlignment="Center" />
                             <Image Grid.Column="1" Style="{StaticResource MenuChevronStyle}" />
                         </Grid>
                         <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
@@ -78,7 +79,7 @@
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnFirmwareTapped" />
                             </Grid.GestureRecognizers>
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="固件升级" VerticalTextAlignment="Center" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Firmware_Title}" VerticalTextAlignment="Center" />
                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
                                 <Label FontSize="14" Text="{Binding FirmwareVersion}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
                                 <Image Style="{StaticResource MenuChevronStyle}" />
@@ -89,17 +90,17 @@
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Tapped="OnShareTapped" />
                             </Grid.GestureRecognizers>
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="分享设备" VerticalTextAlignment="Center" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Share_Title}" VerticalTextAlignment="Center" />
                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
-                                <Label FontSize="13" Text="二维码" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
+                                <Label FontSize="13" Text="{x:Static strings:AppResources.Share_QrCode}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
                                 <Image Style="{StaticResource MenuChevronStyle}" />
                             </HorizontalStackLayout>
                         </Grid>
                         <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
                             <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                                <Label Style="{StaticResource MenuTitleStyle}" Text="置顶显示" />
-                                <Label Style="{StaticResource MenuDescriptionStyle}" Text="在首页设备列表中优先显示" />
+                                <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_Pin}" />
+                                <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Device_PinDescription}" />
                             </VerticalStackLayout>
                             <Switch
                                 x:Name="PinnedSwitch"
@@ -126,7 +127,7 @@
                 Clicked="OnUnbindClicked"
                 CornerRadius="24"
                 HeightRequest="50"
-                Text="解除绑定"
+                Text="{x:Static strings:AppResources.Device_Unbind}"
                 TextColor="#E65B65" />
         </Border>
     </Grid>

@@ -3,6 +3,7 @@
     x:Class="ArriLight.StorePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     Shell.NavBarIsVisible="False"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -16,12 +17,12 @@
                 FontFamily="OpenSansSemibold"
                 FontSize="22"
                 HorizontalTextAlignment="Center"
-                Text="商城"
+                Text="{x:Static strings:AppResources.Tab_Store}"
                 TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
             <Label
                 FontSize="14"
                 HorizontalTextAlignment="Center"
-                Text="页面内容将在后续设计"
+                Text="{x:Static strings:AppResources.Store_Placeholder}"
                 TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         </VerticalStackLayout>
     </Grid>

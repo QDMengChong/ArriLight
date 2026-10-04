@@ -3,17 +3,18 @@
     x:Class="ArriLight.DeviceManualPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-    Title="使用说明"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
+    Title="{x:Static strings:AppResources.Manual_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
     <ScrollView>
         <VerticalStackLayout Padding="20,20,20,36" Spacing="16">
             <Border Style="{StaticResource MenuCardStyle}">
                 <VerticalStackLayout Spacing="12">
-                    <Label FontFamily="OpenSansSemibold" FontSize="22" Text="ArriLight 灯具使用说明" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    <Label FontSize="14" LineHeight="1.45" Text="1. 请先接通灯具电源，并开启手机蓝牙。&#10;&#10;2. 在首页点击“+”搜索附近设备，或扫描设备分享二维码进行添加。&#10;&#10;3. 进入设备详情后，可调节颜色、色温与亮度，并保存常用灯光配置。&#10;&#10;4. 使用计时与定时计划前，请保持设备在线。&#10;&#10;5. 固件升级期间请勿关闭灯具、蓝牙或退出应用。" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    <Label FontFamily="OpenSansSemibold" FontSize="22" Text="{x:Static strings:AppResources.Manual_Heading}" TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    <Label FontSize="14" LineHeight="1.45" Text="{x:Static strings:AppResources.Manual_Content}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                 </VerticalStackLayout>
             </Border>
-            <Label FontSize="12" HorizontalTextAlignment="Center" Text="正式产品说明书可在后续版本中替换或扩充此页面。" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            <Label FontSize="12" HorizontalTextAlignment="Center" Text="{x:Static strings:AppResources.Manual_Placeholder}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

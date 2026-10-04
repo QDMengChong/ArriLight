@@ -37,9 +37,9 @@ public partial class QrCodeScanPage : ContentPage
         {
             _hasShownCameraPermissionMessage = true;
             await DisplayAlertAsync(
-                "相机不可用",
-                "没有相机权限，无法实时扫码；你仍然可以从相册选择二维码图片。",
-                "知道了");
+                AppResources.Qr_CameraUnavailable,
+                AppResources.Qr_CameraPermissionMissing,
+                AppResources.Common_Ok);
         }
     }
 
@@ -75,9 +75,9 @@ public partial class QrCodeScanPage : ContentPage
         if (!DeviceShareCode.TryParse(value, out var content))
         {
             await DisplayAlertAsync(
-                "二维码无效",
-                "二维码不是有效的设备分享码，请使用设备信息页重新生成分享二维码。",
-                "重新扫描");
+                AppResources.Qr_Invalid,
+                AppResources.Qr_InvalidShareCode,
+                AppResources.Qr_ScanAgain);
             ResumeScanning();
             return;
         }
@@ -86,19 +86,19 @@ public partial class QrCodeScanPage : ContentPage
         if (_repository.Contains(address))
         {
             await DisplayAlertAsync(
-                "设备已添加",
-                "这个蓝牙设备已经在设备列表中。",
-                "重新扫描");
+                AppResources.Device_AlreadyAdded,
+                AppResources.Device_AlreadyInList,
+                AppResources.Qr_ScanAgain);
             ResumeScanning();
             return;
         }
 
         var name = await DisplayPromptAsync(
-            "命名设备",
-            $"设备地址：{address}\n将保存设备名称、地址、绑定授权和能力，并连接设备读取其他资料。",
-            accept: "保存",
-            cancel: "取消",
-            placeholder: "例如：客厅主灯",
+            AppResources.Device_NamePrompt,
+            Localization.Format(nameof(AppResources.Qr_ImportPrompt), address),
+            accept: AppResources.Common_Save,
+            cancel: AppResources.Common_Cancel,
+            placeholder: AppResources.Device_NameExample,
             maxLength: Math.Max(24, content.Name.Length),
             initialValue: content.Name);
 
@@ -111,14 +111,14 @@ public partial class QrCodeScanPage : ContentPage
         if (!_repository.TryAddShared(content with { Name = name.Trim() }))
         {
             await DisplayAlertAsync(
-                "保存失败",
-                "设备名称不能为空，或该设备已经存在。",
-                "重新扫描");
+                AppResources.Common_SaveFailed,
+                AppResources.Device_NameRequiredOrDuplicate,
+                AppResources.Qr_ScanAgain);
             ResumeScanning();
             return;
         }
 
-        ToastService.Show("设备已保存，正在读取设备资料…");
+        ToastService.Show(AppResources.Qr_SavedReadingInformation);
         using var informationCancellation = new CancellationTokenSource(TimeSpan.FromSeconds(12));
         _deviceInformationCancellation = informationCancellation;
         try
@@ -133,11 +133,11 @@ public partial class QrCodeScanPage : ContentPage
                 return;
 
             await DisplayAlertAsync(
-                "资料暂未读取",
+                AppResources.Qr_InformationNotRead,
                 exception is OperationCanceledException
-                    ? "设备已添加，读取资料超时。打开设备控制页后可重新读取。"
-                    : $"设备已添加，暂未读到设备资料：{exception.Message}。打开设备控制页后可重试。",
-                "知道了");
+                    ? AppResources.Qr_InformationTimedOut
+                    : Localization.Format(nameof(AppResources.Qr_InformationReadFailed), exception.Message),
+                AppResources.Common_Ok);
         }
         finally
         {
@@ -166,7 +166,7 @@ public partial class QrCodeScanPage : ContentPage
             var photos = await MediaPicker.Default.PickPhotosAsync(
                 new MediaPickerOptions
                 {
-                    Title = "选择设备分享二维码",
+                    Title = AppResources.Qr_SelectShareImage,
                     SelectionLimit = 1
                 });
             var photo = photos.FirstOrDefault();
@@ -193,9 +193,9 @@ public partial class QrCodeScanPage : ContentPage
             if (string.IsNullOrWhiteSpace(value))
             {
                 await DisplayAlertAsync(
-                    "未识别到二维码",
-                    "所选图片中没有识别到二维码，请选择一张更清晰、完整的图片。",
-                    "重新选择");
+                    AppResources.Qr_NotFound,
+                    AppResources.Qr_ImageNotReadable,
+                    AppResources.Qr_SelectAgain);
                 ResumeScanning();
                 return;
             }
@@ -205,25 +205,25 @@ public partial class QrCodeScanPage : ContentPage
         catch (FeatureNotSupportedException)
         {
             await DisplayAlertAsync(
-                "无法选择图片",
-                "当前设备不支持从相册选择图片。",
-                "知道了");
+                AppResources.Qr_ImageSelectionFailed,
+                AppResources.Qr_ImageSelectionUnsupported,
+                AppResources.Common_Ok);
             ResumeScanning();
         }
         catch (PermissionException)
         {
             await DisplayAlertAsync(
-                "需要照片权限",
-                "请在系统设置中允许访问照片后重试。",
-                "知道了");
+                AppResources.Qr_PhotoPermissionRequired,
+                AppResources.Qr_AllowPhotos,
+                AppResources.Common_Ok);
             ResumeScanning();
         }
         catch (Exception exception)
         {
             await DisplayAlertAsync(
-                "识别失败",
-                $"没有完成图片识别：{exception.Message}",
-                "知道了");
+                AppResources.Qr_DecodeFailed,
+                Localization.Format(nameof(AppResources.Qr_DecodeFailedDetail), exception.Message),
+                AppResources.Common_Ok);
             ResumeScanning();
         }
     }
@@ -232,6 +232,6 @@ public partial class QrCodeScanPage : ContentPage
     {
         _isTorchOn = !_isTorchOn;
         BarcodeReader.IsTorchOn = _isTorchOn;
-        TorchButton.Text = _isTorchOn ? "关闭手电筒" : "打开手电筒";
+        TorchButton.Text = _isTorchOn ? AppResources.Qr_TorchOff : AppResources.Qr_TorchOn;
     }
 }

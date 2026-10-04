@@ -140,7 +140,7 @@ public partial class DeviceControlPage
             _diagnostics.Error("BLE/Connection", $"控制页显示后的连接准备失败：{DeviceAddress}。", exception);
             if (!cancellationToken.IsCancellationRequested)
             {
-                ConnectionStatusText = "连接准备失败，请重试";
+                ConnectionStatusText = AppResources.Ble_PreparationFailed;
                 CanConnect = true;
             }
         }

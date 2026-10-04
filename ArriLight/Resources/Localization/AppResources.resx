@@ -1,0 +1,1671 @@
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Agp_DeviceNotAuthenticated" xml:space="preserve">
+    <value>设备 {0} 尚未完成 ArriLight 绑定认证。</value>
+    <comment>AgpLightControlService.cs:52</comment>
+  </data>
+  <data name="Ble_AppNotInForeground" xml:space="preserve">
+    <value>应用不在前台，停止 BLE 操作。</value>
+    <comment>AgpLightControlService.cs:290; AgpLightControlService.cs:301</comment>
+  </data>
+  <data name="Ble_AddressRequired" xml:space="preserve">
+    <value>设备地址不能为空。</value>
+    <comment>AgpLightControlService.cs:372; AgpLightControlService.cs:725; AgpLightControlService.cs:1011</comment>
+  </data>
+  <data name="Ble_ConnectionAttemptTimedOut" xml:space="preserve">
+    <value>本轮连接超过 {0:0.#} 秒</value>
+    <comment>AgpLightControlService.cs:411</comment>
+  </data>
+  <data name="Agp_TokenPairingUnsupported" xml:space="preserve">
+    <value>设备不支持 Token 配对。</value>
+    <comment>AgpLightControlService.cs:435</comment>
+  </data>
+  <data name="Agp_PairingWindowClosed" xml:space="preserve">
+    <value>设备配对窗口已关闭，请双键长按 1 秒，待蓝色指示灯闪烁后重新添加。</value>
+    <comment>AgpLightControlService.cs:441</comment>
+  </data>
+  <data name="Agp_InvalidToken" xml:space="preserve">
+    <value>设备返回的 AGP Token 格式无效。</value>
+    <comment>AgpLightControlService.cs:445</comment>
+  </data>
+  <data name="Agp_PairingRecordMissing" xml:space="preserve">
+    <value>设备已返回 Token 和能力，但本地设备记录不存在，无法保存绑定信息。</value>
+    <comment>AgpLightControlService.cs:449</comment>
+  </data>
+  <data name="Common_Unknown" xml:space="preserve">
+    <value>未知</value>
+    <comment>AgpLightControlService.cs:673; DeviceRepository.cs:33</comment>
+  </data>
+  <data name="Device_Removed" xml:space="preserve">
+    <value>设备已从列表删除，请重新添加后再操作。</value>
+    <comment>AgpLightControlService.cs:740; AgpLightControlService.cs:1026</comment>
+  </data>
+  <data name="Ble_ReleaseFailed" xml:space="preserve">
+    <value>部分设备连接释放失败。</value>
+    <comment>AgpLightControlService.cs:973; BluetoothConnectionService.cs:311</comment>
+  </data>
+  <data name="Agp_CapabilityUnsupported" xml:space="preserve">
+    <value>设备不支持 AGP 能力 {0}。</value>
+    <comment>AgpLightControlService.cs:1238</comment>
+  </data>
+  <data name="Agp_CommandFailed" xml:space="preserve">
+    <value>AGP 命令失败：{0}。</value>
+    <comment>AgpLightControlService.cs:1250</comment>
+  </data>
+  <data name="Schedule_InvalidSlotCount" xml:space="preserve">
+    <value>设备返回的日程槽数量无效。</value>
+    <comment>AgpLightControlService.Schedules.cs:37</comment>
+  </data>
+  <data name="Schedule_ContentMissing" xml:space="preserve">
+    <value>设备未返回日程内容。</value>
+    <comment>AgpLightControlService.Schedules.cs:47</comment>
+  </data>
+  <data name="Schedule_SlotMismatch" xml:space="preserve">
+    <value>设备返回的日程槽与请求不一致。</value>
+    <comment>AgpLightControlService.Schedules.cs:49</comment>
+  </data>
+  <data name="Ble_NotConnected" xml:space="preserve">
+    <value>未连接</value>
+    <comment>BluetoothConnectionService.cs:120; BluetoothConnectionService.cs:943; BluetoothConnectionService.cs:1234</comment>
+  </data>
+  <data name="Ble_ReadFailed" xml:space="preserve">
+    <value>设备读取失败（GATT 状态：{0}）。</value>
+    <comment>BluetoothConnectionService.cs:483</comment>
+  </data>
+  <data name="Ble_DisconnectedDuringSubscription" xml:space="preserve">
+    <value>设备在开启通知期间已断开，请重新连接。</value>
+    <comment>BluetoothConnectionService.cs:544</comment>
+  </data>
+  <data name="Ble_ConnectedUpdating" xml:space="preserve">
+    <value>已连接，正在执行 OTA</value>
+    <comment>BluetoothConnectionService.cs:616</comment>
+  </data>
+  <data name="Ble_DeviceConnected" xml:space="preserve">
+    <value>设备已连接</value>
+    <comment>BluetoothConnectionService.cs:628; BluetoothConnectionService.cs:694</comment>
+  </data>
+  <data name="Ble_DisconnectedAfterOta" xml:space="preserve">
+    <value>OTA 结束，设备已断开</value>
+    <comment>BluetoothConnectionService.cs:633</comment>
+  </data>
+  <data name="Ble_BackgroundConnectionStopped" xml:space="preserve">
+    <value>应用已进入后台，停止 BLE 建连。</value>
+    <comment>BluetoothConnectionService.cs:647</comment>
+  </data>
+  <data name="Ble_FindingDevice" xml:space="preserve">
+    <value>正在查找设备</value>
+    <comment>BluetoothConnectionService.cs:666</comment>
+  </data>
+  <data name="Ble_ConnectingDevice" xml:space="preserve">
+    <value>正在连接设备</value>
+    <comment>BluetoothConnectionService.cs:673</comment>
+  </data>
+  <data name="Ble_ConnectionFailedDetail" xml:space="preserve">
+    <value>连接失败：{0}</value>
+    <comment>BluetoothConnectionService.cs:712</comment>
+  </data>
+  <data name="Ble_ServiceMissing" xml:space="preserve">
+    <value>设备未提供服务 {0}。</value>
+    <comment>BluetoothConnectionService.cs:740</comment>
+  </data>
+  <data name="Ble_CharacteristicMissing" xml:space="preserve">
+    <value>服务 {0} 未提供特征 {1}。</value>
+    <comment>BluetoothConnectionService.cs:747</comment>
+  </data>
+  <data name="Ble_DeviceDisconnected" xml:space="preserve">
+    <value>设备已断开</value>
+    <comment>BluetoothConnectionService.cs:1127</comment>
+  </data>
+  <data name="Ble_ConnectionLost" xml:space="preserve">
+    <value>连接意外断开</value>
+    <comment>BluetoothConnectionService.cs:1143</comment>
+  </data>
+  <data name="Ble_ConnectionError" xml:space="preserve">
+    <value>连接错误</value>
+    <comment>BluetoothConnectionService.cs:1161</comment>
+  </data>
+  <data name="Ble_ScanTimedOut" xml:space="preserve">
+    <value>扫描设备 {0} 超时，请让手机靠近灯具后重试。</value>
+    <comment>BluetoothDiscoveryService.cs:146</comment>
+  </data>
+  <data name="Device_UnnamedBle" xml:space="preserve">
+    <value>未命名 BLE 设备</value>
+    <comment>BluetoothDiscoveryService.cs:415</comment>
+  </data>
+  <data name="Ble_Disabled" xml:space="preserve">
+    <value>蓝牙未开启，请先开启手机蓝牙。</value>
+    <comment>BluetoothDiscoveryService.cs:436</comment>
+  </data>
+  <data name="Ble_NearbyPermissionRequired" xml:space="preserve">
+    <value>没有“附近设备”权限，请在系统设置中允许 ArriLight 查找附近设备。</value>
+    <comment>BluetoothDiscoveryService.cs:449</comment>
+  </data>
+  <data name="Ble_LocationPermissionRequired" xml:space="preserve">
+    <value>没有定位权限，请在系统设置中允许 ArriLight 扫描蓝牙设备。</value>
+    <comment>BluetoothDiscoveryService.cs:458</comment>
+  </data>
+  <data name="Agp_TokenLengthInvalid" xml:space="preserve">
+    <value>设备 Token 必须为 4 字节。</value>
+    <comment>DeviceRepository.cs:123; DeviceRepository.cs:150</comment>
+  </data>
+  <data name="Demo_LivingRoom" xml:space="preserve">
+    <value>客厅主灯</value>
+    <comment>DeviceRepository.cs:303</comment>
+  </data>
+  <data name="Demo_Bedroom" xml:space="preserve">
+    <value>卧室氛围灯</value>
+    <comment>DeviceRepository.cs:309</comment>
+  </data>
+  <data name="Share_PairingRequired" xml:space="preserve">
+    <value>设备缺少绑定授权或能力信息，请先完成设备绑定后再分享。</value>
+    <comment>DeviceShareCode.cs:29</comment>
+  </data>
+  <data name="Share_InvalidDeviceInformation" xml:space="preserve">
+    <value>设备名称、地址或绑定授权无效，无法生成分享二维码。</value>
+    <comment>DeviceShareCode.cs:33</comment>
+  </data>
+  <data name="Share_TooMuchInformation" xml:space="preserve">
+    <value>设备信息过多，无法生成清晰的单个分享二维码。</value>
+    <comment>DeviceShareCode.cs:37</comment>
+  </data>
+  <data name="Firmware_OnlineSource" xml:space="preserve">
+    <value>在线固件</value>
+    <comment>FirmwareUpdateService.cs:71</comment>
+  </data>
+  <data name="Firmware_LocalSource" xml:space="preserve">
+    <value>本地固件</value>
+    <comment>FirmwareUpdateService.cs:71</comment>
+  </data>
+  <data name="Firmware_ServiceConfigurationMissing" xml:space="preserve">
+    <value>应用配置文件 {0} 未完整配置在线固件服务地址。</value>
+    <comment>FirmwareUpdateService.cs:121</comment>
+  </data>
+  <data name="Firmware_HardwareVersionMissing" xml:space="preserve">
+    <value>设备未提供硬件版本，无法选择匹配的固件。</value>
+    <comment>FirmwareUpdateService.cs:164</comment>
+  </data>
+  <data name="Firmware_ListWorkerAddress" xml:space="preserve">
+    <value>在线固件列表 Worker 地址</value>
+    <comment>FirmwareUpdateService.cs:171</comment>
+  </data>
+  <data name="Firmware_DownloadWorkerAddress" xml:space="preserve">
+    <value>在线固件下载 Worker 地址</value>
+    <comment>FirmwareUpdateService.cs:174</comment>
+  </data>
+  <data name="Firmware_EmptyListResponse" xml:space="preserve">
+    <value>固件列表 Worker 返回为空。</value>
+    <comment>FirmwareUpdateService.cs:199</comment>
+  </data>
+  <data name="Firmware_InvalidOnlineExtension" xml:space="preserve">
+    <value>固件列表 Worker 返回的文件名不是 .hex16 文件。</value>
+    <comment>FirmwareUpdateService.cs:215</comment>
+  </data>
+  <data name="Firmware_InvalidOnlineVersion" xml:space="preserve">
+    <value>固件列表 Worker 未返回可识别的固件版本。</value>
+    <comment>FirmwareUpdateService.cs:223</comment>
+  </data>
+  <data name="Firmware_OnlineDescription" xml:space="preserve">
+    <value>{0} 在线固件。</value>
+    <comment>FirmwareUpdateService.cs:234</comment>
+  </data>
+  <data name="Firmware_LocalFile" xml:space="preserve">
+    <value>本地文件</value>
+    <comment>FirmwareUpdateService.cs:265</comment>
+  </data>
+  <data name="Firmware_LocalValidated" xml:space="preserve">
+    <value>已加载并通过格式校验的本地 {0} 固件。</value>
+    <comment>FirmwareUpdateService.cs:276</comment>
+  </data>
+  <data name="Firmware_PreparingProtocol" xml:space="preserve">
+    <value>正在连接设备并准备 {0} OTA。</value>
+    <comment>FirmwareUpdateService.cs:307</comment>
+  </data>
+  <data name="Firmware_UpdateSucceeded" xml:space="preserve">
+    <value>升级成功！</value>
+    <comment>FirmwareUpdateService.cs:384; FirmwareUpdatePage.xaml.cs:306</comment>
+  </data>
+  <data name="Firmware_LocalReferenceExpired" xml:space="preserve">
+    <value>本地固件文件引用已失效。</value>
+    <comment>FirmwareUpdateService.cs:410</comment>
+  </data>
+  <data name="Firmware_DownloadAddressMissing" xml:space="preserve">
+    <value>在线固件缺少下载地址。</value>
+    <comment>FirmwareUpdateService.cs:417</comment>
+  </data>
+  <data name="Firmware_Downloading" xml:space="preserve">
+    <value>正在下载固件…</value>
+    <comment>FirmwareUpdateService.cs:431</comment>
+  </data>
+  <data name="Firmware_DownloadProgress" xml:space="preserve">
+    <value>正在下载固件… {0}%</value>
+    <comment>FirmwareUpdateService.cs:473</comment>
+  </data>
+  <data name="Firmware_HashMismatch" xml:space="preserve">
+    <value>固件 SHA-256 校验失败，expected={0}，actual={1}。</value>
+    <comment>FirmwareUpdateService.cs:526</comment>
+  </data>
+  <data name="Firmware_ConnectingOta" xml:space="preserve">
+    <value>正在连接 OTA 设备…</value>
+    <comment>FirmwareUpdateService.cs:537</comment>
+  </data>
+  <data name="Firmware_DiscoveringOta" xml:space="preserve">
+    <value>已连接，正在发现 OTA 服务…</value>
+    <comment>FirmwareUpdateService.cs:538</comment>
+  </data>
+  <data name="Firmware_SingleBankDiscovered" xml:space="preserve">
+    <value>已发现 Single Bank OTA 服务。</value>
+    <comment>FirmwareUpdateService.cs:540</comment>
+  </data>
+  <data name="Firmware_SlbReady" xml:space="preserve">
+    <value>SLB OTA 服务已准备完成。</value>
+    <comment>FirmwareUpdateService.cs:542</comment>
+  </data>
+  <data name="Firmware_SwitchingToOta" xml:space="preserve">
+    <value>Single Bank APP 模式已准备完成，正在切换 OTA 模式。</value>
+    <comment>FirmwareUpdateService.cs:544</comment>
+  </data>
+  <data name="Firmware_WaitingForOtaAdvertisement" xml:space="preserve">
+    <value>正在等待设备切换到 OTA 模式并重新广播…</value>
+    <comment>FirmwareUpdateService.cs:546</comment>
+  </data>
+  <data name="Firmware_ReconnectingSingleBank" xml:space="preserve">
+    <value>已找到 Single Bank OTA 设备，正在重新连接。</value>
+    <comment>FirmwareUpdateService.cs:548</comment>
+  </data>
+  <data name="Firmware_SingleBankReady" xml:space="preserve">
+    <value>Single Bank OTA 服务已准备完成。</value>
+    <comment>FirmwareUpdateService.cs:550</comment>
+  </data>
+  <data name="Firmware_VersionValidated" xml:space="preserve">
+    <value>已读取设备版本并校验固件。</value>
+    <comment>FirmwareUpdateService.cs:551</comment>
+  </data>
+  <data name="Firmware_TransferProgress" xml:space="preserve">
+    <value>正在传输固件… {0:0.0}%</value>
+    <comment>FirmwareUpdateService.cs:553</comment>
+  </data>
+  <data name="Firmware_WaitingForRestart" xml:space="preserve">
+    <value>设备已确认固件，等待重启。</value>
+    <comment>FirmwareUpdateService.cs:555</comment>
+  </data>
+  <data name="Firmware_SupportedFormats" xml:space="preserve">
+    <value>当前 APP 支持 SLB .bin，以及 Single Bank .hex、.hex4、.hex16、.hexe16、.res 固件。</value>
+    <comment>FirmwareUpdateService.cs:569</comment>
+  </data>
+  <data name="Firmware_InvalidHash" xml:space="preserve">
+    <value>在线固件清单中的 SHA-256 必须是 64 个十六进制字符。</value>
+    <comment>FirmwareUpdateService.cs:608</comment>
+  </data>
+  <data name="Firmware_InvalidUrl" xml:space="preserve">
+    <value>{0}必须是有效的 HTTP/HTTPS URL。</value>
+    <comment>FirmwareUpdateService.cs:620</comment>
+  </data>
+  <data name="Common_ServicesNotInitialized" xml:space="preserve">
+    <value>应用服务尚未初始化。</value>
+    <comment>ServiceHelper.cs:10</comment>
+  </data>
+  <data name="About_WeChatUnavailable" xml:space="preserve">
+    <value>无法打开微信</value>
+    <comment>AboutUsPage.xaml.cs:24; AboutUsPage.xaml.cs:28</comment>
+  </data>
+  <data name="About_InstallWeChat" xml:space="preserve">
+    <value>请确认设备已安装微信。</value>
+    <comment>AboutUsPage.xaml.cs:24; AboutUsPage.xaml.cs:28</comment>
+  </data>
+  <data name="Common_Ok" xml:space="preserve">
+    <value>知道了</value>
+    <comment>AboutUsPage.xaml.cs:24; AboutUsPage.xaml.cs:28; AboutUsPage.xaml.cs:40</comment>
+  </data>
+  <data name="About_DialerUnavailable" xml:space="preserve">
+    <value>无法打开拨号</value>
+    <comment>AboutUsPage.xaml.cs:40</comment>
+  </data>
+  <data name="About_CallManually" xml:space="preserve">
+    <value>请手动拨打 {0}。</value>
+    <comment>AboutUsPage.xaml.cs:40</comment>
+  </data>
+  <data name="Version_Display" xml:space="preserve">
+    <value>版本 {0}（{1}）</value>
+    <comment>AppVersionPage.xaml.cs:12</comment>
+  </data>
+  <data name="Version_DebugFileOutput" xml:space="preserve">
+    <value>调试文件输出</value>
+    <comment>AppVersionPage.xaml.cs:35; AppVersionPage.xaml.cs:47</comment>
+  </data>
+  <data name="Version_EnableDebugPrompt" xml:space="preserve">
+    <value>是否打开调试文件输出？
+
+日志文件：
+{0}
+</value>
+    <comment>AppVersionPage.xaml.cs:37</comment>
+  </data>
+  <data name="Version_DisableDebugPrompt" xml:space="preserve">
+    <value>调试文件输出当前已开启。
+
+日志文件：
+{0}
+
+是否关闭文件输出？</value>
+    <comment>AppVersionPage.xaml.cs:38</comment>
+  </data>
+  <data name="Common_Enable" xml:space="preserve">
+    <value>打开</value>
+    <comment>AppVersionPage.xaml.cs:39</comment>
+  </data>
+  <data name="Common_TurnOff" xml:space="preserve">
+    <value>关闭</value>
+    <comment>AppVersionPage.xaml.cs:39; DeviceControlPage.xaml.cs:1125; DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>取消</value>
+    <comment>AppVersionPage.xaml.cs:40; BluetoothScanPage.xaml.cs:270; DeviceControlPage.EffectSettings.cs:242</comment>
+  </data>
+  <data name="Version_DebugEnabled" xml:space="preserve">
+    <value>已打开。
+日志将追加写入：
+{0}</value>
+    <comment>AppVersionPage.xaml.cs:49</comment>
+  </data>
+  <data name="Version_DebugDisabled" xml:space="preserve">
+    <value>文件输出已关闭，已有日志会保留。</value>
+    <comment>AppVersionPage.xaml.cs:50</comment>
+  </data>
+  <data name="Scan_Ready" xml:space="preserve">
+    <value>准备开始搜索</value>
+    <comment>BluetoothScanPage.xaml.cs:18</comment>
+  </data>
+  <data name="Scan_WaitingForAdvertisement" xml:space="preserve">
+    <value>正在等待设备广播…</value>
+    <comment>BluetoothScanPage.xaml.cs:19; BluetoothScanPage.xaml.cs:111</comment>
+  </data>
+  <data name="Scan_KeepPowered" xml:space="preserve">
+    <value>正在搜索，请让灯具保持通电</value>
+    <comment>BluetoothScanPage.xaml.cs:112</comment>
+  </data>
+  <data name="Scan_CompletedCount" xml:space="preserve">
+    <value>搜索完成，共发现 {0} 台设备</value>
+    <comment>BluetoothScanPage.xaml.cs:120</comment>
+  </data>
+  <data name="Scan_NoAvailableDevices" xml:space="preserve">
+    <value>没有发现可添加的设备</value>
+    <comment>BluetoothScanPage.xaml.cs:121</comment>
+  </data>
+  <data name="Scan_Stopped" xml:space="preserve">
+    <value>搜索已停止</value>
+    <comment>BluetoothScanPage.xaml.cs:126</comment>
+  </data>
+  <data name="Scan_TemporarilyUnavailable" xml:space="preserve">
+    <value>暂时无法搜索设备</value>
+    <comment>BluetoothScanPage.xaml.cs:130</comment>
+  </data>
+  <data name="Scan_Unavailable" xml:space="preserve">
+    <value>无法搜索</value>
+    <comment>BluetoothScanPage.xaml.cs:132</comment>
+  </data>
+  <data name="Scan_Failed" xml:space="preserve">
+    <value>搜索失败</value>
+    <comment>BluetoothScanPage.xaml.cs:136; BluetoothScanPage.xaml.cs:139</comment>
+  </data>
+  <data name="Scan_TryLater" xml:space="preserve">
+    <value>请稍后重新搜索</value>
+    <comment>BluetoothScanPage.xaml.cs:137</comment>
+  </data>
+  <data name="Scan_FailedDetail" xml:space="preserve">
+    <value>没有完成蓝牙搜索：{0}</value>
+    <comment>BluetoothScanPage.xaml.cs:140</comment>
+  </data>
+  <data name="Scan_FoundCount" xml:space="preserve">
+    <value>正在搜索，已发现 {0} 台设备</value>
+    <comment>BluetoothScanPage.xaml.cs:190</comment>
+  </data>
+  <data name="Device_AlreadyAdded" xml:space="preserve">
+    <value>设备已添加</value>
+    <comment>BluetoothScanPage.xaml.cs:260; QrCodeScanPage.xaml.cs:89</comment>
+  </data>
+  <data name="Device_AlreadyInList" xml:space="preserve">
+    <value>这个蓝牙设备已经在设备列表中。</value>
+    <comment>BluetoothScanPage.xaml.cs:261; QrCodeScanPage.xaml.cs:90</comment>
+  </data>
+  <data name="Device_NamePrompt" xml:space="preserve">
+    <value>命名设备</value>
+    <comment>BluetoothScanPage.xaml.cs:267; QrCodeScanPage.xaml.cs:97</comment>
+  </data>
+  <data name="Device_AddressDisplay" xml:space="preserve">
+    <value>设备地址：{0}</value>
+    <comment>BluetoothScanPage.xaml.cs:268</comment>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>保存</value>
+    <comment>BluetoothScanPage.xaml.cs:269; DeviceControlPage.xaml.cs:757; DeviceMorePage.xaml.cs:104</comment>
+  </data>
+  <data name="Device_NameExample" xml:space="preserve">
+    <value>例如：客厅主灯</value>
+    <comment>BluetoothScanPage.xaml.cs:271; QrCodeScanPage.xaml.cs:101</comment>
+  </data>
+  <data name="Common_SaveFailed" xml:space="preserve">
+    <value>保存失败</value>
+    <comment>BluetoothScanPage.xaml.cs:281; QrCodeScanPage.xaml.cs:114</comment>
+  </data>
+  <data name="Device_NameRequiredOrDuplicate" xml:space="preserve">
+    <value>设备名称不能为空，或该设备已经存在。</value>
+    <comment>BluetoothScanPage.xaml.cs:282; QrCodeScanPage.xaml.cs:115</comment>
+  </data>
+  <data name="Pairing_TimedOut" xml:space="preserve">
+    <value>配对超时，请确认配对窗口开启且其他手机已断开后重试。</value>
+    <comment>BluetoothScanPage.xaml.cs:305</comment>
+  </data>
+  <data name="Pairing_Cancelled" xml:space="preserve">
+    <value>已取消添加，设备未添加。</value>
+    <comment>BluetoothScanPage.xaml.cs:306</comment>
+  </data>
+  <data name="Device_AddFailedDetail" xml:space="preserve">
+    <value>添加失败：{0}</value>
+    <comment>BluetoothScanPage.xaml.cs:312</comment>
+  </data>
+  <data name="Device_AddSucceeded" xml:space="preserve">
+    <value>添加成功</value>
+    <comment>BluetoothScanPage.xaml.cs:334</comment>
+  </data>
+  <data name="Pairing_Connecting" xml:space="preserve">
+    <value>正在连接 PW01，请稍候…</value>
+    <comment>BluetoothScanPage.xaml.cs:360</comment>
+  </data>
+  <data name="Pairing_Retrying" xml:space="preserve">
+    <value>连接未完成，正在恢复蓝牙连接并自动重试…</value>
+    <comment>BluetoothScanPage.xaml.cs:362</comment>
+  </data>
+  <data name="Pairing_ReadingInformation" xml:space="preserve">
+    <value>已连接，正在获取配对信息…</value>
+    <comment>BluetoothScanPage.xaml.cs:363</comment>
+  </data>
+  <data name="Pairing_TimeRemaining" xml:space="preserve">
+    <value>配对剩余时间：{0} 秒</value>
+    <comment>BluetoothScanPage.xaml.cs:434</comment>
+  </data>
+  <data name="Pairing_InProgress" xml:space="preserve">
+    <value>正在配对设备</value>
+    <comment>BluetoothScanPage.xaml.cs:473; BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Pairing_Instructions" xml:space="preserve">
+    <value>请保持灯具通电。配对时蓝色指示灯应闪烁，若已停止，请双键长按 1 秒重新开启配对窗口。</value>
+    <comment>BluetoothScanPage.xaml.cs:488; BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Pairing_CancelAdding" xml:space="preserve">
+    <value>取消添加</value>
+    <comment>BluetoothScanPage.xaml.cs:503; BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Ble_PreparationFailed" xml:space="preserve">
+    <value>连接准备失败，请重试</value>
+    <comment>DeviceControlPage.ConnectionLifecycle.cs:143</comment>
+  </data>
+  <data name="Effect_BlinkSettings" xml:space="preserve">
+    <value>闪烁参数</value>
+    <comment>DeviceControlPage.EffectSettings.cs:74</comment>
+  </data>
+  <data name="Effect_BreatheSettings" xml:space="preserve">
+    <value>呼吸灯参数</value>
+    <comment>DeviceControlPage.EffectSettings.cs:77</comment>
+  </data>
+  <data name="Effect_PeriodDisplay" xml:space="preserve">
+    <value>周期长度：{0} ms</value>
+    <comment>DeviceControlPage.EffectSettings.cs:184</comment>
+  </data>
+  <data name="Effect_AdjustPeriod" xml:space="preserve">
+    <value>调整周期（200～10000 ms）</value>
+    <comment>DeviceControlPage.EffectSettings.cs:214; LazyEffectSettingsOverlayView.xaml:Text</comment>
+  </data>
+  <data name="Effect_Period" xml:space="preserve">
+    <value>周期长度</value>
+    <comment>DeviceControlPage.EffectSettings.cs:225</comment>
+  </data>
+  <data name="Common_Apply" xml:space="preserve">
+    <value>应用</value>
+    <comment>DeviceControlPage.EffectSettings.cs:252; LazyEffectSettingsOverlayView.xaml:Text</comment>
+  </data>
+  <data name="Device_Management" xml:space="preserve">
+    <value>设备管理</value>
+    <comment>DeviceControlPage.xaml.cs:29</comment>
+  </data>
+  <data name="Ble_NotYetConnected" xml:space="preserve">
+    <value>尚未连接</value>
+    <comment>DeviceControlPage.xaml.cs:31</comment>
+  </data>
+  <data name="Ble_Connect" xml:space="preserve">
+    <value>连接</value>
+    <comment>DeviceControlPage.xaml.cs:32; DeviceControlPage.xaml.cs:496</comment>
+  </data>
+  <data name="Demo_NoConnection" xml:space="preserve">
+    <value>演示设备不执行真实蓝牙连接</value>
+    <comment>DeviceControlPage.xaml.cs:282; FirmwareUpdatePage.xaml.cs:155</comment>
+  </data>
+  <data name="Demo_Label" xml:space="preserve">
+    <value>演示</value>
+    <comment>DeviceControlPage.xaml.cs:283</comment>
+  </data>
+  <data name="Ble_PreparingDeviceConnection" xml:space="preserve">
+    <value>正在准备设备连接…</value>
+    <comment>DeviceControlPage.xaml.cs:298</comment>
+  </data>
+  <data name="Device_StatusRefreshed" xml:space="preserve">
+    <value>设备状态已刷新</value>
+    <comment>DeviceControlPage.xaml.cs:411</comment>
+  </data>
+  <data name="Ble_ConnectionFailed" xml:space="preserve">
+    <value>连接失败</value>
+    <comment>DeviceControlPage.xaml.cs:428</comment>
+  </data>
+  <data name="Agp_SessionFailed" xml:space="preserve">
+    <value>设备无法建立 AGP 灯控会话：{0}</value>
+    <comment>DeviceControlPage.xaml.cs:429</comment>
+  </data>
+  <data name="Ble_Scanning" xml:space="preserve">
+    <value>搜索中</value>
+    <comment>DeviceControlPage.xaml.cs:491</comment>
+  </data>
+  <data name="Ble_Connecting" xml:space="preserve">
+    <value>连接中</value>
+    <comment>DeviceControlPage.xaml.cs:492; MainPage.xaml.cs:489</comment>
+  </data>
+  <data name="Ble_Connected" xml:space="preserve">
+    <value>已连接</value>
+    <comment>DeviceControlPage.xaml.cs:493</comment>
+  </data>
+  <data name="Firmware_Updating" xml:space="preserve">
+    <value>升级中</value>
+    <comment>DeviceControlPage.xaml.cs:494</comment>
+  </data>
+  <data name="Common_Retry" xml:space="preserve">
+    <value>重试</value>
+    <comment>DeviceControlPage.xaml.cs:495</comment>
+  </data>
+  <data name="Effect_SettingsUnavailable" xml:space="preserve">
+    <value>无法打开特效参数设置，请重试</value>
+    <comment>DeviceControlPage.xaml.cs:609</comment>
+  </data>
+  <data name="Effect_CommandFailed" xml:space="preserve">
+    <value>特效指令发送失败</value>
+    <comment>DeviceControlPage.xaml.cs:661</comment>
+  </data>
+  <data name="Preset_Full" xml:space="preserve">
+    <value>配置已满</value>
+    <comment>DeviceControlPage.xaml.cs:750</comment>
+  </data>
+  <data name="Preset_MaximumReached" xml:space="preserve">
+    <value>最多可以保存 6 个自定义配置。</value>
+    <comment>DeviceControlPage.xaml.cs:750</comment>
+  </data>
+  <data name="Preset_SaveCustom" xml:space="preserve">
+    <value>保存自定义配置</value>
+    <comment>DeviceControlPage.xaml.cs:755</comment>
+  </data>
+  <data name="Preset_NamePrompt" xml:space="preserve">
+    <value>为当前灯光设置命名</value>
+    <comment>DeviceControlPage.xaml.cs:756</comment>
+  </data>
+  <data name="Preset_NameExample" xml:space="preserve">
+    <value>例如：晚间阅读</value>
+    <comment>DeviceControlPage.xaml.cs:759</comment>
+  </data>
+  <data name="Common_Delete" xml:space="preserve">
+    <value>删除</value>
+    <comment>DeviceControlPage.xaml.cs:838; DeviceControlPage.xaml.cs:841; DeviceControlPage.xaml.cs:846</comment>
+  </data>
+  <data name="Preset_Reorder" xml:space="preserve">
+    <value>调整位置</value>
+    <comment>DeviceControlPage.xaml.cs:839; DeviceControlPage.xaml.cs:856; DeviceControlPage.xaml.cs:860</comment>
+  </data>
+  <data name="Preset_Delete" xml:space="preserve">
+    <value>删除配置</value>
+    <comment>DeviceControlPage.xaml.cs:844</comment>
+  </data>
+  <data name="Preset_DeleteConfirmation" xml:space="preserve">
+    <value>确定删除“{0}”吗？</value>
+    <comment>DeviceControlPage.xaml.cs:845</comment>
+  </data>
+  <data name="Preset_ReorderInstructions" xml:space="preserve">
+    <value>长按一个已保存配置并拖到目标位置。完成一次拖放后会自动退出排序模式。</value>
+    <comment>DeviceControlPage.xaml.cs:861</comment>
+  </data>
+  <data name="Preset_StartReordering" xml:space="preserve">
+    <value>开始调整</value>
+    <comment>DeviceControlPage.xaml.cs:862</comment>
+  </data>
+  <data name="Preset_EmptySlot" xml:space="preserve">
+    <value>空配置位</value>
+    <comment>DeviceControlPage.xaml.cs:871</comment>
+  </data>
+  <data name="Preset_SaveInstructions" xml:space="preserve">
+    <value>点击上方“保存配置”可保存当前灯光设置。</value>
+    <comment>DeviceControlPage.xaml.cs:872</comment>
+  </data>
+  <data name="Preset_DragToReorder" xml:space="preserve">
+    <value>拖动调整位置</value>
+    <comment>DeviceControlPage.xaml.cs:965</comment>
+  </data>
+  <data name="Preset_MaximumCount" xml:space="preserve">
+    <value>最多 6 个</value>
+    <comment>DeviceControlPage.xaml.cs:965; LazyPresetControlView.xaml:Text</comment>
+  </data>
+  <data name="Timer_InvalidSeconds" xml:space="preserve">
+    <value>发送失败：请输入 1 至 86400 秒</value>
+    <comment>DeviceControlPage.xaml.cs:1006</comment>
+  </data>
+  <data name="Timer_SendSucceeded" xml:space="preserve">
+    <value>计时指令发送成功</value>
+    <comment>DeviceControlPage.xaml.cs:1024</comment>
+  </data>
+  <data name="Timer_SendFailed" xml:space="preserve">
+    <value>计时指令发送失败</value>
+    <comment>DeviceControlPage.xaml.cs:1024</comment>
+  </data>
+  <data name="Timer_Off" xml:space="preserve">
+    <value>计时关灯</value>
+    <comment>DeviceControlPage.xaml.cs:1055; LazyTimerControlView.xaml:x:String</comment>
+  </data>
+  <data name="Timer_On" xml:space="preserve">
+    <value>计时开灯</value>
+    <comment>DeviceControlPage.xaml.cs:1057; LazyTimerControlView.xaml:x:String</comment>
+  </data>
+  <data name="Common_TurnOn" xml:space="preserve">
+    <value>开启</value>
+    <comment>DeviceControlPage.xaml.cs:1134</comment>
+  </data>
+  <data name="Control_HslDescription" xml:space="preserve">
+    <value>HSL 色彩与亮度控制</value>
+    <comment>DeviceControlPage.xaml.cs:1296</comment>
+  </data>
+  <data name="Control_CtlDescription" xml:space="preserve">
+    <value>CTL 色温与亮度控制</value>
+    <comment>DeviceControlPage.xaml.cs:1297</comment>
+  </data>
+  <data name="Control_CombinedDescription" xml:space="preserve">
+    <value>HSL 色盘与 CTL 色温环控制</value>
+    <comment>DeviceControlPage.xaml.cs:1298</comment>
+  </data>
+  <data name="Control_BrightnessDescription" xml:space="preserve">
+    <value>亮度控制</value>
+    <comment>DeviceControlPage.xaml.cs:1299; DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Preset_Drag" xml:space="preserve">
+    <value>拖动调整</value>
+    <comment>DeviceControlPage.xaml.cs:1676</comment>
+  </data>
+  <data name="Preset_TapToView" xml:space="preserve">
+    <value>点击查看</value>
+    <comment>DeviceControlPage.xaml.cs:1678</comment>
+  </data>
+  <data name="Preset_Empty" xml:space="preserve">
+    <value>空配置</value>
+    <comment>DeviceControlPage.xaml.cs:1732</comment>
+  </data>
+  <data name="Preset_Unnamed" xml:space="preserve">
+    <value>未命名配置</value>
+    <comment>DeviceControlPage.xaml.cs:1761</comment>
+  </data>
+  <data name="Effect_Blink" xml:space="preserve">
+    <value>闪烁</value>
+    <comment>DeviceControlPage.xaml.cs:1801; LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Effect_Breathe" xml:space="preserve">
+    <value>呼吸灯</value>
+    <comment>DeviceControlPage.xaml.cs:1802; LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Effect_Steady" xml:space="preserve">
+    <value>常亮</value>
+    <comment>DeviceControlPage.xaml.cs:1803; LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Device_Rename" xml:space="preserve">
+    <value>修改设备名称</value>
+    <comment>DeviceMorePage.xaml.cs:102</comment>
+  </data>
+  <data name="Device_NewNamePrompt" xml:space="preserve">
+    <value>请输入新的设备名称</value>
+    <comment>DeviceMorePage.xaml.cs:103</comment>
+  </data>
+  <data name="Device_Unbind" xml:space="preserve">
+    <value>解除绑定</value>
+    <comment>DeviceMorePage.xaml.cs:145; DeviceMorePage.xaml.cs:147; DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_RemoveConfirmation" xml:space="preserve">
+    <value>确定从设备列表删除“{0}”吗？</value>
+    <comment>DeviceMorePage.xaml.cs:146</comment>
+  </data>
+  <data name="Device_UnbindFailed" xml:space="preserve">
+    <value>解除绑定失败</value>
+    <comment>DeviceMorePage.xaml.cs:159</comment>
+  </data>
+  <data name="Device_UnbindRetained" xml:space="preserve">
+    <value>未能释放设备连接，设备记录已保留。请重试。</value>
+    <comment>DeviceMorePage.xaml.cs:160</comment>
+  </data>
+  <data name="Device_DefaultName" xml:space="preserve">
+    <value>灯光设备</value>
+    <comment>DeviceSharePage.xaml.cs:6; FirmwareUpdatePage.xaml.cs:14; SchedulePage.xaml.cs:15</comment>
+  </data>
+  <data name="Share_RecordMissing" xml:space="preserve">
+    <value>设备记录不存在，无法生成分享二维码。</value>
+    <comment>DeviceSharePage.xaml.cs:80</comment>
+  </data>
+  <data name="Share_ContentsDescription" xml:space="preserve">
+    <value>二维码仅包含设备名称、地址、绑定授权和设备能力。接收者可控制此设备，灯光状态等资料会从设备读取。</value>
+    <comment>DeviceSharePage.xaml.cs:88</comment>
+  </data>
+  <data name="Ble_PreparingConnection" xml:space="preserve">
+    <value>正在准备连接…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:17</comment>
+  </data>
+  <data name="Firmware_SelectSource" xml:space="preserve">
+    <value>请选择在线检查或加载本地 OTA 固件</value>
+    <comment>FirmwareUpdatePage.xaml.cs:18</comment>
+  </data>
+  <data name="Firmware_AvailableVersion" xml:space="preserve">
+    <value>可用版本 {0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:106</comment>
+  </data>
+  <data name="Firmware_LocalTitle" xml:space="preserve">
+    <value>本地 {0} 固件</value>
+    <comment>FirmwareUpdatePage.xaml.cs:107</comment>
+  </data>
+  <data name="Ble_NotConnectedDetail" xml:space="preserve">
+    <value>暂未连接：{0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:186</comment>
+  </data>
+  <data name="Firmware_HardwareNotRead" xml:space="preserve">
+    <value>未读取到设备硬件版本，无法查询匹配的在线固件。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:194</comment>
+  </data>
+  <data name="Firmware_CheckingOnline" xml:space="preserve">
+    <value>正在检查在线固件…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:199</comment>
+  </data>
+  <data name="Firmware_UpdateAvailable" xml:space="preserve">
+    <value>发现新版本 {0}，可以一键下载并升级。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:210</comment>
+  </data>
+  <data name="Firmware_AlreadyLatest" xml:space="preserve">
+    <value>当前版本 {0} 已是最新版本。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:211; FirmwareUpdatePage.xaml.cs:217</comment>
+  </data>
+  <data name="Firmware_SelectFile" xml:space="preserve">
+    <value>选择 OTA 固件（.bin、.hex、.hex4、.hex16、.hexe16、.res）</value>
+    <comment>FirmwareUpdatePage.xaml.cs:227</comment>
+  </data>
+  <data name="Firmware_ValidatingLocal" xml:space="preserve">
+    <value>正在校验本地固件…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:234</comment>
+  </data>
+  <data name="Firmware_LocalReady" xml:space="preserve">
+    <value>本地 {0} 固件已通过格式校验，等待确认升级。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:240</comment>
+  </data>
+  <data name="Firmware_ConfirmUpdate" xml:space="preserve">
+    <value>确认固件升级</value>
+    <comment>FirmwareUpdatePage.xaml.cs:247</comment>
+  </data>
+  <data name="Firmware_UpdateConfirmation" xml:space="preserve">
+    <value>即将升级设备“{0}”。
+
+协议：{1}
+文件：{2}
+Product ID：{3}
+
+升级期间请保持设备供电、手机蓝牙开启，并不要离开此页面。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:248</comment>
+  </data>
+  <data name="Firmware_UpdateNow" xml:space="preserve">
+    <value>立即升级</value>
+    <comment>FirmwareUpdatePage.xaml.cs:249</comment>
+  </data>
+  <data name="Firmware_LocalCancelled" xml:space="preserve">
+    <value>已取消本地固件升级。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:253</comment>
+  </data>
+  <data name="Firmware_DownloadingBeforeUpdate" xml:space="preserve">
+    <value>正在下载固件，完成后将自动开始升级…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:278</comment>
+  </data>
+  <data name="Firmware_PreparingLocalUpdate" xml:space="preserve">
+    <value>正在准备本地固件升级…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:279</comment>
+  </data>
+  <data name="Firmware_Cancelling" xml:space="preserve">
+    <value>正在取消，请等待当前 BLE 操作结束…</value>
+    <comment>FirmwareUpdatePage.xaml.cs:316</comment>
+  </data>
+  <data name="Firmware_OperationCancelled" xml:space="preserve">
+    <value>操作已取消。若固件传输已经开始，请重新扫描设备并确认其状态。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:337</comment>
+  </data>
+  <data name="Firmware_ValidationFailed" xml:space="preserve">
+    <value>固件校验失败：{0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:352</comment>
+  </data>
+  <data name="Firmware_NetworkFailed" xml:space="preserve">
+    <value>网络请求失败：{0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:364</comment>
+  </data>
+  <data name="Firmware_SwitchDisconnect" xml:space="preserve">
+    <value>Single Bank 切换 OTA 模式时蓝牙连接断开（GATT 133）。当前 SDK 未将此切换期断开继续处理为重新扫描 bootloader。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:371</comment>
+  </data>
+  <data name="Firmware_BleTransferFailed" xml:space="preserve">
+    <value>蓝牙传输失败：{0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:372</comment>
+  </data>
+  <data name="Common_OperationFailed" xml:space="preserve">
+    <value>操作失败：{0}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:378</comment>
+  </data>
+  <data name="Firmware_SlbServiceMissing" xml:space="preserve">
+    <value>设备没有提供 SLB OTA 服务，请确认固件和设备模式。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:452</comment>
+  </data>
+  <data name="Firmware_DeviceMismatch" xml:space="preserve">
+    <value>固件与设备 Product ID、Boot 版本或 OTA 模式不匹配。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:454</comment>
+  </data>
+  <data name="Firmware_MtuFailed" xml:space="preserve">
+    <value>BLE MTU 协商失败，请重新连接并靠近设备后重试。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:456</comment>
+  </data>
+  <data name="Firmware_SlbCharacteristicsInvalid" xml:space="preserve">
+    <value>设备的 SLB OTA 特征不完整或属性不正确。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:458</comment>
+  </data>
+  <data name="Firmware_OtaConnectionFailed" xml:space="preserve">
+    <value>无法连接 OTA 设备，请确认设备供电和蓝牙距离。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:460</comment>
+  </data>
+  <data name="Firmware_Rejected" xml:space="preserve">
+    <value>设备拒绝固件、offset 异常或最终校验失败。</value>
+    <comment>FirmwareUpdatePage.xaml.cs:462</comment>
+  </data>
+  <data name="Firmware_OtaFailed" xml:space="preserve">
+    <value>OTA 升级失败（{0}）：{1}</value>
+    <comment>FirmwareUpdatePage.xaml.cs:463</comment>
+  </data>
+  <data name="Legal_AgreementTitle" xml:space="preserve">
+    <value>用户协议</value>
+    <comment>LegalDocumentPage.xaml.cs:8; LegalDocumentPage.xaml.cs:34; AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="Legal_PrivacyTitle" xml:space="preserve">
+    <value>隐私政策</value>
+    <comment>LegalDocumentPage.xaml.cs:34; AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="Home_DeviceCount" xml:space="preserve">
+    <value>{0} 台设备</value>
+    <comment>MainPage.xaml.cs:40</comment>
+  </data>
+  <data name="Device_Online" xml:space="preserve">
+    <value>在线</value>
+    <comment>MainPage.xaml.cs:214; MainPage.xaml.cs:238</comment>
+  </data>
+  <data name="Device_Offline" xml:space="preserve">
+    <value>离线</value>
+    <comment>MainPage.xaml.cs:214; MainPage.xaml.cs:239</comment>
+  </data>
+  <data name="Device_SavedWaiting" xml:space="preserve">
+    <value>已保存 · 等待连接</value>
+    <comment>MainPage.xaml.cs:240</comment>
+  </data>
+  <data name="Control_SendFailed" xml:space="preserve">
+    <value>发送失败，请重试</value>
+    <comment>MainPage.xaml.cs:304</comment>
+  </data>
+  <data name="Home_OpenDeviceFailed" xml:space="preserve">
+    <value>打开设备失败，请重试</value>
+    <comment>MainPage.xaml.cs:386</comment>
+  </data>
+  <data name="Messages_WelcomeTitle" xml:space="preserve">
+    <value>欢迎使用 ArriLight</value>
+    <comment>MessageCenterPage.xaml.cs:9</comment>
+  </data>
+  <data name="Messages_WelcomeContent" xml:space="preserve">
+    <value>感谢你的加入！现在可以前往设备页添加并连接第一盏灯。</value>
+    <comment>MessageCenterPage.xaml.cs:9</comment>
+  </data>
+  <data name="Messages_TodayTime" xml:space="preserve">
+    <value>今天 09:30</value>
+    <comment>MessageCenterPage.xaml.cs:9</comment>
+  </data>
+  <data name="Messages_StatusTitle" xml:space="preserve">
+    <value>设备状态提醒</value>
+    <comment>MessageCenterPage.xaml.cs:10</comment>
+  </data>
+  <data name="Messages_StatusContent" xml:space="preserve">
+    <value>客厅主灯已恢复在线，可以继续进行亮度与色彩控制。</value>
+    <comment>MessageCenterPage.xaml.cs:10</comment>
+  </data>
+  <data name="Messages_YesterdayTime" xml:space="preserve">
+    <value>昨天 18:42</value>
+    <comment>MessageCenterPage.xaml.cs:10</comment>
+  </data>
+  <data name="Qr_CameraUnavailable" xml:space="preserve">
+    <value>相机不可用</value>
+    <comment>QrCodeScanPage.xaml.cs:40</comment>
+  </data>
+  <data name="Qr_CameraPermissionMissing" xml:space="preserve">
+    <value>没有相机权限，无法实时扫码；你仍然可以从相册选择二维码图片。</value>
+    <comment>QrCodeScanPage.xaml.cs:41</comment>
+  </data>
+  <data name="Qr_Invalid" xml:space="preserve">
+    <value>二维码无效</value>
+    <comment>QrCodeScanPage.xaml.cs:78</comment>
+  </data>
+  <data name="Qr_InvalidShareCode" xml:space="preserve">
+    <value>二维码不是有效的设备分享码，请使用设备信息页重新生成分享二维码。</value>
+    <comment>QrCodeScanPage.xaml.cs:79</comment>
+  </data>
+  <data name="Qr_ScanAgain" xml:space="preserve">
+    <value>重新扫描</value>
+    <comment>QrCodeScanPage.xaml.cs:80; QrCodeScanPage.xaml.cs:91; QrCodeScanPage.xaml.cs:116</comment>
+  </data>
+  <data name="Qr_ImportPrompt" xml:space="preserve">
+    <value>设备地址：{0}
+将保存设备名称、地址、绑定授权和能力，并连接设备读取其他资料。</value>
+    <comment>QrCodeScanPage.xaml.cs:98</comment>
+  </data>
+  <data name="Qr_SavedReadingInformation" xml:space="preserve">
+    <value>设备已保存，正在读取设备资料…</value>
+    <comment>QrCodeScanPage.xaml.cs:121</comment>
+  </data>
+  <data name="Qr_InformationNotRead" xml:space="preserve">
+    <value>资料暂未读取</value>
+    <comment>QrCodeScanPage.xaml.cs:136</comment>
+  </data>
+  <data name="Qr_InformationTimedOut" xml:space="preserve">
+    <value>设备已添加，读取资料超时。打开设备控制页后可重新读取。</value>
+    <comment>QrCodeScanPage.xaml.cs:138</comment>
+  </data>
+  <data name="Qr_InformationReadFailed" xml:space="preserve">
+    <value>设备已添加，暂未读到设备资料：{0}。打开设备控制页后可重试。</value>
+    <comment>QrCodeScanPage.xaml.cs:139</comment>
+  </data>
+  <data name="Qr_SelectShareImage" xml:space="preserve">
+    <value>选择设备分享二维码</value>
+    <comment>QrCodeScanPage.xaml.cs:169</comment>
+  </data>
+  <data name="Qr_NotFound" xml:space="preserve">
+    <value>未识别到二维码</value>
+    <comment>QrCodeScanPage.xaml.cs:196</comment>
+  </data>
+  <data name="Qr_ImageNotReadable" xml:space="preserve">
+    <value>所选图片中没有识别到二维码，请选择一张更清晰、完整的图片。</value>
+    <comment>QrCodeScanPage.xaml.cs:197</comment>
+  </data>
+  <data name="Qr_SelectAgain" xml:space="preserve">
+    <value>重新选择</value>
+    <comment>QrCodeScanPage.xaml.cs:198</comment>
+  </data>
+  <data name="Qr_ImageSelectionFailed" xml:space="preserve">
+    <value>无法选择图片</value>
+    <comment>QrCodeScanPage.xaml.cs:208</comment>
+  </data>
+  <data name="Qr_ImageSelectionUnsupported" xml:space="preserve">
+    <value>当前设备不支持从相册选择图片。</value>
+    <comment>QrCodeScanPage.xaml.cs:209</comment>
+  </data>
+  <data name="Qr_PhotoPermissionRequired" xml:space="preserve">
+    <value>需要照片权限</value>
+    <comment>QrCodeScanPage.xaml.cs:216</comment>
+  </data>
+  <data name="Qr_AllowPhotos" xml:space="preserve">
+    <value>请在系统设置中允许访问照片后重试。</value>
+    <comment>QrCodeScanPage.xaml.cs:217</comment>
+  </data>
+  <data name="Qr_DecodeFailed" xml:space="preserve">
+    <value>识别失败</value>
+    <comment>QrCodeScanPage.xaml.cs:224</comment>
+  </data>
+  <data name="Qr_DecodeFailedDetail" xml:space="preserve">
+    <value>没有完成图片识别：{0}</value>
+    <comment>QrCodeScanPage.xaml.cs:225</comment>
+  </data>
+  <data name="Qr_TorchOff" xml:space="preserve">
+    <value>关闭手电筒</value>
+    <comment>QrCodeScanPage.xaml.cs:235</comment>
+  </data>
+  <data name="Qr_TorchOn" xml:space="preserve">
+    <value>打开手电筒</value>
+    <comment>QrCodeScanPage.xaml.cs:235; QrCodeScanPage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Daily" xml:space="preserve">
+    <value>每天</value>
+    <comment>SchedulePage.xaml.cs:17; SchedulePage.xaml.cs:18; SchedulePage.xaml.cs:50</comment>
+  </data>
+  <data name="Schedule_Count" xml:space="preserve">
+    <value>{0} 个计划</value>
+    <comment>SchedulePage.xaml.cs:47</comment>
+  </data>
+  <data name="Schedule_Once" xml:space="preserve">
+    <value>仅一次</value>
+    <comment>SchedulePage.xaml.cs:50; SchedulePage.xaml.cs:238</comment>
+  </data>
+  <data name="Schedule_Weekly" xml:space="preserve">
+    <value>每周</value>
+    <comment>SchedulePage.xaml.cs:50</comment>
+  </data>
+  <data name="Schedule_Monthly" xml:space="preserve">
+    <value>每月</value>
+    <comment>SchedulePage.xaml.cs:50</comment>
+  </data>
+  <data name="Schedule_Loading" xml:space="preserve">
+    <value>正在读取设备日程…</value>
+    <comment>SchedulePage.xaml.cs:80</comment>
+  </data>
+  <data name="Device_RecordMissing" xml:space="preserve">
+    <value>设备记录不存在，请重新添加设备。</value>
+    <comment>SchedulePage.xaml.cs:86</comment>
+  </data>
+  <data name="Schedule_DemoUnavailable" xml:space="preserve">
+    <value>演示设备无日程</value>
+    <comment>SchedulePage.xaml.cs:103</comment>
+  </data>
+  <data name="Schedule_Unsupported" xml:space="preserve">
+    <value>设备不支持日程</value>
+    <comment>SchedulePage.xaml.cs:104</comment>
+  </data>
+  <data name="Schedule_NotLoaded" xml:space="preserve">
+    <value>设备日程尚未读取</value>
+    <comment>SchedulePage.xaml.cs:115</comment>
+  </data>
+  <data name="Schedule_LoadFailed" xml:space="preserve">
+    <value>读取日程失败</value>
+    <comment>SchedulePage.xaml.cs:117</comment>
+  </data>
+  <data name="Schedule_SelectWeekdays" xml:space="preserve">
+    <value>选择每周执行日</value>
+    <comment>SchedulePage.xaml.cs:175</comment>
+  </data>
+  <data name="Schedule_Monday" xml:space="preserve">
+    <value>周一</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:532</comment>
+  </data>
+  <data name="Schedule_Tuesday" xml:space="preserve">
+    <value>周二</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:533</comment>
+  </data>
+  <data name="Schedule_Wednesday" xml:space="preserve">
+    <value>周三</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:534</comment>
+  </data>
+  <data name="Schedule_Thursday" xml:space="preserve">
+    <value>周四</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:535</comment>
+  </data>
+  <data name="Schedule_Friday" xml:space="preserve">
+    <value>周五</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:536</comment>
+  </data>
+  <data name="Schedule_Saturday" xml:space="preserve">
+    <value>周六</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:537</comment>
+  </data>
+  <data name="Schedule_Sunday" xml:space="preserve">
+    <value>周日</value>
+    <comment>SchedulePage.xaml.cs:176; SchedulePage.xaml.cs:538</comment>
+  </data>
+  <data name="Schedule_SelectMonthDays" xml:space="preserve">
+    <value>选择每月执行日</value>
+    <comment>SchedulePage.xaml.cs:185</comment>
+  </data>
+  <data name="Schedule_DayNumber" xml:space="preserve">
+    <value>{0}日</value>
+    <comment>SchedulePage.xaml.cs:190; SchedulePage.xaml.cs:244</comment>
+  </data>
+  <data name="Schedule_SelectDate" xml:space="preserve">
+    <value>请选择日期</value>
+    <comment>SchedulePage.xaml.cs:211</comment>
+  </data>
+  <data name="Schedule_DateRequired" xml:space="preserve">
+    <value>至少需要选择一个执行日期。</value>
+    <comment>SchedulePage.xaml.cs:211</comment>
+  </data>
+  <data name="Schedule_ChooseWeekday" xml:space="preserve">
+    <value>选择星期</value>
+    <comment>SchedulePage.xaml.cs:242</comment>
+  </data>
+  <data name="Schedule_ChooseDate" xml:space="preserve">
+    <value>选择日期</value>
+    <comment>SchedulePage.xaml.cs:245</comment>
+  </data>
+  <data name="Schedule_Full" xml:space="preserve">
+    <value>日程已满</value>
+    <comment>SchedulePage.xaml.cs:309</comment>
+  </data>
+  <data name="Schedule_AvailableSlots" xml:space="preserve">
+    <value>当前可用 {0} 个 AGP 日程槽。</value>
+    <comment>SchedulePage.xaml.cs:310</comment>
+  </data>
+  <data name="Common_SendFailed" xml:space="preserve">
+    <value>发送失败</value>
+    <comment>SchedulePage.xaml.cs:319</comment>
+  </data>
+  <data name="Schedule_SendFailed" xml:space="preserve">
+    <value>无法发送定时指令，请确认设备已连接。</value>
+    <comment>SchedulePage.xaml.cs:319</comment>
+  </data>
+  <data name="Schedule_Delete" xml:space="preserve">
+    <value>删除定时</value>
+    <comment>SchedulePage.xaml.cs:334</comment>
+  </data>
+  <data name="Schedule_DeleteConfirmation" xml:space="preserve">
+    <value>确定删除 {0} 的“{1}”计划吗？</value>
+    <comment>SchedulePage.xaml.cs:335</comment>
+  </data>
+  <data name="Common_DeleteFailed" xml:space="preserve">
+    <value>删除失败</value>
+    <comment>SchedulePage.xaml.cs:353</comment>
+  </data>
+  <data name="Schedule_DeleteRejected" xml:space="preserve">
+    <value>设备未接受删除日程指令。</value>
+    <comment>SchedulePage.xaml.cs:353</comment>
+  </data>
+  <data name="Schedule_WaitForLoad" xml:space="preserve">
+    <value>请等待设备日程读取完成</value>
+    <comment>SchedulePage.xaml.cs:442</comment>
+  </data>
+  <data name="Schedule_ReloadRequired" xml:space="preserve">
+    <value>请重新进入此页读取设备日程后再操作</value>
+    <comment>SchedulePage.xaml.cs:444</comment>
+  </data>
+  <data name="Schedule_DeviceUnsupported" xml:space="preserve">
+    <value>当前设备不支持日程</value>
+    <comment>SchedulePage.xaml.cs:446</comment>
+  </data>
+  <data name="Schedule_OnceDate" xml:space="preserve">
+    <value>仅一次（{0:yyyy-MM-dd}）</value>
+    <comment>SchedulePage.xaml.cs:462</comment>
+  </data>
+  <data name="Schedule_InvalidRepeatType" xml:space="preserve">
+    <value>设备返回的日程重复类型无效。</value>
+    <comment>SchedulePage.xaml.cs:470</comment>
+  </data>
+  <data name="Schedule_ActionOn" xml:space="preserve">
+    <value>定时开</value>
+    <comment>SchedulePage.xaml.cs:474; SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_ActionOff" xml:space="preserve">
+    <value>定时关</value>
+    <comment>SchedulePage.xaml.cs:474; SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_LastDay" xml:space="preserve">
+    <value>每月最后一天</value>
+    <comment>SchedulePage.xaml.cs:483</comment>
+  </data>
+  <data name="Schedule_UtcMonthlyDay" xml:space="preserve">
+    <value>UTC 每月 {0} 日（本地次日）</value>
+    <comment>SchedulePage.xaml.cs:488</comment>
+  </data>
+  <data name="Schedule_MonthlyDay" xml:space="preserve">
+    <value>每月 {0} 日</value>
+    <comment>SchedulePage.xaml.cs:489</comment>
+  </data>
+  <data name="Tab_Devices" xml:space="preserve">
+    <value>设备</value>
+    <comment>AppShell.xaml:Title; MainPage.xaml:Text</comment>
+  </data>
+  <data name="Tab_Store" xml:space="preserve">
+    <value>商城</value>
+    <comment>AppShell.xaml:Title; StorePage.xaml:Text</comment>
+  </data>
+  <data name="Tab_Profile" xml:space="preserve">
+    <value>我的</value>
+    <comment>AppShell.xaml:Title; ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="About_Title" xml:space="preserve">
+    <value>关于我们</value>
+    <comment>AboutUsPage.xaml:Title; ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="About_WeChatAccount" xml:space="preserve">
+    <value>微信公众号</value>
+    <comment>AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="About_WeChatInstructions" xml:space="preserve">
+    <value>打开微信后搜索并关注</value>
+    <comment>AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="About_Contact" xml:space="preserve">
+    <value>联系我们</value>
+    <comment>AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="About_PhoneExample" xml:space="preserve">
+    <value>400-000-0000（示例）</value>
+    <comment>AboutUsPage.xaml:Text</comment>
+  </data>
+  <data name="Version_Title" xml:space="preserve">
+    <value>应用版本</value>
+    <comment>AppVersionPage.xaml:Title; ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Version_WhatsNew" xml:space="preserve">
+    <value>本次更新</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Version_DevicesUpdate" xml:space="preserve">
+    <value>• 全新的设备管理首页与底部导航</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Version_InformationUpdate" xml:space="preserve">
+    <value>• 新增消息中心、版本信息与关于我们</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Version_ThemeUpdate" xml:space="preserve">
+    <value>• 支持跟随系统、浅色和深色主题</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Version_AndroidUpdate" xml:space="preserve">
+    <value>• 优化 Android 端界面表现与交互体验</value>
+    <comment>AppVersionPage.xaml:Text</comment>
+  </data>
+  <data name="Device_Add" xml:space="preserve">
+    <value>添加设备</value>
+    <comment>BluetoothScanPage.xaml:Title; MainPage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Scan_Title" xml:space="preserve">
+    <value>搜索附近的灯光设备</value>
+    <comment>BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Scan_NamingHint" xml:space="preserve">
+    <value>选择设备后，为它设置一个名称</value>
+    <comment>BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Scan_SearchAgain" xml:space="preserve">
+    <value>重新搜索</value>
+    <comment>BluetoothScanPage.xaml:Text</comment>
+  </data>
+  <data name="Common_Refresh" xml:space="preserve">
+    <value>刷新</value>
+    <comment>DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Common_More" xml:space="preserve">
+    <value>更多</value>
+    <comment>DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Control_Title" xml:space="preserve">
+    <value>灯光调节</value>
+    <comment>DeviceControlPage.xaml:Text</comment>
+  </data>
+  <data name="Manual_Title" xml:space="preserve">
+    <value>使用说明</value>
+    <comment>DeviceManualPage.xaml:Title; DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Manual_Heading" xml:space="preserve">
+    <value>ArriLight 灯具使用说明</value>
+    <comment>DeviceManualPage.xaml:Text</comment>
+  </data>
+  <data name="Manual_Content" xml:space="preserve">
+    <value>1. 请先接通灯具电源，并开启手机蓝牙。
+
+2. 在首页点击“+”搜索附近设备，或扫描设备分享二维码进行添加。
+
+3. 进入设备详情后，可调节颜色、色温与亮度，并保存常用灯光配置。
+
+4. 使用计时与定时计划前，请保持设备在线。
+
+5. 固件升级期间请勿关闭灯具、蓝牙或退出应用。</value>
+    <comment>DeviceManualPage.xaml:Text</comment>
+  </data>
+  <data name="Manual_Placeholder" xml:space="preserve">
+    <value>正式产品说明书可在后续版本中替换或扩充此页面。</value>
+    <comment>DeviceManualPage.xaml:Text</comment>
+  </data>
+  <data name="Device_Information" xml:space="preserve">
+    <value>设备信息</value>
+    <comment>DeviceMorePage.xaml:Title</comment>
+  </data>
+  <data name="Device_Name" xml:space="preserve">
+    <value>设备名称</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_AddedAt" xml:space="preserve">
+    <value>加入时间</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_Id" xml:space="preserve">
+    <value>设备 ID</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_Title" xml:space="preserve">
+    <value>固件升级</value>
+    <comment>DeviceMorePage.xaml:Text; FirmwareUpdatePage.xaml:Title</comment>
+  </data>
+  <data name="Share_Title" xml:space="preserve">
+    <value>分享设备</value>
+    <comment>DeviceMorePage.xaml:Text; DeviceSharePage.xaml:Title</comment>
+  </data>
+  <data name="Share_QrCode" xml:space="preserve">
+    <value>二维码</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_Pin" xml:space="preserve">
+    <value>置顶显示</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Device_PinDescription" xml:space="preserve">
+    <value>在首页设备列表中优先显示</value>
+    <comment>DeviceMorePage.xaml:Text</comment>
+  </data>
+  <data name="Share_RecipientInstructions" xml:space="preserve">
+    <value>让对方使用 ArriLight 首页的扫码按钮添加设备</value>
+    <comment>DeviceSharePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_CurrentVersion" xml:space="preserve">
+    <value>当前版本</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_Check" xml:space="preserve">
+    <value>检查固件</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_CheckOnline" xml:space="preserve">
+    <value>在线检查</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_LoadLocal" xml:space="preserve">
+    <value>加载本地固件</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_Status" xml:space="preserve">
+    <value>升级状态</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_DownloadAndUpdate" xml:space="preserve">
+    <value>一键下载并升级</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_CancelUpdate" xml:space="preserve">
+    <value>取消升级</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Firmware_KeepPowered" xml:space="preserve">
+    <value>升级期间请保持灯具通电、手机蓝牙开启，并避免离开设备附近。</value>
+    <comment>FirmwareUpdatePage.xaml:Text</comment>
+  </data>
+  <data name="Effect_Title" xml:space="preserve">
+    <value>特效</value>
+    <comment>LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Effect_LongPressHint" xml:space="preserve">
+    <value>长按设置/查看参数</value>
+    <comment>LazyEffectControlView.xaml:Text</comment>
+  </data>
+  <data name="Preset_Title" xml:space="preserve">
+    <value>自定义配置</value>
+    <comment>LazyPresetControlView.xaml:Text</comment>
+  </data>
+  <data name="Common_Done" xml:space="preserve">
+    <value>完成</value>
+    <comment>LazyPresetControlView.xaml:Text</comment>
+  </data>
+  <data name="Preset_Save" xml:space="preserve">
+    <value>保存配置</value>
+    <comment>LazySavePresetButtonView.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Settings" xml:space="preserve">
+    <value>定时设置</value>
+    <comment>LazyScheduleControlView.xaml:Text; SchedulePage.xaml:Title; SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Manage" xml:space="preserve">
+    <value>管理自动开关灯计划</value>
+    <comment>LazyScheduleControlView.xaml:Text</comment>
+  </data>
+  <data name="Temperature_Warm" xml:space="preserve">
+    <value>暖光</value>
+    <comment>LazyTemperatureLegendView.xaml:Text</comment>
+  </data>
+  <data name="Temperature_Title" xml:space="preserve">
+    <value>色温</value>
+    <comment>LazyTemperatureLegendView.xaml:Text</comment>
+  </data>
+  <data name="Temperature_Cool" xml:space="preserve">
+    <value>冷光</value>
+    <comment>LazyTemperatureLegendView.xaml:Text</comment>
+  </data>
+  <data name="Timer_Mode" xml:space="preserve">
+    <value>计时模式</value>
+    <comment>LazyTimerControlView.xaml:Title</comment>
+  </data>
+  <data name="Timer_Seconds" xml:space="preserve">
+    <value>秒</value>
+    <comment>LazyTimerControlView.xaml:Text</comment>
+  </data>
+  <data name="Timer_SendDescription" xml:space="preserve">
+    <value>发送计时指令</value>
+    <comment>LazyTimerControlView.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Legal_UpdatedDate" xml:space="preserve">
+    <value>更新日期：2026 年 7 月 23 日</value>
+    <comment>LegalDocumentPage.xaml:Text</comment>
+  </data>
+  <data name="Home_Description" xml:space="preserve">
+    <value>管理你的灯光设备</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Qr_ScanDescription" xml:space="preserve">
+    <value>扫描二维码</value>
+    <comment>MainPage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Home_ServiceReady" xml:space="preserve">
+    <value>蓝牙设备服务已就绪</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_MyDevices" xml:space="preserve">
+    <value>我的设备</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_TapToControl" xml:space="preserve">
+    <value>点击设备进行控制</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_Empty" xml:space="preserve">
+    <value>还没有添加设备</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_AddFirstHint" xml:space="preserve">
+    <value>点击右上角的 + 添加你的第一盏灯</value>
+    <comment>MainPage.xaml:Text</comment>
+  </data>
+  <data name="Home_QuickPowerDescription" xml:space="preserve">
+    <value>快速开关灯光</value>
+    <comment>MainPage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Home_ControlDescription" xml:space="preserve">
+    <value>进入设备控制</value>
+    <comment>MainPage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Messages_Title" xml:space="preserve">
+    <value>消息中心</value>
+    <comment>MessageCenterPage.xaml:Title; ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Messages_Recent" xml:space="preserve">
+    <value>最近消息</value>
+    <comment>MessageCenterPage.xaml:Text</comment>
+  </data>
+  <data name="Profile_Description" xml:space="preserve">
+    <value>服务、信息与应用设置</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Messages_MenuDescription" xml:space="preserve">
+    <value>查看通知与服务消息</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Settings_Title" xml:space="preserve">
+    <value>设置</value>
+    <comment>ProfilePage.xaml:Text; SettingsPage.xaml:Title</comment>
+  </data>
+  <data name="Settings_MenuDescription" xml:space="preserve">
+    <value>主题与应用偏好</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Version_MenuDescription" xml:space="preserve">
+    <value>版本信息与更新内容</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="About_MenuDescription" xml:space="preserve">
+    <value>协议、隐私与联系方式</value>
+    <comment>ProfilePage.xaml:Text</comment>
+  </data>
+  <data name="Qr_Title" xml:space="preserve">
+    <value>扫码添加</value>
+    <comment>QrCodeScanPage.xaml:Title</comment>
+  </data>
+  <data name="Qr_FrameHint" xml:space="preserve">
+    <value>将设备分享二维码放入框内</value>
+    <comment>QrCodeScanPage.xaml:Text</comment>
+  </data>
+  <data name="Qr_PhotosHint" xml:space="preserve">
+    <value>也可以从相册选择已经保存的二维码</value>
+    <comment>QrCodeScanPage.xaml:Text</comment>
+  </data>
+  <data name="Qr_SelectPhotos" xml:space="preserve">
+    <value>从相册选择</value>
+    <comment>QrCodeScanPage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_AddToolbar" xml:space="preserve">
+    <value>+ 添加</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_PageDescription" xml:space="preserve">
+    <value>管理自动开灯或关灯计划</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Added" xml:space="preserve">
+    <value>已添加的定时</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Empty" xml:space="preserve">
+    <value>还没有定时计划</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_AddFirstHint" xml:space="preserve">
+    <value>点击右上角“+ 添加”创建计划</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_DeleteDescription" xml:space="preserve">
+    <value>删除定时计划</value>
+    <comment>SchedulePage.xaml:SemanticProperties.Description</comment>
+  </data>
+  <data name="Schedule_AddTitle" xml:space="preserve">
+    <value>添加定时</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_RepeatMode" xml:space="preserve">
+    <value>重复方式</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Action" xml:space="preserve">
+    <value>执行动作</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_Time" xml:space="preserve">
+    <value>执行时间</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Common_Add" xml:space="preserve">
+    <value>添加</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Schedule_MultipleSelectionHint" xml:space="preserve">
+    <value>可以选择一个或多个</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Common_Confirm" xml:space="preserve">
+    <value>确定</value>
+    <comment>SchedulePage.xaml:Text</comment>
+  </data>
+  <data name="Settings_Appearance" xml:space="preserve">
+    <value>外观</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Common_FollowSystem" xml:space="preserve">
+    <value>跟随系统</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Settings_SystemThemeDescription" xml:space="preserve">
+    <value>自动使用系统的外观设置</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Settings_LightTheme" xml:space="preserve">
+    <value>浅色主题</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Settings_DarkTheme" xml:space="preserve">
+    <value>深色主题</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Settings_ThemePersistenceHint" xml:space="preserve">
+    <value>主题选择会保存在本机，并在下次启动时自动应用。</value>
+    <comment>SettingsPage.xaml:Text</comment>
+  </data>
+  <data name="Store_Placeholder" xml:space="preserve">
+    <value>页面内容将在后续设计</value>
+    <comment>StorePage.xaml:Text</comment>
+  </data>
+  <data name="Legal_AgreementContent" xml:space="preserve">
+    <value>欢迎使用 ArriLight。使用本应用前，请阅读并理解本协议。
+
+1. 本应用用于发现、连接和控制兼容的灯光设备。
+
+2. 请遵守适用法律法规，并妥善保管账号及设备访问权限。
+
+3. 设备兼容性、服务范围和正式条款将在产品发布前进一步完善。
+
+当前内容为界面设计阶段的示例文本，不构成最终法律文件。</value>
+    <comment>LegalDocumentPage</comment>
+  </data>
+  <data name="Legal_PrivacyContent" xml:space="preserve">
+    <value>我们重视你的隐私与个人信息安全。
+
+1. 蓝牙权限仅用于发现、连接和控制附近的兼容设备。
+
+2. 扫码权限仅在你主动使用扫码添加设备时调用。
+
+3. 未经你的授权，我们不会将个人信息用于与核心功能无关的用途。
+
+当前内容为界面设计阶段的示例文本，正式版本发布前应由专业人员审核。</value>
+    <comment>LegalDocumentPage</comment>
+  </data>
+  <data name="Common_NotProvided" xml:space="preserve">
+    <value>未提供</value>
+  </data>
+  <data name="Common_ListSeparator" xml:space="preserve">
+    <value>、</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Settings_SystemLanguageDescription" xml:space="preserve">
+    <value>根据系统语言选择中文或英语</value>
+  </data>
+  <data name="Settings_ChineseLanguage" xml:space="preserve">
+    <value>简体中文</value>
+  </data>
+  <data name="Settings_EnglishLanguage" xml:space="preserve">
+    <value>English</value>
+  </data>
+  <data name="Settings_LanguagePersistenceHint" xml:space="preserve">
+    <value>语言选择会保存在本机，并在下次启动时生效。</value>
+  </data>
+  <data name="Settings_LanguageRestartRequired" xml:space="preserve">
+    <value>语言设置已保存，关闭并重新启动应用后生效。</value>
+  </data>
+  <data name="Firmware_OtaProcessing" xml:space="preserve">
+    <value>正在处理 OTA 升级…</value>
+  </data>
+  <data name="Navigation_BackAgainToExit" xml:space="preserve">
+    <value>再按一次返回键退出本程序</value>
+  </data>
+</root>

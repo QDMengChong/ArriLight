@@ -64,7 +64,7 @@ public sealed class SharedDeviceInformationTests
 
         await fixture.Service.GetControlProfileAsync(fixture.Address);
 
-        Assert.Equal("未知", fixture.Repository.GetByAddress(fixture.Address)!.FirmwareVersion);
+        Assert.Equal(SavedDevice.UnknownFirmwareVersion, fixture.Repository.GetByAddress(fixture.Address)!.FirmwareVersion);
         fixture.Ble.FirmwareReadFailure = null;
         fixture.Ble.FirmwareReadResult = 0;
         await fixture.Service.GetControlProfileAsync(fixture.Address);
@@ -85,7 +85,7 @@ public sealed class SharedDeviceInformationTests
 
         await fixture.Service.GetControlProfileAsync(fixture.Address);
 
-        Assert.Equal("未知", fixture.Repository.GetByAddress(fixture.Address)!.FirmwareVersion);
+        Assert.Equal(SavedDevice.UnknownFirmwareVersion, fixture.Repository.GetByAddress(fixture.Address)!.FirmwareVersion);
         fixture.Ble.FirmwareRevision = "4.5.6";
         await fixture.Service.GetControlProfileAsync(fixture.Address);
 
@@ -299,7 +299,7 @@ public sealed class SharedDeviceInformationTests
         Assert.True(fixture.Repository.Remove(fixture.Address));
         Assert.True(fixture.Repository.TryAddShared(content));
         var imported = fixture.Repository.GetByAddress(fixture.Address)!;
-        Assert.Equal("未知", imported.FirmwareVersion);
+        Assert.Equal(SavedDevice.UnknownFirmwareVersion, imported.FirmwareVersion);
         Assert.Equal((ushort)1_000, imported.BlinkEffectParameters!.PeriodMilliseconds);
         Assert.Equal((ushort)1_000, imported.BreatheEffectParameters!.PeriodMilliseconds);
         return imported;

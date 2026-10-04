@@ -12,10 +12,10 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private readonly DeviceRepository _repository;
     private readonly HashSet<int> _weeklySelections = [];
     private readonly HashSet<int> _monthlySelections = [];
-    private string _deviceName = "灯光设备";
+    private string _deviceName = AppResources.Device_DefaultName;
     private string _deviceAddress = string.Empty;
-    private string _repeatSelectionSummary = "每天";
-    private string _repeatSelectionDisplayText = "每天";
+    private string _repeatSelectionSummary = AppResources.Schedule_Daily;
+    private string _repeatSelectionDisplayText = AppResources.Schedule_Daily;
     private int _confirmedRepeatIndex = 1;
     private bool _isInitializing = true;
     private bool _isActionOn = true;
@@ -44,10 +44,10 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         private set => SetField(ref _repeatSelectionDisplayText, value);
     }
 
-    public string ScheduleCountText => _scheduleStatusText ?? $"{Schedules.Count} 个计划";
+    public string ScheduleCountText => _scheduleStatusText ?? Localization.Format(nameof(AppResources.Schedule_Count), Schedules.Count);
 
     public IReadOnlyList<string> RepeatModes { get; } =
-        ["仅一次", "每天", "每周", "每月"];
+        [AppResources.Schedule_Once, AppResources.Schedule_Daily, AppResources.Schedule_Weekly, AppResources.Schedule_Monthly];
 
     public ObservableCollection<RepeatOptionItem> RepeatOptions { get; } = [];
 
@@ -77,13 +77,13 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         _scheduleLoadCancellation = cancellation;
         _isLoadingSchedules = true;
         _hasLoadedSchedules = false;
-        _scheduleStatusText = "正在读取设备日程…";
+        _scheduleStatusText = AppResources.Schedule_Loading;
         OnPropertyChanged(nameof(ScheduleCountText));
 
         try
         {
             var device = _repository.GetByAddress(_deviceAddress) ??
-                throw new InvalidOperationException("设备记录不存在，请重新添加设备。");
+                throw new InvalidOperationException(AppResources.Device_RecordMissing);
             var schedules = device.IsDemo
                 ? Array.Empty<AgpSchedule>()
                 : await _agpLight.GetSchedulesAsync(_deviceAddress, cancellation.Token);
@@ -100,8 +100,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             foreach (var item in items)
                 Schedules.Add(item);
             _hasLoadedSchedules = true;
-            _scheduleStatusText = device.IsDemo ? "演示设备无日程" :
-                _supportsSchedules ? null : "设备不支持日程";
+            _scheduleStatusText = device.IsDemo ? AppResources.Schedule_DemoUnavailable :
+                _supportsSchedules ? null : AppResources.Schedule_Unsupported;
         }
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested)
         {
@@ -112,9 +112,9 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             if (!ReferenceEquals(_scheduleLoadCancellation, cancellation) ||
                 cancellation.IsCancellationRequested)
                 return;
-            _scheduleStatusText = "设备日程尚未读取";
+            _scheduleStatusText = AppResources.Schedule_NotLoaded;
             _diagnostics.Error("Light/Schedule", $"读取设备日程失败：{DeviceName}。", exception);
-            await DisplayAlertAsync("读取日程失败", exception.Message, "知道了");
+            await DisplayAlertAsync(AppResources.Schedule_LoadFailed, exception.Message, AppResources.Common_Ok);
         }
         finally
         {
@@ -172,8 +172,8 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
         if (repeatIndex == 2)
         {
-            RepeatPopupTitle.Text = "选择每周执行日";
-            var labels = new[] { "周一", "周二", "周三", "周四", "周五", "周六", "周日" };
+            RepeatPopupTitle.Text = AppResources.Schedule_SelectWeekdays;
+            var labels = new[] { AppResources.Schedule_Monday, AppResources.Schedule_Tuesday, AppResources.Schedule_Wednesday, AppResources.Schedule_Thursday, AppResources.Schedule_Friday, AppResources.Schedule_Saturday, AppResources.Schedule_Sunday };
             if (_weeklySelections.Count == 0)
                 _weeklySelections.Add(ToMondayBasedDay(DateTime.Today.DayOfWeek));
 
@@ -182,12 +182,12 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         }
         else
         {
-            RepeatPopupTitle.Text = "选择每月执行日";
+            RepeatPopupTitle.Text = AppResources.Schedule_SelectMonthDays;
             if (_monthlySelections.Count == 0)
                 _monthlySelections.Add(DateTime.Today.Day);
 
             for (var day = 1; day <= 31; day++)
-                RepeatOptions.Add(new($"{day}日", day, _monthlySelections.Contains(day)));
+                RepeatOptions.Add(new(Localization.Format(nameof(AppResources.Schedule_DayNumber), day), day, _monthlySelections.Contains(day)));
         }
 
         RepeatPopupOverlay.IsVisible = true;
@@ -208,7 +208,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
 
         if (selectedValues.Length == 0)
         {
-            await DisplayAlertAsync("请选择日期", "至少需要选择一个执行日期。", "知道了");
+            await DisplayAlertAsync(AppResources.Schedule_SelectDate, AppResources.Schedule_DateRequired, AppResources.Common_Ok);
             return;
         }
 
@@ -235,15 +235,15 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         RepeatDetailButton.IsEnabled = _confirmedRepeatIndex is 2 or 3;
         RepeatSelectionSummary = _confirmedRepeatIndex switch
         {
-            0 => "仅一次",
-            1 => "每天",
+            0 => AppResources.Schedule_Once,
+            1 => AppResources.Schedule_Daily,
             2 when _weeklySelections.Count > 0 =>
-                string.Join("、", _weeklySelections.Order().Select(WeeklyLabel)),
-            2 => "选择星期",
+                string.Join(AppResources.Common_ListSeparator, _weeklySelections.Order().Select(WeeklyLabel)),
+            2 => AppResources.Schedule_ChooseWeekday,
             3 when _monthlySelections.Count > 0 =>
-                string.Join("、", _monthlySelections.Order().Select(day => $"{day}日")),
-            3 => "选择日期",
-            _ => "每天"
+                string.Join(AppResources.Common_ListSeparator, _monthlySelections.Order().Select(day => Localization.Format(nameof(AppResources.Schedule_DayNumber), day))),
+            3 => AppResources.Schedule_ChooseDate,
+            _ => AppResources.Schedule_Daily
         };
         RepeatSelectionDisplayText = CompactSummary(RepeatSelectionSummary);
     }
@@ -306,9 +306,9 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         if (index < 0)
         {
             await DisplayAlertAsync(
-                "日程已满",
-                $"当前可用 {_maximumScheduleSlots} 个 AGP 日程槽。",
-                "知道了");
+                AppResources.Schedule_Full,
+                Localization.Format(nameof(AppResources.Schedule_AvailableSlots), _maximumScheduleSlots),
+                AppResources.Common_Ok);
             return;
         }
 
@@ -316,7 +316,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         var register = BuildRegister((byte)index, time, _isActionOn);
         if (!await TrySendScheduleAsync(register))
         {
-            await DisplayAlertAsync("发送失败", "无法发送定时指令，请确认设备已连接。", "知道了");
+            await DisplayAlertAsync(AppResources.Common_SendFailed, AppResources.Schedule_SendFailed, AppResources.Common_Ok);
             return;
         }
 
@@ -331,10 +331,10 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
             return;
 
         var confirmed = await DisplayAlertAsync(
-            "删除定时",
-            $"确定删除 {schedule.TimeText} 的“{schedule.ActionText}”计划吗？",
-            "删除",
-            "取消");
+            AppResources.Schedule_Delete,
+            Localization.Format(nameof(AppResources.Schedule_DeleteConfirmation), schedule.TimeText, schedule.ActionText),
+            AppResources.Common_Delete,
+            AppResources.Common_Cancel);
 
         if (!confirmed)
             return;
@@ -350,7 +350,7 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
                 "Light/Schedule",
                 $"删除 AGP 日程失败：{DeviceName}。",
                 exception);
-            await DisplayAlertAsync("删除失败", "设备未接受删除日程指令。", "知道了");
+            await DisplayAlertAsync(AppResources.Common_DeleteFailed, AppResources.Schedule_DeleteRejected, AppResources.Common_Ok);
             return;
         }
         Schedules.Remove(schedule);
@@ -439,11 +439,11 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private bool CanModifySchedules()
     {
         if (_isLoadingSchedules)
-            ToastService.Show("请等待设备日程读取完成");
+            ToastService.Show(AppResources.Schedule_WaitForLoad);
         else if (!_hasLoadedSchedules)
-            ToastService.Show("请重新进入此页读取设备日程后再操作");
+            ToastService.Show(AppResources.Schedule_ReloadRequired);
         else if (!_supportsSchedules)
-            ToastService.Show("当前设备不支持日程");
+            ToastService.Show(AppResources.Schedule_DeviceUnsupported);
         else
             return true;
         return false;
@@ -459,19 +459,19 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
         var dayShift = (local.Date - utc.Date).Days;
         var repeatText = schedule.Type switch
         {
-            AgpScheduleType.Once => $"仅一次（{local:yyyy-MM-dd}）",
-            AgpScheduleType.Daily => "每天",
-            AgpScheduleType.Weekly => string.Join("、", Enumerable.Range(0, 7)
+            AgpScheduleType.Once => Localization.Format(nameof(AppResources.Schedule_OnceDate), local),
+            AgpScheduleType.Daily => AppResources.Schedule_Daily,
+            AgpScheduleType.Weekly => string.Join(AppResources.Common_ListSeparator, Enumerable.Range(0, 7)
                 .Where(day => (schedule.Selector & (1 << day)) != 0)
                 .Select(day => ((day + dayShift + 7) % 7) + 1)
                 .Order()
                 .Select(WeeklyLabel)),
             AgpScheduleType.Monthly => FormatMonthlyRepeat(schedule.Selector, dayShift),
-            _ => throw new InvalidOperationException("设备返回的日程重复类型无效。")
+            _ => throw new InvalidOperationException(AppResources.Schedule_InvalidRepeatType)
         };
         return new LightScheduleItem(
             local.ToString("HH:mm"),
-            schedule.Action == AgpScheduleAction.On ? "定时开" : "定时关",
+            schedule.Action == AgpScheduleAction.On ? AppResources.Schedule_ActionOn : AppResources.Schedule_ActionOff,
             repeatText,
             schedule.IsEnabled,
             schedule);
@@ -480,13 +480,13 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private static string FormatMonthlyRepeat(byte utcDay, int localDayShift)
     {
         if (localDayShift < 0 && utcDay == 1)
-            return "每月最后一天";
+            return AppResources.Schedule_LastDay;
         // A UTC date near the end of a month can become either the following
         // local date or the first of the next month. Retain the UTC rule rather
         // than misrepresenting it as a single fixed local day of the month.
         if (localDayShift > 0 && utcDay >= 28)
-            return $"UTC 每月 {utcDay} 日（本地次日）";
-        return $"每月 {utcDay + localDayShift} 日";
+            return Localization.Format(nameof(AppResources.Schedule_UtcMonthlyDay), utcDay);
+        return Localization.Format(nameof(AppResources.Schedule_MonthlyDay), utcDay + localDayShift);
     }
 
     private static uint ToNextExecutionUtc(TimeSpan time)
@@ -529,13 +529,13 @@ public partial class SchedulePage : ContentPage, IQueryAttributable
     private static string WeeklyLabel(int day) =>
         day switch
         {
-            1 => "周一",
-            2 => "周二",
-            3 => "周三",
-            4 => "周四",
-            5 => "周五",
-            6 => "周六",
-            7 => "周日",
+            1 => AppResources.Schedule_Monday,
+            2 => AppResources.Schedule_Tuesday,
+            3 => AppResources.Schedule_Wednesday,
+            4 => AppResources.Schedule_Thursday,
+            5 => AppResources.Schedule_Friday,
+            6 => AppResources.Schedule_Saturday,
+            7 => AppResources.Schedule_Sunday,
             _ => string.Empty
         };
 

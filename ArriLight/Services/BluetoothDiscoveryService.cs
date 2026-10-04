@@ -143,7 +143,7 @@ public sealed class BluetoothDiscoveryService(
                 waitBroadcast.SetResult("timeout");
                 timing.SetResult("timeout");
                 throw new BluetoothDiscoveryException(
-                    $"扫描设备 {address} 超时，请让手机靠近灯具后重试。");
+                    Localization.Format(nameof(AppResources.Ble_ScanTimedOut), address));
             }
             catch (OperationCanceledException)
             {
@@ -412,7 +412,7 @@ public sealed class BluetoothDiscoveryService(
                 return advertisedName;
         }
 
-        return "未命名 BLE 设备";
+        return AppResources.Device_UnnamedBle;
     }
 
     public static string GetDeviceAddress(IDevice device)
@@ -433,7 +433,7 @@ public sealed class BluetoothDiscoveryService(
 
         if (bluetoothLE.State != BluetoothState.On)
             throw new BluetoothDiscoveryException(
-                "蓝牙未开启，请先开启手机蓝牙。");
+                AppResources.Ble_Disabled);
     }
 
     private static async Task EnsurePermissionAsync()
@@ -446,7 +446,7 @@ public sealed class BluetoothDiscoveryService(
             if (bluetoothStatus != PermissionStatus.Granted)
             {
                 throw new BluetoothDiscoveryException(
-                    "没有“附近设备”权限，请在系统设置中允许 ArriLight 查找附近设备。");
+                    AppResources.Ble_NearbyPermissionRequired);
             }
         }
 
@@ -455,7 +455,7 @@ public sealed class BluetoothDiscoveryService(
         if (locationStatus != PermissionStatus.Granted)
         {
             throw new BluetoothDiscoveryException(
-                "没有定位权限，请在系统设置中允许 ArriLight 扫描蓝牙设备。");
+                AppResources.Ble_LocationPermissionRequired);
         }
 #endif
     }

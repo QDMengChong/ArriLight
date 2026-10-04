@@ -49,7 +49,7 @@ public sealed record AgpDeviceControlProfile(
 public sealed class AgpAuthenticationRequiredException : InvalidOperationException
 {
     public AgpAuthenticationRequiredException(string address)
-        : base($"设备 {address} 尚未完成 ArriLight 绑定认证。")
+        : base(Localization.Format(nameof(AppResources.Agp_DeviceNotAuthenticated), address))
     {
         Address = address;
     }
@@ -287,7 +287,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     {
         if (_applicationSuspended || _applicationClosing)
             throw new OperationCanceledException(
-                "应用不在前台，停止 BLE 操作。",
+                AppResources.Ble_AppNotInForeground,
                 new CancellationToken(true));
     }
 
@@ -298,7 +298,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         {
             if (_applicationSuspended || _applicationClosing)
                 throw new OperationCanceledException(
-                    "应用不在前台，停止 BLE 操作。",
+                    AppResources.Ble_AppNotInForeground,
                     new CancellationToken(true));
             return CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken, _applicationCancellation.Token);
@@ -369,7 +369,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(address))
-            throw new ArgumentException("设备地址不能为空。", nameof(address));
+            throw new ArgumentException(AppResources.Ble_AddressRequired, nameof(address));
 
         EnsureApplicationForeground();
         using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
@@ -408,7 +408,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     // BLE 连接失败不能确定是占用还是链路问题。只重试连接，
                     // 不重试已连接后的协议拒绝、无效 Token 或权限错误。
                     var reason = exception is OperationCanceledException
-                        ? $"本轮连接超过 {BindingAttemptTimeout.TotalSeconds:0.#} 秒"
+                        ? Localization.Format(nameof(AppResources.Ble_ConnectionAttemptTimedOut), BindingAttemptTimeout.TotalSeconds)
                         : exception.Message;
                     _diagnostics.Warning(
                         "AGP/Binding",
@@ -432,21 +432,21 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                 "AGP/Binding",
                 $"配对阶段已读取设备能力：device={address}，capabilities=0x{(ulong)capabilities:X}。");
             if (!capabilities.HasFlag(AgpCapabilities.SecureControl))
-                throw new NotSupportedException("设备不支持 Token 配对。");
+                throw new NotSupportedException(AppResources.Agp_TokenPairingUnsupported);
 
             var provision = await client.GetProvisionTokenAsync(cancellationToken: token);
             if (provision.Result == AgpResultCode.NotAuthorized)
             {
                 throw new InvalidOperationException(
-                    "设备配对窗口已关闭，请双键长按 1 秒，待蓝色指示灯闪烁后重新添加。");
+                    AppResources.Agp_PairingWindowClosed);
             }
             EnsureSuccess(provision.Result);
             if (provision.Token is not { Length: 4 } provisionedToken)
-                throw new InvalidOperationException("设备返回的 AGP Token 格式无效。");
+                throw new InvalidOperationException(AppResources.Agp_InvalidToken);
             if (!_repository.SetTokenAndCapabilities(address, provisionedToken, capabilities))
             {
                 throw new InvalidOperationException(
-                    "设备已返回 Token 和能力，但本地设备记录不存在，无法保存绑定信息。");
+                    AppResources.Agp_PairingRecordMissing);
             }
 
             // Token 已保存即配对成功；原连接会被设备断开，不能在这里继续
@@ -670,7 +670,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                 // The QR carries no firmware or effect settings. Populate these
                 // from the device both after import and on later control-page retries.
                 var savedDevice = _repository.GetByAddress(address);
-                if (savedDevice?.FirmwareVersion == "未知")
+                if (savedDevice is { HasKnownFirmwareVersion: false })
                 {
                     var firmware = await _connectionService.TryReadFirmwareRevisionAsync(address, cancellationToken);
                     cancellationToken.ThrowIfCancellationRequested();
@@ -722,7 +722,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(address))
-            throw new ArgumentException("设备地址不能为空。", nameof(address));
+            throw new ArgumentException(AppResources.Ble_AddressRequired, nameof(address));
 
         EnsureApplicationForeground();
         using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
@@ -737,7 +737,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         {
             EnsureApplicationForeground();
             if (!_repository.Contains(address))
-                throw new InvalidOperationException("设备已从列表删除，请重新添加后再操作。");
+                throw new InvalidOperationException(AppResources.Device_Removed);
 
             queryStarted = true;
             // 公开读取不创建授权会话，也不拆除本设备已经存在的持续控制会话。
@@ -970,7 +970,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                         $"应用生命周期切换释放 BLE 连接：reason={(rememberForResume ? "background" : "closing")}。");
                 }
                 if (failures.Count > 0)
-                    throw new AggregateException("部分设备连接释放失败。", failures);
+                    throw new AggregateException(AppResources.Ble_ReleaseFailed, failures);
             }
             finally
             {
@@ -1008,7 +1008,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         [CallerMemberName] string operationName = "")
     {
         if (string.IsNullOrWhiteSpace(address))
-            throw new ArgumentException("设备地址不能为空。", nameof(address));
+            throw new ArgumentException(AppResources.Ble_AddressRequired, nameof(address));
 
         EnsureApplicationForeground();
         using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
@@ -1023,7 +1023,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         {
             // A command queued by the old control page must not reconnect a device after removal.
             if (!_repository.Contains(address))
-                throw new InvalidOperationException("设备已从列表删除，请重新添加后再操作。");
+                throw new InvalidOperationException(AppResources.Device_Removed);
 
             // A lease may have claimed teardown while this operation waited.
             _connectionService.PromoteConnectionToLongLived(address);
@@ -1235,7 +1235,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         AgpCapabilities required)
     {
         if (!available.HasFlag(required))
-            throw new NotSupportedException($"设备不支持 AGP 能力 {required}。");
+            throw new NotSupportedException(Localization.Format(nameof(AppResources.Agp_CapabilityUnsupported), required));
     }
 
     private static void EnsureSuccess(AgpControlResponse response) =>
@@ -1247,7 +1247,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     private static void EnsureSuccess(AgpResultCode result)
     {
         if (result != AgpResultCode.Success)
-            throw new InvalidOperationException($"AGP 命令失败：{result}。");
+            throw new InvalidOperationException(Localization.Format(nameof(AppResources.Agp_CommandFailed), result));
     }
 
     private static ushort RatioToUInt16(double ratio) =>

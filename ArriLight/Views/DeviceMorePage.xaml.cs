@@ -44,7 +44,9 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
 
     public string FirmwareVersion
     {
-        get => _firmwareVersion;
+        get => _firmwareVersion == SavedDevice.UnknownFirmwareVersion
+            ? AppResources.Common_Unknown
+            : _firmwareVersion;
         private set
         {
             _firmwareVersion = value;
@@ -88,7 +90,7 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
             return;
 
         _isLoading = true;
-        DeviceName = device.Name;
+        DeviceName = device.DisplayName;
         AddedAtText = device.AddedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm");
         FirmwareVersion = device.FirmwareVersion;
         IsPinned = device.IsPinned;
@@ -99,10 +101,10 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
     private async void OnRenameTapped(object? sender, TappedEventArgs e)
     {
         var name = await DisplayPromptAsync(
-            "修改设备名称",
-            "请输入新的设备名称",
-            accept: "保存",
-            cancel: "取消",
+            AppResources.Device_Rename,
+            AppResources.Device_NewNamePrompt,
+            accept: AppResources.Common_Save,
+            cancel: AppResources.Common_Cancel,
             initialValue: DeviceName,
             maxLength: 24);
 
@@ -142,10 +144,10 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
         try
         {
             var confirmed = await DisplayAlertAsync(
-                "解除绑定",
-                $"确定从设备列表删除“{DeviceName}”吗？",
-                "解除绑定",
-                "取消");
+                AppResources.Device_Unbind,
+                Localization.Format(nameof(AppResources.Device_RemoveConfirmation), DeviceName),
+                AppResources.Device_Unbind,
+                AppResources.Common_Cancel);
             if (!confirmed)
                 return;
 
@@ -156,9 +158,9 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
             catch (Exception)
             {
                 await DisplayAlertAsync(
-                    "解除绑定失败",
-                    "未能释放设备连接，设备记录已保留。请重试。",
-                    "知道了");
+                    AppResources.Device_UnbindFailed,
+                    AppResources.Device_UnbindRetained,
+                    AppResources.Common_Ok);
                 return;
             }
 

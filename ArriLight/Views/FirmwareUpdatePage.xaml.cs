@@ -11,11 +11,11 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     private readonly AppDiagnosticService _diagnostics;
 
     private string _deviceAddress = string.Empty;
-    private string _deviceName = "灯光设备";
+    private string _deviceName = AppResources.Device_DefaultName;
     private string _currentVersion = "1.0.0";
     private string _hardwareVersion = string.Empty;
-    private string _connectionText = "正在准备连接…";
-    private string _statusText = "请选择在线检查或加载本地 OTA 固件";
+    private string _connectionText = AppResources.Ble_PreparingConnection;
+    private string _statusText = AppResources.Firmware_SelectSource;
     private string _progressText = string.Empty;
     private double _progressValue;
     private bool _isBusy;
@@ -45,7 +45,9 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
 
     public string CurrentVersion
     {
-        get => _currentVersion;
+        get => _currentVersion == SavedDevice.UnknownFirmwareVersion
+            ? AppResources.Common_Unknown
+            : _currentVersion;
         private set => SetProperty(ref _currentVersion, value);
     }
 
@@ -103,8 +105,8 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
 
     public string CandidateTitle =>
         _candidate?.SourceKind == FirmwareSourceKind.Online
-            ? $"可用版本 {_candidate.Version}"
-            : $"本地 {_candidate?.ProtocolText ?? "OTA"} 固件";
+            ? Localization.Format(nameof(AppResources.Firmware_AvailableVersion), _candidate.Version)
+            : Localization.Format(nameof(AppResources.Firmware_LocalTitle), _candidate?.ProtocolText ?? "OTA");
 
     public string CandidateSourceText => _candidate is null
         ? string.Empty
@@ -130,7 +132,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
             _hasInitializedDeviceInfo = true;
             if (_repository.GetByAddress(_deviceAddress) is { } device)
             {
-                DeviceName = device.Name;
+                DeviceName = device.DisplayName;
                 CurrentVersion = device.FirmwareVersion;
                 _hardwareVersion = device.HardwareRevision?.Trim() ?? string.Empty;
             }
@@ -152,7 +154,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
 
         if (device.IsDemo)
         {
-            ConnectionText = "演示设备不执行真实蓝牙连接";
+            ConnectionText = AppResources.Demo_NoConnection;
             return;
         }
 
@@ -183,7 +185,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         }
         catch (Exception exception)
         {
-            ConnectionText = $"暂未连接：{exception.Message}";
+            ConnectionText = Localization.Format(nameof(AppResources.Ble_NotConnectedDetail), exception.Message);
         }
     }
 
@@ -191,30 +193,30 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     {
         if (string.IsNullOrWhiteSpace(_hardwareVersion))
         {
-            StatusText = "未读取到设备硬件版本，无法查询匹配的在线固件。";
+            StatusText = AppResources.Firmware_HardwareNotRead;
             return;
         }
 
         await RunBusyOperationAsync(
-            "正在检查在线固件…",
+            AppResources.Firmware_CheckingOnline,
             async token =>
             {
                 var result = await _firmwareUpdateService.CheckOnlineAsync(
                     _hardwareVersion,
-                    CurrentVersion,
+                    _currentVersion,
                     token);
                 if (result.Candidate is { } candidate)
                 {
                     SetCandidate(candidate, result.IsUpdateAvailable);
                     StatusText = result.IsUpdateAvailable
-                        ? $"发现新版本 {candidate.Version}，可以一键下载并升级。"
-                        : $"当前版本 {CurrentVersion} 已是最新版本。";
+                        ? Localization.Format(nameof(AppResources.Firmware_UpdateAvailable), candidate.Version)
+                        : Localization.Format(nameof(AppResources.Firmware_AlreadyLatest), CurrentVersion);
                 }
                 else
                 {
                     ClearCandidate();
                     StatusText =
-                        $"当前版本 {CurrentVersion} 已是最新版本。";
+                        Localization.Format(nameof(AppResources.Firmware_AlreadyLatest), CurrentVersion);
                 }
             });
     }
@@ -224,33 +226,33 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         var file = await FilePicker.Default.PickAsync(
             new PickOptions
             {
-                PickerTitle = "选择 OTA 固件（.bin、.hex、.hex4、.hex16、.hexe16、.res）"
+                PickerTitle = AppResources.Firmware_SelectFile
             });
         if (file is null)
             return;
 
         ClearCandidate();
         var loaded = await RunBusyOperationAsync(
-            "正在校验本地固件…",
+            AppResources.Firmware_ValidatingLocal,
             async token =>
             {
                 var candidate =
                     await _firmwareUpdateService.LoadLocalAsync(file, token);
                 SetCandidate(candidate, canUpgrade: true);
-                StatusText = $"本地 {candidate.ProtocolText} 固件已通过格式校验，等待确认升级。";
+                StatusText = Localization.Format(nameof(AppResources.Firmware_LocalReady), candidate.ProtocolText);
             });
 
         if (!loaded || _candidate is not { SourceKind: FirmwareSourceKind.Local } candidate)
             return;
 
         var confirmed = await DisplayAlertAsync(
-            "确认固件升级",
-            $"即将升级设备“{DeviceName}”。\n\n协议：{candidate.ProtocolText}\n文件：{candidate.FileName}\nProduct ID：{candidate.ProductId ?? "未提供"}\n\n升级期间请保持设备供电、手机蓝牙开启，并不要离开此页面。",
-            "立即升级",
-            "取消");
+            AppResources.Firmware_ConfirmUpdate,
+            Localization.Format(nameof(AppResources.Firmware_UpdateConfirmation), DeviceName, candidate.ProtocolText, candidate.FileName, candidate.ProductId ?? AppResources.Common_NotProvided),
+            AppResources.Firmware_UpdateNow,
+            AppResources.Common_Cancel);
         if (!confirmed)
         {
-            StatusText = "已取消本地固件升级。";
+            StatusText = AppResources.Firmware_LocalCancelled;
             _diagnostics.Information(
                 "OTA/Local",
                 $"用户取消了本地固件升级确认：{candidate.FileName}。");
@@ -275,8 +277,8 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         ProgressText = "0%";
         await RunBusyOperationAsync(
             candidate.SourceKind == FirmwareSourceKind.Online
-                ? "正在下载固件，完成后将自动开始升级…"
-                : "正在准备本地固件升级…",
+                ? AppResources.Firmware_DownloadingBeforeUpdate
+                : AppResources.Firmware_PreparingLocalUpdate,
             async token =>
             {
                 var progress = new Progress<FirmwareUpdateProgress>(
@@ -303,7 +305,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
                     OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
                 }
 
-                StatusText = "升级成功！";
+                StatusText = AppResources.Firmware_UpdateSucceeded;
                 ProgressValue = 1;
                 ProgressText = "100%";
             });
@@ -313,7 +315,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     {
         _diagnostics.Warning("OTA/UI", "用户请求取消当前 OTA 操作。");
         _operationCancellation?.Cancel();
-        StatusText = "正在取消，请等待当前 BLE 操作结束…";
+        StatusText = AppResources.Firmware_Cancelling;
     }
 
     private async Task<bool> RunBusyOperationAsync(
@@ -334,7 +336,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         }
         catch (OperationCanceledException)
         {
-            StatusText = "操作已取消。若固件传输已经开始，请重新扫描设备并确认其状态。";
+            StatusText = AppResources.Firmware_OperationCancelled;
             _diagnostics.Warning("OTA/UI", "OTA 操作已取消。");
             return false;
         }
@@ -349,7 +351,7 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         }
         catch (InvalidDataException exception)
         {
-            StatusText = $"固件校验失败：{exception.Message}";
+            StatusText = Localization.Format(nameof(AppResources.Firmware_ValidationFailed), exception.Message);
             _diagnostics.Error("OTA/UI", "固件数据无效。", exception);
             return false;
         }
@@ -361,21 +363,21 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         }
         catch (HttpRequestException exception)
         {
-            StatusText = $"网络请求失败：{exception.Message}";
+            StatusText = Localization.Format(nameof(AppResources.Firmware_NetworkFailed), exception.Message);
             _diagnostics.Error("OTA/UI", "在线固件请求失败。", exception);
             return false;
         }
         catch (IOException exception)
         {
             StatusText = _candidate?.Protocol == OtaProtocol.SingleBank
-                ? "Single Bank 切换 OTA 模式时蓝牙连接断开（GATT 133）。当前 SDK 未将此切换期断开继续处理为重新扫描 bootloader。"
-                : $"蓝牙传输失败：{exception.Message}";
+                ? AppResources.Firmware_SwitchDisconnect
+                : Localization.Format(nameof(AppResources.Firmware_BleTransferFailed), exception.Message);
             _diagnostics.Error("OTA/UI", "蓝牙 OTA 传输失败。", exception);
             return false;
         }
         catch (Exception exception)
         {
-            StatusText = $"操作失败：{exception.Message}";
+            StatusText = Localization.Format(nameof(AppResources.Common_OperationFailed), exception.Message);
             _diagnostics.Error("OTA/UI", "未分类的 OTA 操作失败。", exception);
             return false;
         }
@@ -449,18 +451,18 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
         exception.State switch
         {
             OtaState.ErrorNoService =>
-                "设备没有提供 SLB OTA 服务，请确认固件和设备模式。",
+                AppResources.Firmware_SlbServiceMissing,
             OtaState.ErrorFileMismatch =>
-                "固件与设备 Product ID、Boot 版本或 OTA 模式不匹配。",
+                AppResources.Firmware_DeviceMismatch,
             OtaState.ErrorMtuChange or OtaState.ErrorMtuMismatch =>
-                "BLE MTU 协商失败，请重新连接并靠近设备后重试。",
+                AppResources.Firmware_MtuFailed,
             OtaState.ErrorCharacteristic =>
-                "设备的 SLB OTA 特征不完整或属性不正确。",
+                AppResources.Firmware_SlbCharacteristicsInvalid,
             OtaState.ErrorCannotConnect =>
-                "无法连接 OTA 设备，请确认设备供电和蓝牙距离。",
+                AppResources.Firmware_OtaConnectionFailed,
             OtaState.ErrorFirmwareFeedback =>
-                "设备拒绝固件、offset 异常或最终校验失败。",
-            _ => $"OTA 升级失败（{exception.State}）：{exception.Message}"
+                AppResources.Firmware_Rejected,
+            _ => Localization.Format(nameof(AppResources.Firmware_OtaFailed), exception.State, exception.Message)
         };
 
     private bool SetProperty<T>(

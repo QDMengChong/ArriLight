@@ -3,9 +3,10 @@
     x:Class="ArriLight.FirmwareUpdatePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:FirmwareUpdatePage"
-    Title="固件升级"
+    Title="{x:Static strings:AppResources.Firmware_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <ScrollView VerticalScrollBarVisibility="Never">
@@ -40,7 +41,7 @@
 
                     <Grid ColumnDefinitions="*,Auto">
                         <Label
-                            Text="当前版本"
+                            Text="{x:Static strings:AppResources.Firmware_CurrentVersion}"
                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                         <Label
                             Grid.Column="1"
@@ -56,18 +57,18 @@
                     <Label
                         FontFamily="OpenSansSemibold"
                         FontSize="16"
-                        Text="检查固件"
+                        Text="{x:Static strings:AppResources.Firmware_Check}"
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button
                             Clicked="OnOnlineCheckClicked"
                             IsEnabled="{Binding CanOperate}"
-                            Text="在线检查" />
+                            Text="{x:Static strings:AppResources.Firmware_CheckOnline}" />
                         <Button
                             Grid.Column="1"
                             Clicked="OnSelectLocalClicked"
                             IsEnabled="{Binding CanOperate}"
-                            Text="加载本地固件" />
+                            Text="{x:Static strings:AppResources.Firmware_LoadLocal}" />
                     </Grid>
                 </VerticalStackLayout>
             </Border>
@@ -112,7 +113,7 @@
                         <Label
                             FontFamily="OpenSansSemibold"
                             FontSize="16"
-                            Text="升级状态"
+                            Text="{x:Static strings:AppResources.Firmware_Status}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Label
                             Grid.Column="1"
@@ -133,14 +134,14 @@
                         Clicked="OnStartUpdateClicked"
                         IsEnabled="{Binding CanStartUpdate}"
                         IsVisible="{Binding CanShowOnlineUpdateButton}"
-                        Text="一键下载并升级" />
+                        Text="{x:Static strings:AppResources.Firmware_DownloadAndUpdate}" />
                     <Button
                         BackgroundColor="Transparent"
                         BorderColor="#E65B65"
                         BorderWidth="1"
                         Clicked="OnCancelClicked"
                         IsVisible="{Binding IsOperationRunning}"
-                        Text="取消升级"
+                        Text="{x:Static strings:AppResources.Firmware_CancelUpdate}"
                         TextColor="#E65B65" />
                 </VerticalStackLayout>
             </Border>
@@ -148,7 +149,7 @@
             <Label
                 FontSize="11"
                 HorizontalTextAlignment="Center"
-                Text="升级期间请保持灯具通电、手机蓝牙开启，并避免离开设备附近。"
+                Text="{x:Static strings:AppResources.Firmware_KeepPowered}"
                 TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         </VerticalStackLayout>
     </ScrollView>

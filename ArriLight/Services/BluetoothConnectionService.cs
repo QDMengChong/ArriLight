@@ -117,7 +117,7 @@ public sealed class BluetoothConnectionService
     /// <summary>Last active device, retained for diagnostics; UI must use GetSnapshot(address).</summary>
     public BluetoothSessionSnapshot Snapshot =>
         _lastActiveSession?.Snapshot ??
-        new(BluetoothSessionState.Disconnected, string.Empty, "未连接");
+        new(BluetoothSessionState.Disconnected, string.Empty, AppResources.Ble_NotConnected);
 
     public BluetoothSessionSnapshot GetSnapshot(string address) =>
         GetOrCreateSession(address).Snapshot;
@@ -308,7 +308,7 @@ public sealed class BluetoothConnectionService
                 }
             }
             if (failures.Count > 0)
-                throw new AggregateException("部分设备连接释放失败。", failures);
+                throw new AggregateException(AppResources.Ble_ReleaseFailed, failures);
             timing.SetResult("disconnected");
         }
         catch (Exception exception)
@@ -480,7 +480,7 @@ public sealed class BluetoothConnectionService
                 () => characteristic.ReadAsync(cancellationToken),
                 value => $"{(value.Item2 == 0 ? "ok" : "failed")}:gatt={value.Item2},length={value.Item1?.Length ?? 0}");
             if (result.Item2 != 0)
-                throw new InvalidOperationException($"设备读取失败（GATT 状态：{result.Item2}）。");
+                throw new InvalidOperationException(Localization.Format(nameof(AppResources.Ble_ReadFailed), result.Item2));
             var data = result.Item1 ?? [];
             _diagnostics.Trace(
                 "BLE/RX",
@@ -541,7 +541,7 @@ public sealed class BluetoothConnectionService
                     $"characteristic={characteristicId}, properties={characteristic.Properties}; notification/indication CCCD subscription",
                     () => characteristic.StartUpdatesAsync(cancellationToken));
                 if (!session.Snapshot.IsConnected || session.Generation != generation)
-                    throw new IOException("设备在开启通知期间已断开，请重新连接。");
+                    throw new IOException(AppResources.Ble_DisconnectedDuringSubscription);
                 _diagnostics.Information(
                     "BLE/Notify",
                     $"通知订阅成功：{characteristicId}。");
@@ -613,7 +613,7 @@ public sealed class BluetoothConnectionService
                 GetOrCreateSession(address),
                 BluetoothSessionState.Updating,
                 address,
-                "已连接，正在执行 OTA");
+                AppResources.Ble_ConnectedUpdating);
             await operation(device, cancellationToken);
         }
         finally
@@ -625,12 +625,12 @@ public sealed class BluetoothConnectionService
                     session,
                     BluetoothSessionState.Connected,
                     address,
-                    "设备已连接");
+                    AppResources.Ble_DeviceConnected);
             }
             else
             {
                 session.Device = null;
-                UpdateState(session, BluetoothSessionState.Disconnected, address, "OTA 结束，设备已断开");
+                UpdateState(session, BluetoothSessionState.Disconnected, address, AppResources.Ble_DisconnectedAfterOta);
             }
 
             _operationLock.Release();
@@ -644,7 +644,7 @@ public sealed class BluetoothConnectionService
         var session = GetOrCreateSession(address);
         cancellationToken.ThrowIfCancellationRequested();
         if (_applicationSuspended)
-            throw new OperationCanceledException("应用已进入后台，停止 BLE 建连。", new CancellationToken(true));
+            throw new OperationCanceledException(AppResources.Ble_BackgroundConnectionStopped, new CancellationToken(true));
         if (session.Device is { State: DeviceState.Connected } current)
         {
             BleTimingScope.Current?.Mark("connection=reused; nativeConnect=skipped");
@@ -663,14 +663,14 @@ public sealed class BluetoothConnectionService
                 _sessionsByDeviceId.TryRemove(stale.Id, out _);
             session.Device = null;
             DiscardNotificationHandlers(session);
-            UpdateState(session, BluetoothSessionState.Scanning, address, "正在查找设备");
+            UpdateState(session, BluetoothSessionState.Scanning, address, AppResources.Ble_FindingDevice);
             var device = await MeasureAsync(
                 "Connection.FindDevice", address, null,
                 () => _discoveryService.FindDeviceAsync(
                     address, cancellationToken: cancellationToken),
                 value => $"found:state={value.State}");
 
-            UpdateState(session, BluetoothSessionState.Connecting, address, "正在连接设备");
+            UpdateState(session, BluetoothSessionState.Connecting, address, AppResources.Ble_ConnectingDevice);
             _diagnostics.Information(
                 "BLE/Connection",
                 $"开始连接 {address}，id={device.Id}，name={device.Name ?? "未命名"}，state={device.State}。");
@@ -691,7 +691,7 @@ public sealed class BluetoothConnectionService
                 session.Device = device;
                 session.Generation++;
                 _sessionsByDeviceId[device.Id] = session;
-                UpdateState(session, BluetoothSessionState.Connected, address, "设备已连接");
+                UpdateState(session, BluetoothSessionState.Connected, address, AppResources.Ble_DeviceConnected);
                 _diagnostics.Information(
                     "BLE/Connection",
                     $"设备连接成功：{address}，id={device.Id}。");
@@ -709,7 +709,7 @@ public sealed class BluetoothConnectionService
                     "BLE/Connection",
                     $"连接设备 {address} 失败。",
                     exception);
-                UpdateState(session, BluetoothSessionState.Error, address, $"连接失败：{exception.Message}");
+                UpdateState(session, BluetoothSessionState.Error, address, Localization.Format(nameof(AppResources.Ble_ConnectionFailedDetail), exception.Message));
                 throw;
             }
         }
@@ -737,14 +737,14 @@ public sealed class BluetoothConnectionService
                 $"service={serviceId}; API may use current connection cache",
                 () => device.GetServiceAsync(serviceId, cancellationToken),
                 value => value is null ? "missing" : "found")
-                ?? throw new InvalidOperationException($"设备未提供服务 {serviceId}。");
+                ?? throw new InvalidOperationException(Localization.Format(nameof(AppResources.Ble_ServiceMissing), serviceId));
             var characteristic = await MeasureAsync(
                 "GATT.GetCharacteristic", address,
                 $"service={serviceId}, characteristic={characteristicId}; API may use current connection cache",
                 () => service.GetCharacteristicAsync(characteristicId, cancellationToken),
                 value => value is null ? "missing" : "found")
                 ?? throw new InvalidOperationException(
-                    $"服务 {serviceId} 未提供特征 {characteristicId}。");
+                    Localization.Format(nameof(AppResources.Ble_CharacteristicMissing), serviceId, characteristicId));
             timing.SetResult("found");
             return characteristic;
         }
@@ -940,7 +940,7 @@ public sealed class BluetoothConnectionService
                 session.LongLived = false;
             if (ShouldInvalidateCachedDevice(reason))
                 _discoveryService.InvalidateCachedDevice(address);
-            UpdateState(session, BluetoothSessionState.Disconnected, address, "未连接");
+            UpdateState(session, BluetoothSessionState.Disconnected, address, AppResources.Ble_NotConnected);
         }
         finally
         {
@@ -1124,7 +1124,7 @@ public sealed class BluetoothConnectionService
             $"设备已断开：{session.Address}。");
         HandleDisconnected(
             session,
-            "设备已断开",
+            AppResources.Ble_DeviceDisconnected,
             session.ExpectedDisconnectReason ?? BluetoothDisconnectReason.Abnormal);
     }
 
@@ -1140,7 +1140,7 @@ public sealed class BluetoothConnectionService
             $"设备连接丢失：{session.Address}，{eventArgs.ErrorMessage}");
         HandleDisconnected(
             session,
-            "连接意外断开",
+            AppResources.Ble_ConnectionLost,
             session.ExpectedDisconnectReason ?? BluetoothDisconnectReason.Abnormal);
     }
 
@@ -1158,7 +1158,7 @@ public sealed class BluetoothConnectionService
             session,
             BluetoothSessionState.Error,
             session.Address,
-            eventArgs.ErrorMessage ?? "连接错误");
+            eventArgs.ErrorMessage ?? AppResources.Ble_ConnectionError);
     }
 
     private void HandleDisconnected(
@@ -1231,7 +1231,7 @@ public sealed class BluetoothConnectionService
         public bool LongLived { get; set; }
         public BluetoothDisconnectReason? ExpectedDisconnectReason { get; set; }
         public BluetoothSessionSnapshot Snapshot { get; set; } =
-            new(BluetoothSessionState.Disconnected, address, "未连接");
+            new(BluetoothSessionState.Disconnected, address, AppResources.Ble_NotConnected);
 
         public bool HasActiveLease
         {

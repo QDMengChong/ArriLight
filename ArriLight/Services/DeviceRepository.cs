@@ -30,7 +30,7 @@ public sealed class DeviceRepository
             content.Name,
             content.Address,
             DateTimeOffset.Now,
-            FirmwareVersion: "未知",
+            FirmwareVersion: SavedDevice.UnknownFirmwareVersion,
             Token: content.Token,
             BlinkEffectParameters: new(),
             BreatheEffectParameters: new(),
@@ -120,7 +120,7 @@ public sealed class DeviceRepository
     {
         ArgumentNullException.ThrowIfNull(token);
         if (token.Length != 4)
-            throw new ArgumentException("设备 Token 必须为 4 字节。", nameof(token));
+            throw new ArgumentException(AppResources.Agp_TokenLengthInvalid, nameof(token));
 
         return Update(
             address,
@@ -147,7 +147,7 @@ public sealed class DeviceRepository
     {
         ArgumentNullException.ThrowIfNull(token);
         if (token.Length != 4)
-            throw new ArgumentException("设备 Token 必须为 4 字节。", nameof(token));
+            throw new ArgumentException(AppResources.Agp_TokenLengthInvalid, nameof(token));
 
         return Update(
             address,
@@ -274,7 +274,13 @@ public sealed class DeviceRepository
                     migrated = true;
                 }
 
-                if (string.IsNullOrWhiteSpace(device.FirmwareVersion))
+                // Older versions persisted a Chinese UI label as the unknown state.
+                if (device.FirmwareVersion == "未知")
+                {
+                    device = device with { FirmwareVersion = SavedDevice.UnknownFirmwareVersion };
+                    migrated = true;
+                }
+                else if (string.IsNullOrWhiteSpace(device.FirmwareVersion))
                 {
                     device = device with { FirmwareVersion = "1.0.0" };
                     migrated = true;

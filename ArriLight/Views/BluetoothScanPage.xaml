@@ -3,9 +3,10 @@
     x:Class="ArriLight.BluetoothScanPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:BluetoothScanPage"
-    Title="添加设备"
+    Title="{x:Static strings:AppResources.Device_Add}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <Grid Padding="20,18" RowDefinitions="Auto,Auto,*" RowSpacing="14">
@@ -19,7 +20,7 @@
                     <Label
                         FontFamily="OpenSansSemibold"
                         FontSize="19"
-                        Text="搜索附近的灯光设备"
+                        Text="{x:Static strings:AppResources.Scan_Title}"
                         TextColor="White" />
                     <Label
                         FontSize="12"
@@ -39,7 +40,7 @@
         <Grid Grid.Row="1" ColumnDefinitions="*,Auto">
             <Label
                 FontSize="13"
-                Text="选择设备后，为它设置一个名称"
+                Text="{x:Static strings:AppResources.Scan_NamingHint}"
                 TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                 VerticalTextAlignment="Center" />
             <Button
@@ -47,7 +48,7 @@
                 Padding="16,8"
                 Clicked="OnRefreshClicked"
                 FontSize="13"
-                Text="重新搜索" />
+                Text="{x:Static strings:AppResources.Scan_SearchAgain}" />
         </Grid>
 
         <CollectionView
@@ -135,7 +136,7 @@
                         FontFamily="OpenSansSemibold"
                         FontSize="20"
                         HorizontalTextAlignment="Center"
-                        Text="正在配对设备"
+                        Text="{x:Static strings:AppResources.Pairing_InProgress}"
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                     <Label
                         x:Name="BindingPromptStatus"
@@ -147,7 +148,7 @@
                         FontSize="14"
                         HorizontalTextAlignment="Center"
                         LineBreakMode="WordWrap"
-                        Text="请保持灯具通电。配对时蓝色指示灯应闪烁，若已停止，请双键长按 1 秒重新开启配对窗口。"
+                        Text="{x:Static strings:AppResources.Pairing_Instructions}"
                         TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                     <Label
                         x:Name="BindingPromptCountdown"
@@ -157,7 +158,7 @@
                         TextColor="{StaticResource Primary}" />
                     <Button
                         Clicked="OnCancelBindingClicked"
-                        Text="取消添加" />
+                        Text="{x:Static strings:AppResources.Pairing_CancelAdding}" />
                 </VerticalStackLayout>
             </Border>
         </Grid>

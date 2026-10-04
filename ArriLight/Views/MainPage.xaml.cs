@@ -37,7 +37,7 @@ public partial class MainPage : ContentPage
 
     public ObservableCollection<LightDeviceItem> Devices { get; } = [];
 
-    public string DeviceCountText => $"{Devices.Count} 台设备";
+    public string DeviceCountText => Localization.Format(nameof(AppResources.Home_DeviceCount), Devices.Count);
 
     public MainPage()
     {
@@ -211,7 +211,7 @@ public partial class MainPage : ContentPage
         if (_agpLight.GetCachedDeviceStatus(device.Address) is not { } status)
             return;
         device.IsOnline = status.IsOnline;
-        device.Status = status.IsOnline ? "在线" : "离线";
+        device.Status = status.IsOnline ? AppResources.Device_Online : AppResources.Device_Offline;
         device.StatusColor = Color.FromArgb(status.IsOnline ? "#35C987" : "#E65B65");
         if (status.LightState is { } lightState)
             device.IsOn = lightState.IsOn;
@@ -233,11 +233,11 @@ public partial class MainPage : ContentPage
             var isOnline = cachedStatus?.IsOnline ?? isOnlineDemo;
 
             Devices.Add(new LightDeviceItem(
-                savedDevice.Name,
+                savedDevice.DisplayName,
                 savedDevice.Address,
-                isOnline ? "在线" : savedDevice.IsDemo || cachedStatus is not null
-                    ? "离线"
-                    : "已保存 · 等待连接",
+                isOnline ? AppResources.Device_Online : savedDevice.IsDemo || cachedStatus is not null
+                    ? AppResources.Device_Offline
+                    : AppResources.Device_SavedWaiting,
                 isOnline
                     ? Color.FromArgb("#35C987")
                     : Color.FromArgb(cachedStatus is null ? "#A9B2C3" : "#E65B65"),
@@ -301,7 +301,7 @@ public partial class MainPage : ContentPage
                 "Light/Power",
                 $"列表页发送开关指令失败：{device.Address}。",
                 exception);
-            ToastService.Show("发送失败，请重试");
+            ToastService.Show(AppResources.Control_SendFailed);
         }
         finally
         {
@@ -383,7 +383,7 @@ public partial class MainPage : ContentPage
             if (_isVisible)
                 _statusQuerySuppressed = false;
             _diagnostics.Error("UI/Navigation", $"打开设备控制页失败：{device.Address}。", exception);
-            ToastService.Show("打开设备失败，请重试");
+            ToastService.Show(AppResources.Home_OpenDeviceFailed);
         }
         finally
         {
@@ -486,7 +486,7 @@ public partial class MainPage : ContentPage
         CancellationToken refreshCancellationToken)
     {
         device.IsChecking = true;
-        device.Status = "连接中";
+        device.Status = AppResources.Ble_Connecting;
         using var timeoutCancellation =
             CancellationTokenSource.CreateLinkedTokenSource(refreshCancellationToken);
         timeoutCancellation.CancelAfter(timeout);

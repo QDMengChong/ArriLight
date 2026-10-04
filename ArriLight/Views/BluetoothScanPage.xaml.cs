@@ -15,8 +15,8 @@ public partial class BluetoothScanPage : ContentPage
     private Task? _bindingCountdownTask;
     private bool _isScanning;
     private bool _isAdding;
-    private string _scanStatusText = "准备开始搜索";
-    private string _emptyText = "正在等待设备广播…";
+    private string _scanStatusText = AppResources.Scan_Ready;
+    private string _emptyText = AppResources.Scan_WaitingForAdvertisement;
 
 #if ANDROID
     // 原生 Dialog 的 DimBehind 会覆盖 Shell 顶栏、底部标签栏和页面内容；
@@ -108,8 +108,8 @@ public partial class BluetoothScanPage : ContentPage
 
         Devices.Clear();
         _firstRssiByAddress.Clear();
-        EmptyText = "正在等待设备广播…";
-        ScanStatusText = "正在搜索，请让灯具保持通电";
+        EmptyText = AppResources.Scan_WaitingForAdvertisement;
+        ScanStatusText = AppResources.Scan_KeepPowered;
         IsScanning = true;
         _scanCancellation?.Dispose();
         _scanCancellation = new CancellationTokenSource();
@@ -117,28 +117,28 @@ public partial class BluetoothScanPage : ContentPage
         try
         {
             await _discoveryService.ScanAsync(_scanCancellation.Token);
-            ScanStatusText = $"搜索完成，共发现 {Devices.Count} 台设备";
-            EmptyText = "没有发现可添加的设备";
+            ScanStatusText = Localization.Format(nameof(AppResources.Scan_CompletedCount), Devices.Count);
+            EmptyText = AppResources.Scan_NoAvailableDevices;
             await ScrollToTopAsync();
         }
         catch (OperationCanceledException)
         {
-            ScanStatusText = "搜索已停止";
+            ScanStatusText = AppResources.Scan_Stopped;
         }
         catch (BluetoothDiscoveryException exception)
         {
-            ScanStatusText = "暂时无法搜索设备";
+            ScanStatusText = AppResources.Scan_TemporarilyUnavailable;
             EmptyText = exception.Message;
-            await DisplayAlertAsync("无法搜索", exception.Message, "知道了");
+            await DisplayAlertAsync(AppResources.Scan_Unavailable, exception.Message, AppResources.Common_Ok);
         }
         catch (Exception exception)
         {
-            ScanStatusText = "搜索失败";
-            EmptyText = "请稍后重新搜索";
+            ScanStatusText = AppResources.Scan_Failed;
+            EmptyText = AppResources.Scan_TryLater;
             await DisplayAlertAsync(
-                "搜索失败",
-                $"没有完成蓝牙搜索：{exception.Message}",
-                "知道了");
+                AppResources.Scan_Failed,
+                Localization.Format(nameof(AppResources.Scan_FailedDetail), exception.Message),
+                AppResources.Common_Ok);
         }
         finally
         {
@@ -187,7 +187,7 @@ public partial class BluetoothScanPage : ContentPage
             }
 
             Devices.Insert(insertAt, device);
-            ScanStatusText = $"正在搜索，已发现 {Devices.Count} 台设备";
+            ScanStatusText = Localization.Format(nameof(AppResources.Scan_FoundCount), Devices.Count);
             _ = ScrollToTopAsync();
         });
     }
@@ -257,18 +257,18 @@ public partial class BluetoothScanPage : ContentPage
         if (_repository.Contains(address))
         {
             await DisplayAlertAsync(
-                "设备已添加",
-                "这个蓝牙设备已经在设备列表中。",
-                "知道了");
+                AppResources.Device_AlreadyAdded,
+                AppResources.Device_AlreadyInList,
+                AppResources.Common_Ok);
             return;
         }
 
         var name = await DisplayPromptAsync(
-            "命名设备",
-            $"设备地址：{address}",
-            accept: "保存",
-            cancel: "取消",
-            placeholder: "例如：客厅主灯",
+            AppResources.Device_NamePrompt,
+            Localization.Format(nameof(AppResources.Device_AddressDisplay), address),
+            accept: AppResources.Common_Save,
+            cancel: AppResources.Common_Cancel,
+            placeholder: AppResources.Device_NameExample,
             initialValue: suggestedName,
             maxLength: 24);
 
@@ -278,9 +278,9 @@ public partial class BluetoothScanPage : ContentPage
         if (!_repository.TryAdd(name, address))
         {
             await DisplayAlertAsync(
-                "保存失败",
-                "设备名称不能为空，或该设备已经存在。",
-                "知道了");
+                AppResources.Common_SaveFailed,
+                AppResources.Device_NameRequiredOrDuplicate,
+                AppResources.Common_Ok);
             return;
         }
 
@@ -302,14 +302,14 @@ public partial class BluetoothScanPage : ContentPage
         {
             ToastService.ShowForDuration(
                 DateTimeOffset.UtcNow >= _bindingDeadline
-                    ? "配对超时，请确认配对窗口开启且其他手机已断开后重试。"
-                    : "已取消添加，设备未添加。",
+                    ? AppResources.Pairing_TimedOut
+                    : AppResources.Pairing_Cancelled,
                 TimeSpan.FromSeconds(1));
         }
         catch (Exception exception)
         {
             ToastService.ShowForDuration(
-                $"添加失败：{exception.Message}",
+                Localization.Format(nameof(AppResources.Device_AddFailedDetail), exception.Message),
                 TimeSpan.FromSeconds(1));
         }
         finally
@@ -331,7 +331,7 @@ public partial class BluetoothScanPage : ContentPage
         }
 
         ToastService.ShowForDuration(
-            "添加成功",
+            AppResources.Device_AddSucceeded,
             TimeSpan.FromSeconds(1));
 
         await _discoveryService.StopAsync();
@@ -357,10 +357,10 @@ public partial class BluetoothScanPage : ContentPage
 
             var text = stage switch
             {
-                AgpBindingStage.Connecting => "正在连接 PW01，请稍候…",
+                AgpBindingStage.Connecting => AppResources.Pairing_Connecting,
                 AgpBindingStage.WaitingForConnection =>
-                    "连接未完成，正在恢复蓝牙连接并自动重试…",
-                AgpBindingStage.ReceivingToken => "已连接，正在获取配对信息…",
+                    AppResources.Pairing_Retrying,
+                AgpBindingStage.ReceivingToken => AppResources.Pairing_ReadingInformation,
                 _ => string.Empty
             };
 #if ANDROID
@@ -431,7 +431,7 @@ public partial class BluetoothScanPage : ContentPage
 
     private void UpdateBindingCountdown(int seconds)
     {
-        var text = $"配对剩余时间：{seconds} 秒";
+        var text = Localization.Format(nameof(AppResources.Pairing_TimeRemaining), seconds);
 #if ANDROID
         if (_bindingDialogCountdown is not null)
         {
@@ -470,7 +470,7 @@ public partial class BluetoothScanPage : ContentPage
 
         var title = CreateDialogText(
             context,
-            "正在配对设备",
+            AppResources.Pairing_InProgress,
             20,
             Android.Graphics.Color.ParseColor("#15213B"));
         title.Typeface = Android.Graphics.Typeface.DefaultBold;
@@ -485,7 +485,7 @@ public partial class BluetoothScanPage : ContentPage
 
         var message = CreateDialogText(
             context,
-            "请保持灯具通电。配对时蓝色指示灯应闪烁，若已停止，请双键长按 1 秒重新开启配对窗口。",
+            AppResources.Pairing_Instructions,
             14,
             Android.Graphics.Color.ParseColor("#667085"));
         card.AddView(message, CreateDialogLayoutParams(context, bottomMarginDp: 18));
@@ -500,7 +500,7 @@ public partial class BluetoothScanPage : ContentPage
 
         var cancel = new Android.Widget.Button(context)
         {
-            Text = "取消添加"
+            Text = AppResources.Pairing_CancelAdding
         };
         cancel.SetTextColor(Android.Graphics.Color.White);
         cancel.TextSize = 16;

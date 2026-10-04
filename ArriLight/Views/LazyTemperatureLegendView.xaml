@@ -3,15 +3,16 @@
     x:Class="ArriLight.LazyTemperatureLegendView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight">
     <Grid ColumnDefinitions="Auto,*,Auto">
-        <Label FontSize="11" Text="暖光" TextColor="#E19A56" />
+        <Label FontSize="11" Text="{x:Static strings:AppResources.Temperature_Warm}" TextColor="#E19A56" />
         <Label
             Grid.Column="1"
             FontSize="11"
             HorizontalTextAlignment="Center"
-            Text="色温"
+            Text="{x:Static strings:AppResources.Temperature_Title}"
             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-        <Label Grid.Column="2" FontSize="11" Text="冷光" TextColor="#77AEEA" />
+        <Label Grid.Column="2" FontSize="11" Text="{x:Static strings:AppResources.Temperature_Cool}" TextColor="#77AEEA" />
     </Grid>
 </local:TimedLazyContentView>

@@ -3,9 +3,10 @@
     x:Class="ArriLight.AppVersionPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="local:AppVersionPage"
-    Title="应用版本"
+    Title="{x:Static strings:AppResources.Version_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <ScrollView>
@@ -40,13 +41,13 @@
                     <Label
                         FontFamily="OpenSansSemibold"
                         FontSize="18"
-                        Text="本次更新"
+                        Text="{x:Static strings:AppResources.Version_WhatsNew}"
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                     <BoxView HeightRequest="1" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
-                    <Label Style="{StaticResource ReleaseNoteStyle}" Text="• 全新的设备管理首页与底部导航" />
-                    <Label Style="{StaticResource ReleaseNoteStyle}" Text="• 新增消息中心、版本信息与关于我们" />
-                    <Label Style="{StaticResource ReleaseNoteStyle}" Text="• 支持跟随系统、浅色和深色主题" />
-                    <Label Style="{StaticResource ReleaseNoteStyle}" Text="• 优化 Android 端界面表现与交互体验" />
+                    <Label Style="{StaticResource ReleaseNoteStyle}" Text="{x:Static strings:AppResources.Version_DevicesUpdate}" />
+                    <Label Style="{StaticResource ReleaseNoteStyle}" Text="{x:Static strings:AppResources.Version_InformationUpdate}" />
+                    <Label Style="{StaticResource ReleaseNoteStyle}" Text="{x:Static strings:AppResources.Version_ThemeUpdate}" />
+                    <Label Style="{StaticResource ReleaseNoteStyle}" Text="{x:Static strings:AppResources.Version_AndroidUpdate}" />
                 </VerticalStackLayout>
             </Border>
         </VerticalStackLayout>
