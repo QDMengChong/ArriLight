@@ -213,7 +213,9 @@ public partial class MainPage : ContentPage
         device.IsOnline = status.IsOnline;
         device.Status = status.IsOnline ? AppResources.Device_Online : AppResources.Device_Offline;
         device.StatusColor = Color.FromArgb(status.IsOnline ? "#35C987" : "#E65B65");
-        if (status.LightState is { } lightState)
+        // Session preparation publishes the pre-command state. Keep the user's
+        // pending power choice visible until the command completes or fails.
+        if (!device.IsPowerChanging && status.LightState is { } lightState)
             device.IsOn = lightState.IsOn;
     }
 
@@ -259,44 +261,44 @@ public partial class MainPage : ContentPage
 
     private async Task ToggleDevicePowerAsync(LightDeviceItem device)
     {
+        if (device.IsPowerChanging)
+            return;
+
+        var previousIsOn = device.IsOn;
+        var desiredOn = !previousIsOn;
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Home.Power", device.Address,
-            $"desiredOn={!device.IsOn}; isDemo={device.IsDemo}; isChecking={device.IsChecking}");
-        if (!device.IsDemo)
-            _agpLight.BeginHomeControlOperation(device.Address);
+            $"desiredOn={desiredOn}; isDemo={device.IsDemo}; isChecking={device.IsChecking}");
+        // Guard before awaiting query cleanup: duplicate clicks and its final
+        // status update must not change the intent of this click.
+        device.IsPowerChanging = true;
         // 状态轮询不应抢占用户针对某台设备发起的授权控制操作。
         _statusQuerySuppressed = true;
         try
         {
+            if (!device.IsDemo)
+                _agpLight.BeginHomeControlOperation(device.Address);
             await StopStatusRefreshAsync();
-        }
-        catch (Exception exception)
-        {
-            timing.SetResult($"cleanup-failed:{exception.GetType().Name}");
-            throw;
-        }
-        timing.Mark($"后台状态查询已收尾; desiredOn={!device.IsOn}");
+            timing.Mark($"后台状态查询已收尾; desiredOn={desiredOn}");
 
-        var previousIsOn = device.IsOn;
-        try
-        {
+            device.IsOn = desiredOn;
             if (device.IsDemo)
             {
-                device.IsOn = !device.IsOn;
                 timing.SetResult("demo");
                 return;
             }
 
-            device.IsOn = !device.IsOn;
-            timing.Mark($"提交开关操作; desiredOn={device.IsOn}");
-            await _agpLight.SetOnOffAsync(device.Address, device.IsOn);
+            timing.Mark($"提交开关操作; desiredOn={desiredOn}");
+            await _agpLight.SetOnOffAsync(device.Address, desiredOn);
             timing.SetResult("success");
         }
         catch (Exception exception)
         {
             timing.SetResult($"failed:{exception.GetType().Name}");
-            device.IsOn = previousIsOn;
-            ApplyCachedDeviceStatus(device);
+            // Restore the latest reported state directly, avoiding a temporary
+            // rollback to an older display value when preparation read new state.
+            device.IsOn = _agpLight.GetCachedDeviceStatus(device.Address)?.LightState?.IsOn
+                ?? previousIsOn;
             _diagnostics.Error(
                 "Light/Power",
                 $"列表页发送开关指令失败：{device.Address}。",
@@ -305,6 +307,8 @@ public partial class MainPage : ContentPage
         }
         finally
         {
+            device.IsPowerChanging = false;
+            ApplyCachedDeviceStatus(device);
             _statusQuerySuppressed = false;
         }
     }
@@ -604,6 +608,7 @@ public sealed class LightDeviceItem : INotifyPropertyChanged
     private Color _statusColor;
     private bool _isOnline;
     private bool _isChecking;
+    private bool _isPowerChanging;
 
     public LightDeviceItem(
         string name,
@@ -683,8 +688,22 @@ public sealed class LightDeviceItem : INotifyPropertyChanged
 
     /// <summary>
     /// 查询中仍允许用户点击，以便取消轮询并立即执行该设备的授权控制操作。
+    /// 当前开关操作结束前，不接受重复点击。
     /// </summary>
-    public bool IsEnabled => IsOnline || IsChecking;
+    public bool IsEnabled => !IsPowerChanging && (IsOnline || IsChecking);
+
+    public bool IsPowerChanging
+    {
+        get => _isPowerChanging;
+        set
+        {
+            if (_isPowerChanging == value)
+                return;
+            _isPowerChanging = value;
+            OnPropertyChanged();
+            OnPropertyChanged(nameof(IsEnabled));
+        }
+    }
 
     public double PowerOpacity => IsOnline || IsChecking ? 1 : 0.35;
 

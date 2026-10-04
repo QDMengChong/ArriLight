@@ -153,18 +153,37 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             rememberForResume: false, cancellationToken: cancellationToken);
 
     /// <summary>
+    /// A new native window can reuse this singleton after the previous window
+    /// closed. Allow fresh connections again, waiting for its cleanup to finish.
+    /// Connections released by closing are not background-resume targets.
+    /// </summary>
+    public Task StartForNewWindowAsync(CancellationToken cancellationToken = default) =>
+        ResumeApplicationConnectionAsync(isNewWindow: true, cancellationToken);
+
+    /// <summary>
     /// Reconnect the device that was disconnected by a background transition;
     /// an existing control session is authenticated again, while a home-only
     /// lease is restarted. Failure is logged and retained for a later resume
     /// attempt rather than being surfaced from a lifecycle callback.
     /// </summary>
-    public async Task ResumeAfterBackgroundAsync(
-        CancellationToken cancellationToken = default)
+    public Task ResumeAfterBackgroundAsync(CancellationToken cancellationToken = default) =>
+        ResumeApplicationConnectionAsync(isNewWindow: false, cancellationToken);
+
+    private async Task ResumeApplicationConnectionAsync(
+        bool isNewWindow,
+        CancellationToken cancellationToken)
     {
         lock (_applicationSync)
         {
             if (_applicationClosing)
-                return;
+            {
+                if (!isNewWindow)
+                    return;
+                // Register the new window before awaiting cleanup. If it stops
+                // while waiting, a later Resumed must still be able to recover.
+                _applicationClosing = false;
+                _backgroundConnections = null;
+            }
             _wantsForeground = true;
         }
         await _lifecycleLock.WaitAsync(cancellationToken);
@@ -926,6 +945,13 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             try
             {
                 var addresses = _connectionService.GetConnectedAddresses();
+                if (!rememberForResume)
+                {
+                    // A previously queued Stopped callback may have recorded
+                    // targets after closing was requested. Drop those as well.
+                    lock (_applicationSync)
+                        _backgroundConnections = null;
+                }
                 if (rememberForResume && addresses.Count > 0)
                 {
                     lock (_applicationSync)

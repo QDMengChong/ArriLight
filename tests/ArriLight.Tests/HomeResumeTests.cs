@@ -5,6 +5,222 @@ namespace ArriLight.Tests;
 
 public sealed class HomeResumeTests
 {
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task FirstHomePowerClickChangesTheDisplayedStateOnlyOnce(
+        bool initiallyOn, bool queuedUiEvents)
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        fixture.Ble.Capabilities |= AgpCapabilities.OnOff;
+        fixture.Ble.LightStatePacket = LightStatePacket(initiallyOn);
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+        var page = CreatePage(fixture);
+        page.AppearForTest();
+        var pending = new Queue<Action>();
+        try
+        {
+            var device = Assert.Single(page.Devices, item => item.Address == fixture.Address);
+            var displayedStates = new List<bool> { device.IsOn };
+            device.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(LightDeviceItem.IsOn))
+                    displayedStates.Add(device.IsOn);
+            };
+            if (queuedUiEvents)
+            {
+                MainThread.PendingActions = pending;
+                fixture.Ble.BeforeControlResponse = request =>
+                {
+                    // Run the initial-state event while the command is still
+                    // waiting for its response, as a real UI dispatcher can.
+                    if (request.Opcode == AgpOpcode.OnOffSet)
+                        while (pending.TryDequeue(out var update)) update();
+                };
+            }
+
+            await page.TogglePowerForTestAsync(device);
+            while (pending.TryDequeue(out var update)) update();
+
+            Assert.Equal(new[] { initiallyOn, !initiallyOn }, displayedStates);
+            Assert.Equal(!initiallyOn, device.IsOn);
+            Assert.True(device.IsEnabled);
+            Assert.Equal(!initiallyOn,
+                fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState!.IsOn);
+            var command = Assert.Single(fixture.Ble.RequestMessages,
+                request => request.Opcode == AgpOpcode.OnOffSet);
+            Assert.Equal(!initiallyOn ? (byte)1 : (byte)0, command.Payload.Span[0]);
+            Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.AuthToken);
+            Assert.Empty(ToastService.Messages);
+        }
+        finally
+        {
+            MainThread.PendingActions = null;
+            page.DisappearForTest();
+        }
+    }
+
+    [Fact]
+    public async Task PendingPowerClickKeepsItsIntentThroughQueryCleanupAndIgnoresDuplicateClicks()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        fixture.Ble.Capabilities |= AgpCapabilities.OnOff;
+        fixture.Ble.LightStatePacket = LightStatePacket(false);
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+        var other = fixture.AddDevice();
+        await fixture.Service.QueryDeviceStatusAsync(other.Address);
+        var page = CreatePage(fixture);
+        page.AppearForTest();
+        var cleanup = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var cancellation = new CancellationTokenSource();
+        page.SetHomeRefreshForTest(cleanup.Task, cancellation);
+        Task powerOperation = Task.CompletedTask;
+        try
+        {
+            var device = page.Devices.Single(item => item.Address == fixture.Address);
+            var otherDevice = page.Devices.Single(item => item.Address == other.Address);
+            var displayedStates = new List<bool> { device.IsOn };
+            device.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(LightDeviceItem.IsOn))
+                    displayedStates.Add(device.IsOn);
+            };
+            powerOperation = page.TogglePowerForTestAsync(device);
+            Assert.True(device.IsPowerChanging);
+            Assert.False(device.IsEnabled);
+            Assert.False(powerOperation.IsCompleted);
+            await page.TogglePowerForTestAsync(device);
+
+            // The query finishing during cancellation must not reverse the
+            // captured click intent. Other devices still receive their updates.
+            fixture.Ble.LightStatePacket = LightStatePacket(true);
+            await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+            other.LightStatePacket = LightStatePacket(false);
+            await fixture.Service.QueryDeviceStatusAsync(other.Address);
+            Assert.False(device.IsOn);
+            Assert.True(device.IsOnline);
+            Assert.False(otherDevice.IsOn);
+            Assert.True(otherDevice.IsEnabled);
+
+            cleanup.TrySetResult();
+            await powerOperation.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.Equal(new[] { false, true }, displayedStates);
+            Assert.False(device.IsPowerChanging);
+            Assert.True(device.IsEnabled);
+            var command = Assert.Single(fixture.Ble.RequestMessages,
+                request => request.Opcode == AgpOpcode.OnOffSet);
+            Assert.Equal((byte)1, command.Payload.Span[0]);
+            Assert.Empty(ToastService.Messages);
+        }
+        finally
+        {
+            cleanup.TrySetResult();
+            await powerOperation.WaitAsync(TimeSpan.FromSeconds(5));
+            page.DisappearForTest();
+        }
+    }
+
+    [Fact]
+    public async Task FailedPowerCommandKeepsFreshHardwareStateWithoutRollingBackThroughAnOldState()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        fixture.Ble.Capabilities |= AgpCapabilities.OnOff;
+        fixture.Ble.LightStatePacket = LightStatePacket(false);
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+        var page = CreatePage(fixture);
+        page.AppearForTest();
+        try
+        {
+            var device = Assert.Single(page.Devices, item => item.Address == fixture.Address);
+            var displayedStates = new List<bool> { device.IsOn };
+            device.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(LightDeviceItem.IsOn))
+                    displayedStates.Add(device.IsOn);
+            };
+            fixture.Ble.LightStatePacket = LightStatePacket(true);
+            fixture.Ble.BeforeControlResponse = request =>
+            {
+                if (request.Opcode == AgpOpcode.OnOffSet)
+                    throw new IOException("write failed");
+            };
+
+            await page.TogglePowerForTestAsync(device);
+
+            Assert.Equal(new[] { false, true }, displayedStates);
+            Assert.True(device.IsOn);
+            Assert.False(device.IsPowerChanging);
+            Assert.True(device.IsEnabled);
+            Assert.Contains(AppResources.Control_SendFailed, ToastService.Messages);
+        }
+        finally { page.DisappearForTest(); }
+    }
+
+    [Fact]
+    public async Task QueryCleanupFailureReleasesPowerButtonAndReportsFailureWithoutSendingACommand()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Ble.LightStatePacket = LightStatePacket(false);
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+        var page = CreatePage(fixture);
+        page.AppearForTest();
+        using var cancellation = new CancellationTokenSource();
+        page.SetHomeRefreshForTest(Task.FromException(new IOException("cleanup failed")), cancellation);
+        try
+        {
+            var device = Assert.Single(page.Devices, item => item.Address == fixture.Address);
+
+            await page.TogglePowerForTestAsync(device);
+
+            Assert.False(device.IsOn);
+            Assert.False(device.IsPowerChanging);
+            Assert.True(device.IsEnabled);
+            Assert.DoesNotContain(AgpOpcode.OnOffSet, fixture.Ble.Requests);
+            Assert.Contains(AppResources.Control_SendFailed, ToastService.Messages);
+        }
+        finally { page.DisappearForTest(); }
+    }
+
+    [Fact]
+    public async Task SubsequentPowerClicksAndHardwareNotificationsStillUpdateTheDisplayedState()
+    {
+        await using var fixture = new PairingFixture();
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        fixture.Ble.Capabilities |= AgpCapabilities.OnOff;
+        fixture.Ble.LightStatePacket = LightStatePacket(false);
+        await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
+        var page = CreatePage(fixture);
+        page.AppearForTest();
+        try
+        {
+            var device = Assert.Single(page.Devices, item => item.Address == fixture.Address);
+            var displayedStates = new List<bool> { device.IsOn };
+            device.PropertyChanged += (_, args) =>
+            {
+                if (args.PropertyName == nameof(LightDeviceItem.IsOn))
+                    displayedStates.Add(device.IsOn);
+            };
+
+            await page.TogglePowerForTestAsync(device);
+            await page.TogglePowerForTestAsync(device);
+            fixture.Ble.NotifyLightState(LightStatePacket(true));
+
+            Assert.Equal(new[] { false, true, false, true }, displayedStates);
+            Assert.True(device.IsOn);
+            Assert.True(device.IsEnabled);
+            Assert.Equal(2, fixture.Ble.Requests.Count(opcode => opcode == AgpOpcode.OnOffSet));
+            Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.AuthToken);
+            Assert.Empty(ToastService.Messages);
+        }
+        finally { page.DisappearForTest(); }
+    }
+
     [Fact]
     public async Task HomePowerConnectionResumesWithAnOnlineEnabledButtonAndFreshPowerStateWithoutAdvertising()
     {

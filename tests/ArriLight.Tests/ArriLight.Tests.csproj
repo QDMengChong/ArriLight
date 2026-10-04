@@ -16,6 +16,8 @@
   </ItemGroup>
   <ItemGroup>
     <!-- Exercise the application services without starting a MAUI platform host. -->
+    <Compile Include="..\..\ArriLight\App.xaml.cs" Link="App.xaml.cs" />
+    <Compile Include="..\..\ArriLight\Services\ThemePreference.cs" Link="Services\ThemePreference.cs" />
     <Compile Include="..\..\ArriLight\GlobalUsings.cs" Link="GlobalUsings.cs" />
     <Compile Include="..\..\ArriLight\Resources\Localization\AppResources.cs" Link="Resources\Localization\AppResources.cs" />
     <Compile Include="..\..\ArriLight\Services\LanguagePreference.cs" Link="Services\LanguagePreference.cs" />

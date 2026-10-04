@@ -301,6 +301,7 @@ internal sealed class FakeBle
     public List<Guid> StoppedSubscriptions { get; } = [];
     public int DisconnectAttempts { get; private set; }
     public Func<int, CancellationToken, Task>? OnConnect { get; set; }
+    public Func<Task>? OnDisconnect { get; set; }
     public bool DisconnectAfterToken { get; set; }
     public bool FailDisconnect { get; set; }
     public AgpCapabilities Capabilities { get; set; } = AgpCapabilities.SecureControl | AgpCapabilities.RtcTime;
@@ -412,14 +413,15 @@ internal sealed class FakeBle
         finally { _concurrentAttempts--; }
     }
 
-    private Task DisconnectAsync()
+    private async Task DisconnectAsync()
     {
         DisconnectAttempts++;
+        if (OnDisconnect is not null)
+            await OnDisconnect();
         if (FailDisconnect)
-            return Task.FromException(new IOException("cleanup failed"));
+            throw new IOException("cleanup failed");
         _state = DeviceState.Disconnected;
         InterfaceProxy.From(Adapter).Raise("DeviceDisconnected", Adapter, new DeviceEventArgs { Device = Device });
-        return Task.CompletedTask;
     }
 
     public void RaiseUnexpectedDisconnect()
