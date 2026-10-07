@@ -15,10 +15,13 @@ public partial class DeviceControlPage : ContentPage
     private readonly TestLabel EffectSettingsPeriodLabel = new();
     private readonly Slider EffectSettingsPeriodSlider = new();
 
+    public DeviceControlPageViewModel ViewModel { get; }
     public DeviceControlPage(string address = "AA:BB:CC:DD:EE:FF")
     {
         DeviceAddress = address;
         _repository.TryAdd("PW01", address);
+        ViewModel = new TestControlViewModel(_repository, this);
+        ViewModel.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = address });
         LoadEffectParameters();
         EffectSettingsPeriodSlider.ValueChanged += OnEffectSettingsPeriodChanged;
     }
@@ -32,7 +35,7 @@ public partial class DeviceControlPage : ContentPage
     internal ushort PeriodForTest(AgpLightMode mode) => GetEffectPeriod(mode);
     internal double DialogPeriod => EffectSettingsPeriodSlider.Value;
     internal bool RejectEffect { get; set; }
-    internal AgpLightMode ActiveEffect { get => _effectMode; set => _effectMode = value; }
+    internal AgpLightMode ActiveEffect { get => _effectMode; set { _effectMode = value; ViewModel.SetEffectForTest(value); } }
     internal List<(AgpLightMode Mode, ushort Period)> SentEffects { get; } = [];
     internal Task OpenForTestAsync(AgpLightMode mode) => ShowEffectSettingsAsync(mode);
     internal Task SelectForTestAsync(AgpLightMode mode) => SetEffectAsync(mode, GetEffectPeriod(mode));
@@ -48,12 +51,13 @@ public partial class DeviceControlPage : ContentPage
         CloseEffectSettings();
     }
 
-    private Task SetEffectAsync(AgpLightMode mode, ushort period)
+    internal Task SetEffectAsync(AgpLightMode mode, ushort period)
     {
         SentEffects.Add((mode, period));
         if (!RejectEffect)
         {
             _effectMode = mode;
+            ViewModel.SetEffectForTest(mode);
             RememberEffectPeriod(mode, period);
         }
         return Task.CompletedTask;
@@ -95,4 +99,11 @@ public sealed class Slider
             ValueChanged?.Invoke(this, new ValueChangedEventArgs(oldValue, value));
         }
     }
+}
+
+internal sealed class TestControlViewModel(DeviceRepository repository, DeviceControlPage page) :
+    DeviceControlPageViewModel(repository, null!, null!, null!, new AppDiagnosticService(),
+        new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction())
+{
+    public override Task SetEffectAsync(AgpLightMode mode, ushort period) => page.SetEffectAsync(mode, period);
 }

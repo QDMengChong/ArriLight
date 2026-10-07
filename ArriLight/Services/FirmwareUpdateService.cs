@@ -44,7 +44,7 @@ public sealed class FirmwareCandidate
         string? productId,
         Uri? downloadUri,
         string? sha256,
-        FileResult? localFile)
+        IFirmwareFile? localFile)
     {
         SourceKind = sourceKind;
         Protocol = protocol;
@@ -65,7 +65,7 @@ public sealed class FirmwareCandidate
     public string? ProductId { get; }
     public Uri? DownloadUri { get; }
     public string? Sha256 { get; }
-    internal FileResult? LocalFile { get; }
+    internal IFirmwareFile? LocalFile { get; }
 
     public string SourceText =>
         SourceKind == FirmwareSourceKind.Online ? AppResources.Firmware_OnlineSource : AppResources.Firmware_LocalSource;
@@ -223,8 +223,14 @@ public sealed class FirmwareUpdateService(
         return new FirmwareCheckResult(currentVersion, candidate, hasUpdate);
     }
 
+    public Task<FirmwareCandidate> LoadLocalAsync(FileResult file, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(file);
+        return LoadLocalAsync(new SelectedFirmwareFile(file), cancellationToken);
+    }
+
     public async Task<FirmwareCandidate> LoadLocalAsync(
-        FileResult file,
+        IFirmwareFile file,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(file);

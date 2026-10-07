@@ -2,20 +2,23 @@ namespace ArriLight;
 
 public partial class ProfilePage : ContentPage
 {
-    public ProfilePage()
+    public ProfilePageViewModel ViewModel { get; }
+    public ProfilePage() : this(ServiceHelper.GetRequiredService<ProfilePageViewModel>()) { }
+    public ProfilePage(ProfilePageViewModel viewModel)
     {
         InitializeComponent();
+        ViewModel = viewModel;
+        BindingContext = viewModel;
+    }
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await ViewModel.OnAppearingAsync();
+    }
+    protected override void OnDisappearing()
+    {
+        ViewModel.OnDisappearing();
+        base.OnDisappearing();
     }
 
-    private async void OnMessageCenterTapped(object? sender, TappedEventArgs e) =>
-        await Shell.Current.GoToAsync(nameof(MessageCenterPage));
-
-    private async void OnAppVersionTapped(object? sender, TappedEventArgs e) =>
-        await Shell.Current.GoToAsync(nameof(AppVersionPage));
-
-    private async void OnAboutUsTapped(object? sender, TappedEventArgs e) =>
-        await Shell.Current.GoToAsync(nameof(AboutUsPage));
-
-    private async void OnSettingsTapped(object? sender, TappedEventArgs e) =>
-        await Shell.Current.GoToAsync(nameof(SettingsPage));
 }

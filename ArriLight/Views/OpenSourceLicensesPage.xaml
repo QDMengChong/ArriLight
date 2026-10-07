@@ -3,9 +3,10 @@
     x:Class="ArriLight.OpenSourceLicensesPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:local="clr-namespace:ArriLight"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
-    x:DataType="local:OpenSourceLicensesPage"
+    x:DataType="vm:OpenSourceLicensesPageViewModel"
     Title="{x:Static strings:AppResources.Licenses_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
     <Grid Padding="20,24" RowDefinitions="Auto,Auto,*" RowSpacing="12">
@@ -14,8 +15,8 @@
                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         <SearchBar x:Name="LicenseSearch" Grid.Row="1"
                    Placeholder="{x:Static strings:AppResources.Licenses_Search}"
-                   TextChanged="OnSearchTextChanged" />
-        <CollectionView x:Name="LicenseCollection" Grid.Row="2"
+                   Text="{Binding SearchText, Mode=TwoWay}" />
+        <CollectionView x:Name="LicenseCollection" IsVisible="{Binding IsListVisible}" Grid.Row="2"
                         ItemsSource="{Binding Components}" SelectionMode="Single"
                         SelectionChanged="OnComponentSelected">
             <CollectionView.EmptyView>
@@ -37,6 +38,6 @@
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
-        <ActivityIndicator x:Name="LoadingIndicator" Grid.Row="2" IsVisible="False" Color="{StaticResource Primary}" />
+        <ActivityIndicator x:Name="LoadingIndicator" IsRunning="{Binding IsLoading}" Grid.Row="2" IsVisible="{Binding IsLoading}" Color="{StaticResource Primary}" />
     </Grid>
 </ContentPage>

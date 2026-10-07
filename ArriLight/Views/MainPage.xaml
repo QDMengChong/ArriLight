@@ -5,7 +5,8 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
-    x:DataType="local:MainPage"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
+    x:DataType="vm:MainPageViewModel"
     Shell.NavBarIsVisible="False"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -47,7 +48,7 @@
                         <ImageButton
                             Padding="13"
                             BackgroundColor="Transparent"
-                            Clicked="OnScanQrCodeClicked"
+                            Command="{Binding ScanQrCodeCommand}"
                             Source="action_scan.svg"
                             SemanticProperties.Description="{x:Static strings:AppResources.Qr_ScanDescription}" />
                     </Border>
@@ -62,7 +63,7 @@
                         <ImageButton
                             Padding="13"
                             BackgroundColor="Transparent"
-                            Clicked="OnAddDeviceClicked"
+                            Command="{Binding AddDeviceCommand}"
                             Source="action_add.svg"
                             SemanticProperties.Description="{x:Static strings:AppResources.Device_Add}" />
                     </Border>
@@ -144,7 +145,7 @@
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="local:LightDeviceItem">
+                    <DataTemplate x:DataType="vm:LightDeviceItem">
                         <Border
                             Margin="0,0,0,12"
                             Padding="0"
@@ -165,7 +166,7 @@
                             <Grid ColumnDefinitions="*,56,60" MinimumHeightRequest="96">
                                 <Grid Padding="16,16,0,16" ColumnDefinitions="64,*" ColumnSpacing="12">
                                     <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                        <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
                                     </Grid.GestureRecognizers>
                                 <Border
                                     InputTransparent="True"
@@ -195,7 +196,7 @@
                                         <Ellipse
                                             HeightRequest="7"
                                             WidthRequest="7"
-                                            Fill="{Binding StatusColor}" />
+                                            Fill="{Binding StatusColor, Converter={StaticResource PresentationColorConverter}}" />
                                         <Label
                                             FontSize="13"
                                             Text="{Binding Status}"
@@ -208,22 +209,22 @@
                                 <Grid Grid.Column="1" ColumnDefinitions="6,44,6" RowDefinitions="*,44,*">
                                     <Grid Grid.Row="0" Grid.ColumnSpan="3">
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                            <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
                                     </Grid>
                                     <Grid Grid.Row="2" Grid.ColumnSpan="3">
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                            <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
                                     </Grid>
                                     <Grid Grid.Row="1" Grid.Column="0">
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                            <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
                                     </Grid>
                                     <Grid Grid.Row="1" Grid.Column="2">
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                            <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
                                     </Grid>
                                 <Border
@@ -231,15 +232,16 @@
                                     Grid.Column="1"
                                     HeightRequest="44"
                                     WidthRequest="44"
-                                    BackgroundColor="{Binding PowerBackgroundColor}"
-                                    Stroke="{Binding PowerBorderColor}"
+                                    BackgroundColor="{Binding PowerBackgroundColor, Converter={StaticResource PresentationColorConverter}}"
+                                    Stroke="{Binding PowerBorderColor, Converter={StaticResource PresentationColorConverter}}"
                                     StrokeShape="RoundRectangle 22"
                                     StrokeThickness="1"
                                     VerticalOptions="Center">
                                     <ImageButton
                                         Padding="9"
                                         BackgroundColor="Transparent"
-                                        Clicked="OnDevicePowerClicked"
+                                        Command="{Binding TogglePowerCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}"
+                                        CommandParameter="{Binding .}"
                                         IsEnabled="{Binding IsEnabled}"
                                         Opacity="{Binding PowerOpacity}"
                                         Source="{Binding PowerIcon}"
@@ -249,7 +251,7 @@
 
                                 <Grid Grid.Column="2">
                                     <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer Tapped="OnDeviceCardTapped" />
+                                        <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
                                     </Grid.GestureRecognizers>
                                 <Image
                                     InputTransparent="True"

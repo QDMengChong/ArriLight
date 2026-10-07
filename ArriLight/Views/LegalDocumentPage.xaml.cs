@@ -1,49 +1,25 @@
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
-
 namespace ArriLight;
 
-public partial class LegalDocumentPage : ContentPage, IQueryAttributable, INotifyPropertyChanged
+public partial class LegalDocumentPage : ContentPage, IQueryAttributable
 {
-    private string _documentTitle = AppResources.Legal_AgreementTitle;
-    private string _documentContent = AgreementContent;
-
-    public string DocumentTitle
-    {
-        get => _documentTitle;
-        private set => SetField(ref _documentTitle, value);
-    }
-
-    public string DocumentContent
-    {
-        get => _documentContent;
-        private set => SetField(ref _documentContent, value);
-    }
-
-    public LegalDocumentPage()
+    public LegalDocumentPageViewModel ViewModel { get; }
+    public LegalDocumentPage() : this(ServiceHelper.GetRequiredService<LegalDocumentPageViewModel>()) { }
+    public LegalDocumentPage(LegalDocumentPageViewModel viewModel)
     {
         InitializeComponent();
-        BindingContext = this;
+        ViewModel = viewModel;
+        BindingContext = viewModel;
     }
-
-    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    protected override async void OnAppearing()
     {
-        var kind = query.TryGetValue("kind", out var value) ? value?.ToString() : null;
-        var isPrivacy = string.Equals(kind, "privacy", StringComparison.OrdinalIgnoreCase);
-
-        DocumentTitle = isPrivacy ? AppResources.Legal_PrivacyTitle : AppResources.Legal_AgreementTitle;
-        DocumentContent = isPrivacy ? PrivacyContent : AgreementContent;
+        base.OnAppearing();
+        await ViewModel.OnAppearingAsync();
     }
-
-    private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)
+    protected override void OnDisappearing()
     {
-        if (EqualityComparer<T>.Default.Equals(field, value))
-            return;
-
-        field = value;
-        OnPropertyChanged(propertyName);
+        ViewModel.OnDisappearing();
+        base.OnDisappearing();
     }
+    public void ApplyQueryAttributes(IDictionary<string, object> query) => ViewModel.ApplyQueryAttributes(query);
 
-    private static string AgreementContent => AppResources.Legal_AgreementContent;
-    private static string PrivacyContent => AppResources.Legal_PrivacyContent;
 }

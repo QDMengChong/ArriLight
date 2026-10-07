@@ -7,6 +7,7 @@
 这些文件作为 `MauiAsset` 打包，查看许可不需要联网。列表包含 Android/iOS 项目恢复出的直接与间接 NuGet 依赖、
 .NET 运行时及平台 SDK，以及随应用分发的 Open Sans 字体；它描述整个移动项目，包含构建工具依赖。
 当前字体的嵌入信息为 Open Sans 1.10 / Apache-2.0，不能用现行 Open Sans 的许可证替换。
+MVVM 使用的 `CommunityToolkit.Mvvm 8.4.2` 也已列入直接依赖，展示 NuGet 包内的 MIT 许可及原始声明。
 
 许可来源为实际 NuGet 包的 `.nuspec`、`LICENSE`、`THIRD-PARTY-NOTICES`，缺少完整许可的包使用已核对的上游原文。
 上游原文缓存在 `tools/license-sources`，来源 URL 记录在生成脚本及目录清单中。

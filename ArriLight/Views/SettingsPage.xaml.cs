@@ -2,91 +2,49 @@ namespace ArriLight;
 
 public partial class SettingsPage : ContentPage
 {
-    private bool _isInitializing;
-    private bool _isShowingLanguageNotice;
-    private readonly ILocalizationService _localization;
-
-    public SettingsPage()
+    public SettingsPageViewModel ViewModel { get; }
+    public SettingsPage() : this(ServiceHelper.GetRequiredService<SettingsPageViewModel>()) { }
+    public SettingsPage(SettingsPageViewModel viewModel)
     {
         InitializeComponent();
-        _localization = ServiceHelper.GetRequiredService<ILocalizationService>();
+        ViewModel = viewModel;
+        BindingContext = viewModel;
     }
-
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
+        await ViewModel.OnAppearingAsync();
+        RestoreSelection();
+    }
+    protected override void OnDisappearing()
+    {
+        ViewModel.OnDisappearing();
+        base.OnDisappearing();
+    }
+    private bool _isInitializing;
+    protected void RestoreSelection()
+    {
         _isInitializing = true;
-
-        var theme = ThemePreference.Load();
-        SystemThemeRadio.IsChecked = theme == AppTheme.Unspecified;
-        LightThemeRadio.IsChecked = theme == AppTheme.Light;
-        DarkThemeRadio.IsChecked = theme == AppTheme.Dark;
-
-        var language = _localization.SelectedLanguage;
-        SystemLanguageRadio.IsChecked = language == LanguagePreference.System;
-        ChineseLanguageRadio.IsChecked = language == LanguagePreference.SimplifiedChinese;
-        EnglishLanguageRadio.IsChecked = language == LanguagePreference.English;
-        LanguageRestartNotice.IsVisible = _localization.RequiresRestart;
+        SystemThemeRadio.IsChecked = ViewModel.SelectedTheme == ApplicationTheme.System;
+        LightThemeRadio.IsChecked = ViewModel.SelectedTheme == ApplicationTheme.Light;
+        DarkThemeRadio.IsChecked = ViewModel.SelectedTheme == ApplicationTheme.Dark;
+        SystemLanguageRadio.IsChecked = ViewModel.SelectedLanguage == LanguagePreference.System;
+        ChineseLanguageRadio.IsChecked = ViewModel.SelectedLanguage == LanguagePreference.SimplifiedChinese;
+        EnglishLanguageRadio.IsChecked = ViewModel.SelectedLanguage == LanguagePreference.English;
         _isInitializing = false;
     }
-
-    private async void OnLanguageChecked(object? sender, CheckedChangedEventArgs e)
+    private void OnLanguageChecked(object? sender, CheckedChangedEventArgs e)
     {
-        if (_isInitializing || !e.Value || sender is not RadioButton { Value: string language })
-            return;
-
-        await ChangeLanguageAsync(language);
+        if (!_isInitializing && e.Value && sender is RadioButton { Value: string language })
+            ViewModel.ChangeLanguageCommand.Execute(language);
     }
-
-    private async Task ChangeLanguageAsync(string language)
+    private void OnSystemThemeChecked(object? sender, CheckedChangedEventArgs e) => SetTheme(e, ApplicationTheme.System);
+    private void OnLightThemeChecked(object? sender, CheckedChangedEventArgs e) => SetTheme(e, ApplicationTheme.Light);
+    private void OnDarkThemeChecked(object? sender, CheckedChangedEventArgs e) => SetTheme(e, ApplicationTheme.Dark);
+    private void SetTheme(CheckedChangedEventArgs e, ApplicationTheme theme)
     {
-        if (_localization.SelectedLanguage == language)
-            return;
-
-        _localization.SaveLanguagePreference(language);
-        LanguageRestartNotice.IsVisible = _localization.RequiresRestart;
-        if (!_localization.RequiresRestart || _isShowingLanguageNotice)
-            return;
-
-        _isShowingLanguageNotice = true;
-        try
-        {
-            await DisplayAlertAsync(
-                AppResources.Settings_Language,
-                AppResources.Settings_LanguageRestartRequired,
-                AppResources.Common_Ok);
-        }
-        finally
-        {
-            _isShowingLanguageNotice = false;
-        }
-    }
-
-    private void OnSystemThemeChecked(object? sender, CheckedChangedEventArgs e)
-    {
-        if (e.Value)
-            ApplyTheme(AppTheme.Unspecified);
-    }
-
-    private void OnLightThemeChecked(object? sender, CheckedChangedEventArgs e)
-    {
-        if (e.Value)
-            ApplyTheme(AppTheme.Light);
-    }
-
-    private void OnDarkThemeChecked(object? sender, CheckedChangedEventArgs e)
-    {
-        if (e.Value)
-            ApplyTheme(AppTheme.Dark);
-    }
-
-    private void ApplyTheme(AppTheme theme)
-    {
-        if (_isInitializing || Application.Current is null)
-            return;
-
-        Application.Current.UserAppTheme = theme;
-        ThemePreference.Save(theme);
+        if (!_isInitializing && e.Value)
+            ViewModel.ChangeThemeCommand.Execute(theme);
     }
 
 }

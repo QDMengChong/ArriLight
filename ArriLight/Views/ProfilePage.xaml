@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ArriLight.ProfilePage"
+    x:DataType="vm:ProfilePageViewModel"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     Shell.NavBarIsVisible="False"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
@@ -35,7 +37,7 @@
             <VerticalStackLayout Padding="20,24" Spacing="12">
                 <Border Style="{StaticResource MenuCardStyle}">
                     <Border.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnMessageCenterTapped" />
+                        <TapGestureRecognizer Command="{Binding MessageCenterCommand}" />
                     </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
                         <Border Style="{StaticResource MenuIconContainerStyle}">
@@ -50,7 +52,7 @@
                 </Border>
                 <Border Style="{StaticResource MenuCardStyle}">
                     <Border.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnSettingsTapped" />
+                        <TapGestureRecognizer Command="{Binding SettingsCommand}" />
                     </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
                         <Border Style="{StaticResource MenuIconContainerStyle}">
@@ -65,7 +67,7 @@
                 </Border>
                 <Border Style="{StaticResource MenuCardStyle}">
                     <Border.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnAppVersionTapped" />
+                        <TapGestureRecognizer Command="{Binding AppVersionCommand}" />
                     </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
                         <Border Style="{StaticResource MenuIconContainerStyle}">
@@ -80,7 +82,7 @@
                 </Border>
                 <Border Style="{StaticResource MenuCardStyle}">
                     <Border.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnAboutUsTapped" />
+                        <TapGestureRecognizer Command="{Binding AboutUsCommand}" />
                     </Border.GestureRecognizers>
                     <Grid ColumnDefinitions="48,*,Auto" ColumnSpacing="14">
                         <Border Style="{StaticResource MenuIconContainerStyle}">

@@ -3,9 +3,10 @@
     x:Class="ArriLight.LazyTurnOnDelayControlView"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
-    x:DataType="local:DeviceControlPage">
+    x:DataType="vm:DeviceControlPageViewModel">
     <Border Style="{StaticResource MenuCardStyle}">
         <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
             <CheckBox

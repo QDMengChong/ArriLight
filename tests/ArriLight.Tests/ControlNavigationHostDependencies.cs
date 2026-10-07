@@ -44,6 +44,13 @@ public partial class DeviceControlPage
         if (OnLoadControls is not null) await OnLoadControls(token);
     }
 
+    private void NotifyAutomaticConnectionPending(bool pending) { }
+    private async Task PrepareControlSessionAsync(CancellationToken token)
+    {
+        await Task.Run(_discoveryService.StopAsync, token).WaitAsync(token);
+        token.ThrowIfCancellationRequested();
+        await EnsureConnectedAsync(false, cancellationToken: token, scanAlreadyStopped: true);
+    }
     private Task EnsureConnectedAsync(
         bool showError, bool refreshStatus = false, CancellationToken cancellationToken = default,
         bool scanAlreadyStopped = false)

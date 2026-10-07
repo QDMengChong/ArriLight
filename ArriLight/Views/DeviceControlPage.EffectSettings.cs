@@ -5,8 +5,8 @@ namespace ArriLight;
 public partial class DeviceControlPage
 {
     private const int EffectPeriodStepMilliseconds = 100;
-    private BlinkEffectParameters _blinkEffectParameters = new();
-    private BreatheEffectParameters _breatheEffectParameters = new();
+
+
     private bool _isEffectSettingsOpen;
     private bool _effectSettingsCancelled;
     private TaskCompletionSource<ushort?>? _effectSettingsCompletion;
@@ -14,53 +14,15 @@ public partial class DeviceControlPage
     private Android.App.Dialog? _effectSettingsDialog;
 #endif
 
-    private void LoadEffectParameters(SavedDevice? device = null)
-    {
-        device ??= _repository.GetByAddress(DeviceAddress);
-        _blinkEffectParameters = device?.BlinkEffectParameters is { } blink &&
-            IsValidEffectPeriod(blink.PeriodMilliseconds) ? blink : new();
-        _breatheEffectParameters = device?.BreatheEffectParameters is { } breathe &&
-            IsValidEffectPeriod(breathe.PeriodMilliseconds) ? breathe : new();
-    }
+    private void LoadEffectParameters(SavedDevice? device = null) => ViewModel.LoadEffectParameters(device);
 
-    private ushort GetEffectPeriod(AgpLightMode mode) => mode switch
-    {
-        AgpLightMode.Blink => _blinkEffectParameters.PeriodMilliseconds,
-        AgpLightMode.Breathe => _breatheEffectParameters.PeriodMilliseconds,
-        _ => 0
-    };
+    private ushort GetEffectPeriod(AgpLightMode mode) => ViewModel.GetEffectPeriod(mode);
 
-    private void RememberEffectPeriod(AgpLightMode mode, ushort period)
-    {
-        if (!IsValidEffectPeriod(period))
-            return;
+    private void RememberEffectPeriod(AgpLightMode mode, ushort period) => ViewModel.RememberEffectPeriod(mode, period);
 
-        switch (mode)
-        {
-            case AgpLightMode.Blink:
-                _blinkEffectParameters = _blinkEffectParameters with { PeriodMilliseconds = period };
-                _repository.SetBlinkEffectParameters(DeviceAddress, _blinkEffectParameters);
-                break;
-            case AgpLightMode.Breathe:
-                _breatheEffectParameters = _breatheEffectParameters with { PeriodMilliseconds = period };
-                _repository.SetBreatheEffectParameters(DeviceAddress, _breatheEffectParameters);
-                break;
-        }
-    }
+    private static bool IsValidEffectPeriod(ushort period) => DeviceControlPageViewModel.IsValidEffectPeriod(period);
 
-    private static bool IsValidEffectPeriod(ushort period) =>
-        period >= AgpModelCodec.MinimumEffectPeriodMilliseconds &&
-        period <= AgpModelCodec.MaximumEffectPeriodMilliseconds;
-
-    private Task ApplyEffectParametersAsync(AgpLightMode mode, ushort period)
-    {
-        if (_effectMode == mode)
-            return SetEffectAsync(mode, period);
-
-        // An inactive effect is configured locally; only a short press selects it.
-        RememberEffectPeriod(mode, period);
-        return Task.CompletedTask;
-    }
+    private Task ApplyEffectParametersAsync(AgpLightMode mode, ushort period) => ViewModel.ApplyEffectParametersAsync(mode, period);
 
     private Task ShowEffectSettingsAsync(AgpLightMode mode) => mode switch
     {
@@ -71,10 +33,10 @@ public partial class DeviceControlPage
 
     // Separate entry points allow either effect to gain its own controls later.
     private Task ShowBlinkSettingsAsync() => ShowEffectPeriodSettingsAsync(
-        AgpLightMode.Blink, AppResources.Effect_BlinkSettings, _blinkEffectParameters.PeriodMilliseconds);
+        AgpLightMode.Blink, AppResources.Effect_BlinkSettings, GetEffectPeriod(AgpLightMode.Blink));
 
     private Task ShowBreatheSettingsAsync() => ShowEffectPeriodSettingsAsync(
-        AgpLightMode.Breathe, AppResources.Effect_BreatheSettings, _breatheEffectParameters.PeriodMilliseconds);
+        AgpLightMode.Breathe, AppResources.Effect_BreatheSettings, GetEffectPeriod(AgpLightMode.Breathe));
 
     private async Task ShowEffectPeriodSettingsAsync(AgpLightMode mode, string title, ushort initialPeriod)
     {

@@ -12,10 +12,12 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <PackageReference Include="Plugin.BLE" Version="3.2.1" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <ProjectReference Include="..\..\..\ArriOpto.BLE\ArriOpto.BLE\ArriOpto.BLE.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Exercise the application services without starting a MAUI platform host. -->
+    <Compile Include="..\..\ArriLight\ViewModels\**\*.cs" Link="ViewModels\%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="..\..\ArriLight\App.xaml.cs" Link="App.xaml.cs" />
     <Compile Include="..\..\ArriLight\Services\ThemePreference.cs" Link="Services\ThemePreference.cs" />
     <Compile Include="..\..\ArriLight\GlobalUsings.cs" Link="GlobalUsings.cs" />
@@ -40,6 +42,7 @@
     <Compile Include="..\..\ArriLight\Services\DeviceShareCode.cs" Link="Services\DeviceShareCode.cs" />
     <Compile Include="..\..\ArriLight\Services\EffectParameters.cs" Link="Services\EffectParameters.cs" />
     <Compile Include="..\..\ArriLight\Services\SavedDevice.cs" Link="Services\SavedDevice.cs" />
+    <Compile Include="..\..\ArriLight\Services\FirmwareFile.cs" Link="Services\FirmwareFile.cs" />
     <Compile Include="..\..\ArriLight\Services\FirmwareUpdateService.cs" Link="Services\FirmwareUpdateService.cs" />
     <Compile Include="..\..\ArriLight\Services\AppSettingsService.cs" Link="Services\AppSettingsService.cs" />
     <Compile Include="..\..\ArriLight\Views\AppVersionPage.xaml.cs" Link="Views\AppVersionPage.xaml.cs" />

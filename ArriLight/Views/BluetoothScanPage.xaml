@@ -3,9 +3,10 @@
     x:Class="ArriLight.BluetoothScanPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
-    x:DataType="local:BluetoothScanPage"
+    x:DataType="vm:BluetoothScanPageViewModel"
     Title="{x:Static strings:AppResources.Device_Add}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -46,7 +47,7 @@
             <Button
                 Grid.Column="1"
                 Padding="16,8"
-                Clicked="OnRefreshClicked"
+                Command="{Binding StartScanCommand}"
                 FontSize="13"
                 Text="{x:Static strings:AppResources.Scan_SearchAgain}" />
         </Grid>
@@ -72,7 +73,7 @@
                         FontFamily="OpenSansSemibold"
                         FontSize="16"
                         HorizontalTextAlignment="Center"
-                        Text="{Binding EmptyText, Source={RelativeSource AncestorType={x:Type local:BluetoothScanPage}}}"
+                        Text="{Binding EmptyText, Source={RelativeSource AncestorType={x:Type vm:BluetoothScanPageViewModel}}}"
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
@@ -157,7 +158,7 @@
                         HorizontalTextAlignment="Center"
                         TextColor="{StaticResource Primary}" />
                     <Button
-                        Clicked="OnCancelBindingClicked"
+                        Command="{Binding CancelBindingCommand}"
                         Text="{x:Static strings:AppResources.Pairing_CancelAdding}" />
                 </VerticalStackLayout>
             </Border>

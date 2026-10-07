@@ -25,6 +25,29 @@ public static class MauiProgram
 
         builder.Services.AddSingleton<ILocalizationService>(Localization.Current);
         builder.Services.AddSingleton<OpenSourceLicenseCatalog>();
+        builder.Services.AddSingleton<IUiDispatcher, MauiUiDispatcher>();
+        builder.Services.AddSingleton<IAppNavigator, ShellAppNavigator>();
+        builder.Services.AddSingleton<IUserInteraction, MauiUserInteraction>();
+        builder.Services.AddSingleton<IApplicationPresentation, MauiApplicationPresentation>();
+        builder.Services.AddSingleton<IFirmwareFilePicker, MauiFirmwareFilePicker>();
+        builder.Services.AddTransient<AboutUsPageViewModel>();
+        builder.Services.AddTransient<AppVersionPageViewModel>();
+        builder.Services.AddTransient<BluetoothScanPageViewModel>();
+        builder.Services.AddTransient<DebugConfigurationPageViewModel>();
+        builder.Services.AddTransient<DeviceControlPageViewModel>();
+        builder.Services.AddTransient<DeviceMorePageViewModel>();
+        builder.Services.AddTransient<DeviceSharePageViewModel>();
+        builder.Services.AddTransient<FirmwareUpdatePageViewModel>();
+        builder.Services.AddTransient<LegalDocumentPageViewModel>();
+        builder.Services.AddTransient<MainPageViewModel>();
+        builder.Services.AddTransient<MessageCenterPageViewModel>();
+        builder.Services.AddTransient<OpenSourceLicensePageViewModel>();
+        builder.Services.AddTransient<OpenSourceLicensesPageViewModel>();
+        builder.Services.AddTransient<ProfilePageViewModel>();
+        builder.Services.AddTransient<QrCodeScanPageViewModel>();
+        builder.Services.AddTransient<SchedulePageViewModel>();
+        builder.Services.AddTransient<SettingsPageViewModel>();
+
         builder.Services.AddSingleton(CrossBluetoothLE.Current);
         builder.Services.AddSingleton<IAdapter>(
             _ => CrossBluetoothLE.Current.Adapter);

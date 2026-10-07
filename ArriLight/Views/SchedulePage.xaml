@@ -3,9 +3,10 @@
     x:Class="ArriLight.SchedulePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
-    x:DataType="local:SchedulePage"
+    x:DataType="vm:SchedulePageViewModel"
     Title="{x:Static strings:AppResources.Schedule_Settings}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -27,7 +28,7 @@
                 <Button
                     Padding="0"
                     BackgroundColor="Transparent"
-                    Clicked="OnAddScheduleClicked"
+                    Command="{Binding AddScheduleCommand}"
                     FontFamily="OpenSansSemibold"
                     FontSize="13"
                     Text="{x:Static strings:AppResources.Schedule_AddToolbar}"
@@ -111,7 +112,7 @@
                     <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="local:LightScheduleItem">
+                    <DataTemplate x:DataType="vm:LightScheduleItem">
                         <Border Style="{StaticResource MenuCardStyle}">
                             <Grid ColumnDefinitions="104,*,Auto,Auto" ColumnSpacing="8">
                                 <Label
@@ -158,11 +159,11 @@
 
         <!-- 添加定时弹层 -->
         <Grid
-            x:Name="AddScheduleOverlay"
+            x:Name="AddScheduleOverlay" IsVisible="{Binding IsAddScheduleVisible}"
             ZIndex="90"
             Padding="24"
             BackgroundColor="#99000000"
-            IsVisible="False">
+           >
             <Border
                 Padding="20"
                 BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
@@ -189,13 +190,13 @@
                             x:Name="RepeatModePicker"
                             Grid.Column="1"
                             ItemsSource="{Binding RepeatModes}"
-                            SelectedIndexChanged="OnRepeatModeChanged"
+                            SelectedIndex="{Binding RepeatModeIndex, Mode=TwoWay}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Button
-                            x:Name="RepeatDetailButton"
+                            x:Name="RepeatDetailButton" IsEnabled="{Binding CanEditRepeatDetail}"
                             Grid.Column="2"
                             Padding="10,7"
-                            Clicked="OnRepeatDetailClicked"
+                            Command="{Binding RepeatDetailCommand}"
                             FontSize="11"
                             HorizontalOptions="Fill"
                             Text="{Binding RepeatSelectionDisplayText}" />
@@ -220,7 +221,7 @@
                                 <Button
                                     x:Name="ActionOnButton"
                                     Padding="12,8"
-                                    Clicked="OnActionOnClicked"
+                                    Command="{Binding ActionOnCommand}"
                                     CornerRadius="13"
                                     FontSize="13"
                                     Text="{x:Static strings:AppResources.Schedule_ActionOn}" />
@@ -228,7 +229,7 @@
                                     x:Name="ActionOffButton"
                                     Grid.Column="1"
                                     Padding="12,8"
-                                    Clicked="OnActionOffClicked"
+                                    Command="{Binding ActionOffCommand}"
                                     CornerRadius="13"
                                     FontSize="13"
                                     Text="{x:Static strings:AppResources.Schedule_ActionOff}" />
@@ -246,7 +247,7 @@
                             Text="{x:Static strings:AppResources.Schedule_Time}"
                             VerticalTextAlignment="Center" />
                         <TimePicker
-                            x:Name="ScheduleTimePicker"
+                            x:Name="ScheduleTimePicker" Time="{Binding ScheduleTime, Mode=TwoWay}"
                             Grid.Column="1"
                             Format="HH:mm"
                             HorizontalOptions="Fill"
@@ -256,12 +257,12 @@
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button
                             BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource DarkIconBackground}}"
-                            Clicked="OnAddScheduleCancelClicked"
+                            Command="{Binding AddScheduleCancelCommand}"
                             Text="{x:Static strings:AppResources.Common_Cancel}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Button
                             Grid.Column="1"
-                            Clicked="OnAddScheduleConfirmClicked"
+                            Command="{Binding AddScheduleConfirmCommand}"
                             Text="{x:Static strings:AppResources.Common_Add}" />
                     </Grid>
                 </VerticalStackLayout>
@@ -269,11 +270,11 @@
         </Grid>
 
         <Grid
-            x:Name="RepeatPopupOverlay"
+            x:Name="RepeatPopupOverlay" IsVisible="{Binding IsRepeatPopupVisible}"
             ZIndex="100"
             Padding="24"
             BackgroundColor="#99000000"
-            IsVisible="False">
+           >
             <Border
                 Padding="20"
                 BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
@@ -288,7 +289,7 @@
                 <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
                     <VerticalStackLayout Spacing="4">
                         <Label
-                            x:Name="RepeatPopupTitle"
+                            x:Name="RepeatPopupTitle" Text="{Binding RepeatPopupTitle}"
                             FontFamily="OpenSansSemibold"
                             FontSize="19"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
@@ -311,7 +312,7 @@
                                 VerticalItemSpacing="6" />
                         </CollectionView.ItemsLayout>
                         <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="local:RepeatOptionItem">
+                            <DataTemplate x:DataType="vm:RepeatOptionItem">
                                 <Border
                                     Padding="5"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
@@ -336,12 +337,12 @@
                     <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button
                             BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource DarkIconBackground}}"
-                            Clicked="OnRepeatPopupCancelClicked"
+                            Command="{Binding RepeatPopupCancelCommand}"
                             Text="{x:Static strings:AppResources.Common_Cancel}"
                             TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                         <Button
                             Grid.Column="1"
-                            Clicked="OnRepeatPopupConfirmClicked"
+                            Command="{Binding RepeatPopupConfirmCommand}"
                             Text="{x:Static strings:AppResources.Common_Confirm}" />
                     </Grid>
                 </Grid>

@@ -1,20 +1,24 @@
-using System.Collections.ObjectModel;
-
 namespace ArriLight;
 
 public partial class MessageCenterPage : ContentPage
 {
-    public ObservableCollection<AppMessage> Messages { get; } =
-    [
-        new(AppResources.Messages_WelcomeTitle, AppResources.Messages_WelcomeContent, AppResources.Messages_TodayTime),
-        new(AppResources.Messages_StatusTitle, AppResources.Messages_StatusContent, AppResources.Messages_YesterdayTime)
-    ];
-
-    public MessageCenterPage()
+    public MessageCenterPageViewModel ViewModel { get; }
+    public MessageCenterPage() : this(ServiceHelper.GetRequiredService<MessageCenterPageViewModel>()) { }
+    public MessageCenterPage(MessageCenterPageViewModel viewModel)
     {
         InitializeComponent();
-        BindingContext = this;
+        ViewModel = viewModel;
+        BindingContext = viewModel;
     }
-}
+    protected override async void OnAppearing()
+    {
+        base.OnAppearing();
+        await ViewModel.OnAppearingAsync();
+    }
+    protected override void OnDisappearing()
+    {
+        ViewModel.OnDisappearing();
+        base.OnDisappearing();
+    }
 
-public sealed record AppMessage(string Title, string Content, string Time);
+}

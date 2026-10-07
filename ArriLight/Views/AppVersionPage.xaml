@@ -3,9 +3,10 @@
     x:Class="ArriLight.AppVersionPage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
-    x:DataType="local:AppVersionPage"
+    x:DataType="vm:AppVersionPageViewModel"
     Title="{x:Static strings:AppResources.Version_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -31,7 +32,7 @@
                     Text="{Binding VersionText}"
                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}">
                     <Label.GestureRecognizers>
-                        <TapGestureRecognizer Tapped="OnVersionTapped" />
+                        <TapGestureRecognizer Command="{Binding VersionTapCommand}" />
                     </Label.GestureRecognizers>
                 </Label>
             </VerticalStackLayout>
@@ -41,7 +42,7 @@
                     <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Version_DebugMode}" />
                     <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Configuration_EditDescription}" />
                     <Button
-                        Clicked="OnEditConfigurationClicked"
+                        Command="{Binding OpenConfigurationEditorCommand}"
                         Text="{x:Static strings:AppResources.Configuration_Edit}" />
                 </VerticalStackLayout>
             </Border>

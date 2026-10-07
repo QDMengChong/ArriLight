@@ -80,6 +80,28 @@
       ]
     },
     {
+      "id": "CommunityToolkit.Mvvm/8.4.2",
+      "name": "CommunityToolkit.Mvvm",
+      "version": "8.4.2",
+      "license": "MIT",
+      "projectUrl": "https://github.com/CommunityToolkit/dotnet",
+      "authors": "Microsoft",
+      "copyright": "(c) .NET Foundation and Contributors. All rights reserved.",
+      "isDirect": true,
+      "documents": [
+        {
+          "name": "License.md",
+          "assetPath": "OpenSourceLicenses/texts/651997ef19dbb9ecb8dd660d.txt",
+          "source": "https://www.nuget.org/packages/CommunityToolkit.Mvvm/8.4.2"
+        },
+        {
+          "name": "ThirdPartyNotices.txt",
+          "assetPath": "OpenSourceLicenses/texts/7774f8b0ab66bfb47ec154ce.txt",
+          "source": "https://www.nuget.org/packages/CommunityToolkit.Mvvm/8.4.2"
+        }
+      ]
+    },
+    {
       "id": "Microsoft.Extensions.Logging.Debug/10.0.12",
       "name": "Microsoft.Extensions.Logging.Debug",
       "version": "10.0.12",

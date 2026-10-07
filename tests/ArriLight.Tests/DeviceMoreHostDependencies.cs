@@ -18,9 +18,8 @@ public partial class DeviceMorePage
     private void InitializeComponent() { }
     internal async Task LoadModeForTestAsync()
     {
-        ReloadDevice();
-        await LoadLocalModeAsync();
+        await ViewModel.OnAppearingAsync();
     }
-    internal Task SetModeForTestAsync() => SetLocalModeAsync();
+    internal Task SetModeForTestAsync() => ViewModel.SetLocalModeForTestAsync();
     internal void DisappearForTest() => OnDisappearing();
 }

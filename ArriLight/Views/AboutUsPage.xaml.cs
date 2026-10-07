@@ -2,45 +2,23 @@ namespace ArriLight;
 
 public partial class AboutUsPage : ContentPage
 {
-    private const string ContactPhoneNumber = "4000000000";
-
-    public AboutUsPage()
+    public AboutUsPageViewModel ViewModel { get; }
+    public AboutUsPage() : this(ServiceHelper.GetRequiredService<AboutUsPageViewModel>()) { }
+    public AboutUsPage(AboutUsPageViewModel viewModel)
     {
         InitializeComponent();
+        ViewModel = viewModel;
+        BindingContext = viewModel;
     }
-
-    private async void OnUserAgreementTapped(object? sender, TappedEventArgs e) =>
-        await Shell.Current.GoToAsync($"{nameof(LegalDocumentPage)}?kind=agreement");
-
-    private async void OnPrivacyPolicyTapped(object? sender, TappedEventArgs e) =>
-        await Shell.Current.GoToAsync($"{nameof(LegalDocumentPage)}?kind=privacy");
-
-    private async void OnOpenSourceLicensesTapped(object? sender, TappedEventArgs e) =>
-        await Shell.Current.GoToAsync(nameof(OpenSourceLicensesPage));
-
-    private async void OnWeChatTapped(object? sender, TappedEventArgs e)
+    protected override async void OnAppearing()
     {
-        try
-        {
-            var opened = await Launcher.Default.TryOpenAsync("weixin://");
-            if (!opened)
-                await DisplayAlertAsync(AppResources.About_WeChatUnavailable, AppResources.About_InstallWeChat, AppResources.Common_Ok);
-        }
-        catch
-        {
-            await DisplayAlertAsync(AppResources.About_WeChatUnavailable, AppResources.About_InstallWeChat, AppResources.Common_Ok);
-        }
+        base.OnAppearing();
+        await ViewModel.OnAppearingAsync();
+    }
+    protected override void OnDisappearing()
+    {
+        ViewModel.OnDisappearing();
+        base.OnDisappearing();
     }
 
-    private async void OnContactUsTapped(object? sender, TappedEventArgs e)
-    {
-        try
-        {
-            await Launcher.Default.OpenAsync($"tel:{ContactPhoneNumber}");
-        }
-        catch
-        {
-            await DisplayAlertAsync(AppResources.About_DialerUnavailable, Localization.Format(nameof(AppResources.About_CallManually), ContactPhoneNumber), AppResources.Common_Ok);
-        }
-    }
 }

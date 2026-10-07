@@ -10,13 +10,13 @@ public sealed class AppInfo
 public partial class AppVersionPage
 {
     private void InitializeComponent() { }
-    internal Task TapForTestAsync(DateTimeOffset now) => HandleVersionTapAsync(now);
-    internal Task OpenConfigurationForTestAsync() => OpenConfigurationEditorAsync();
+    internal Task TapForTestAsync(DateTimeOffset now) => ViewModel.TapForTestAsync(now);
+    internal Task OpenConfigurationForTestAsync() => ViewModel.OpenConfigurationEditorCommand.ExecuteAsync(null);
 }
 
 public partial class DebugConfigurationPage
 {
     private void InitializeComponent() { }
-    internal Task LoadForTestAsync() => LoadConfigurationAsync();
-    internal Task SaveForTestAsync() => SaveConfigurationAsync();
+    internal Task LoadForTestAsync() => ViewModel.OnAppearingAsync();
+    internal Task SaveForTestAsync() => ViewModel.SaveConfigurationCommand.ExecuteAsync(null);
 }

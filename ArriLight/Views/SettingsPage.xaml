@@ -1,8 +1,10 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ArriLight.SettingsPage"
+    x:DataType="vm:SettingsPageViewModel"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     Title="{x:Static strings:AppResources.Settings_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
@@ -110,10 +112,9 @@
             Text="{x:Static strings:AppResources.Settings_LanguagePersistenceHint}"
             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
         <Label
-            x:Name="LanguageRestartNotice"
+            x:Name="LanguageRestartNotice" IsVisible="{Binding RequiresRestart}"
             Margin="4,0"
             FontSize="12"
-            IsVisible="False"
             Text="{x:Static strings:AppResources.Settings_LanguageRestartRequired}"
             TextColor="{StaticResource Primary}" />
 

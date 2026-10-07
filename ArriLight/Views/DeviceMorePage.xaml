@@ -3,9 +3,10 @@
     x:Class="ArriLight.DeviceMorePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
-    x:DataType="local:DeviceMorePage"
+    x:DataType="vm:DeviceMorePageViewModel"
     Title="{x:Static strings:AppResources.Device_Information}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -84,7 +85,7 @@
                             <Label Style="{StaticResource MenuDescriptionStyle}" Text="{Binding LocalModeNotice}" VerticalTextAlignment="Center" />
                             <Button
                                 Grid.Column="1"
-                                Clicked="OnSetLocalModeClicked"
+                                Command="{Binding SetLocalModeCommand}"
                                 HorizontalOptions="End"
                                 IsEnabled="{Binding CanSetLocalMode}"
                                 MinimumWidthRequest="84"
@@ -97,7 +98,7 @@
                     <VerticalStackLayout Spacing="0">
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnRenameTapped" />
+                                <TapGestureRecognizer Command="{Binding RenameCommand}" />
                             </Grid.GestureRecognizers>
                             <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_Name}" VerticalTextAlignment="Center" />
                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
@@ -126,7 +127,7 @@
                     <VerticalStackLayout Spacing="0">
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnManualTapped" />
+                                <TapGestureRecognizer Command="{Binding ManualCommand}" />
                             </Grid.GestureRecognizers>
                             <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Manual_Title}" VerticalTextAlignment="Center" />
                             <Image Grid.Column="1" Style="{StaticResource MenuChevronStyle}" />
@@ -134,7 +135,7 @@
                         <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnFirmwareTapped" />
+                                <TapGestureRecognizer Command="{Binding FirmwareCommand}" />
                             </Grid.GestureRecognizers>
                             <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Firmware_Title}" VerticalTextAlignment="Center" />
                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
@@ -145,7 +146,7 @@
                         <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
                             <Grid.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnShareTapped" />
+                                <TapGestureRecognizer Command="{Binding ShareCommand}" />
                             </Grid.GestureRecognizers>
                             <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Share_Title}" VerticalTextAlignment="Center" />
                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
@@ -181,7 +182,7 @@
                 BackgroundColor="Transparent"
                 BorderColor="#E65B65"
                 BorderWidth="1"
-                Clicked="OnUnbindClicked"
+                Command="{Binding UnbindCommand}"
                 CornerRadius="24"
                 HeightRequest="50"
                 Text="{x:Static strings:AppResources.Device_Unbind}"

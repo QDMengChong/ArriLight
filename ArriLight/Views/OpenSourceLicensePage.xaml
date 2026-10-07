@@ -1,34 +1,36 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ArriLight.OpenSourceLicensePage"
+    x:DataType="vm:OpenSourceLicensePageViewModel"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
-    Title="{x:Static strings:AppResources.Licenses_Title}"
+    Title="{Binding ComponentName}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
     <Grid>
-        <ScrollView x:Name="LicenseScroll" IsVisible="False">
+        <ScrollView x:Name="LicenseScroll" IsVisible="{Binding HasContent}" >
             <VerticalStackLayout Padding="20,24" Spacing="12">
                 <Border Style="{StaticResource MenuCardStyle}">
                     <VerticalStackLayout Spacing="8">
-                        <Label x:Name="ComponentName" FontFamily="OpenSansSemibold" FontSize="20"
+                        <Label x:Name="ComponentName" Text="{Binding ComponentName}" FontFamily="OpenSansSemibold" FontSize="20"
                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                        <Label x:Name="ComponentVersion" Style="{StaticResource MenuDescriptionStyle}" />
-                        <Label x:Name="ComponentLicense" Style="{StaticResource MenuTitleStyle}" />
-                        <Label x:Name="ComponentAuthors" Style="{StaticResource MenuDescriptionStyle}" />
-                        <Label x:Name="ComponentCopyright" Style="{StaticResource MenuDescriptionStyle}" />
-                        <Button x:Name="ProjectWebsiteButton" Text="{x:Static strings:AppResources.Licenses_ProjectWebsite}"
-                                Clicked="OnProjectWebsiteClicked" HorizontalOptions="Start" />
+                        <Label x:Name="ComponentVersion" Text="{Binding ComponentVersion}" Style="{StaticResource MenuDescriptionStyle}" />
+                        <Label x:Name="ComponentLicense" Text="{Binding ComponentLicense}" Style="{StaticResource MenuTitleStyle}" />
+                        <Label x:Name="ComponentAuthors" Text="{Binding ComponentAuthors}" Style="{StaticResource MenuDescriptionStyle}" />
+                        <Label x:Name="ComponentCopyright" IsVisible="{Binding HasCopyright}" Text="{Binding ComponentCopyright}" Style="{StaticResource MenuDescriptionStyle}" />
+                        <Button x:Name="ProjectWebsiteButton" IsVisible="{Binding HasProjectWebsite}" Text="{x:Static strings:AppResources.Licenses_ProjectWebsite}"
+                                Command="{Binding ProjectWebsiteCommand}" HorizontalOptions="Start" />
                     </VerticalStackLayout>
                 </Border>
                 <Label FontSize="12" Text="{x:Static strings:AppResources.Licenses_OriginalText}"
                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                 <Border Style="{StaticResource MenuCardStyle}">
-                    <Label x:Name="LicenseText" FontSize="13" LineHeight="1.3" LineBreakMode="WordWrap"
+                    <Label x:Name="LicenseText" Text="{Binding LicenseText}" FontSize="13" LineHeight="1.3" LineBreakMode="WordWrap"
                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                 </Border>
             </VerticalStackLayout>
         </ScrollView>
-        <ActivityIndicator x:Name="LoadingIndicator" IsVisible="False" Color="{StaticResource Primary}" />
+        <ActivityIndicator x:Name="LoadingIndicator" IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"  Color="{StaticResource Primary}" />
     </Grid>
 </ContentPage>

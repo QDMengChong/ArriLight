@@ -3,9 +3,10 @@
     x:Class="ArriLight.FirmwareUpdatePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
-    x:DataType="local:FirmwareUpdatePage"
+    x:DataType="vm:FirmwareUpdatePageViewModel"
     Title="{x:Static strings:AppResources.Firmware_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
@@ -61,12 +62,12 @@
                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                         <Button
-                            Clicked="OnOnlineCheckClicked"
+                            Command="{Binding OnlineCheckCommand}"
                             IsEnabled="{Binding CanOperate}"
                             Text="{x:Static strings:AppResources.Firmware_CheckOnline}" />
                         <Button
                             Grid.Column="1"
-                            Clicked="OnSelectLocalClicked"
+                            Command="{Binding SelectLocalCommand}"
                             IsEnabled="{Binding CanOperate}"
                             Text="{x:Static strings:AppResources.Firmware_LoadLocal}" />
                     </Grid>
@@ -131,7 +132,7 @@
                         Progress="{Binding ProgressValue}"
                         ProgressColor="{StaticResource Primary}" />
                     <Button
-                        Clicked="OnStartUpdateClicked"
+                        Command="{Binding StartSelectedUpdateCommand}"
                         IsEnabled="{Binding CanStartUpdate}"
                         IsVisible="{Binding CanShowOnlineUpdateButton}"
                         Text="{x:Static strings:AppResources.Firmware_DownloadAndUpdate}" />
@@ -139,7 +140,7 @@
                         BackgroundColor="Transparent"
                         BorderColor="#E65B65"
                         BorderWidth="1"
-                        Clicked="OnCancelClicked"
+                        Command="{Binding CancelCommand}"
                         IsVisible="{Binding IsOperationRunning}"
                         Text="{x:Static strings:AppResources.Firmware_CancelUpdate}"
                         TextColor="#E65B65" />

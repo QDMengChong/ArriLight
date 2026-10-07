@@ -14,6 +14,7 @@ public partial class DeviceControlPage
         _controlPageAppearanceCancellation = new CancellationTokenSource();
         _controlInitializationScheduled = false;
         _automaticConnectionPending = true;
+        NotifyAutomaticConnectionPending(true);
         PrepareEntranceTransition();
         BeginControlFrameObservation(_controlPageAppearanceCancellation.Token);
     }
@@ -34,6 +35,7 @@ public partial class DeviceControlPage
             _diagnostics, "Control.Appearance", dispose: true, address: DeviceAddress);
         _controlPageAppearanceCancellation = null;
         _automaticConnectionPending = false;
+        NotifyAutomaticConnectionPending(false);
         ResetEntranceTransition();
     }
 
@@ -123,11 +125,8 @@ public partial class DeviceControlPage
                 timing.SetResult("demo-shown");
                 return;
             }
-            await Task.Run(_discoveryService.StopAsync, cancellationToken).WaitAsync(cancellationToken);
-            cancellationToken.ThrowIfCancellationRequested();
-            timing.Mark("页面首帧已绘制，后台扫描已停止，开始准备 AGP 会话；不等待控件加载");
-            await EnsureConnectedAsync(
-                showError: false, cancellationToken: cancellationToken, scanAlreadyStopped: true);
+            timing.Mark("页面首帧已绘制，开始独立准备 AGP 会话；不等待控件加载");
+            await PrepareControlSessionAsync(cancellationToken);
             timing.SetResult("finished");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -149,6 +148,7 @@ public partial class DeviceControlPage
             if (_controlPageAppearanceCancellation?.Token == cancellationToken)
             {
                 _automaticConnectionPending = false;
+                NotifyAutomaticConnectionPending(false);
                 OnPropertyChanged(nameof(CanRefreshStatus));
             }
         }

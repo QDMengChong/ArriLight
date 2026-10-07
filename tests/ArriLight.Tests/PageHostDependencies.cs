@@ -4,7 +4,12 @@ namespace ArriLight;
 // Android's native dialog is checked by the platform build, not rendered here.
 public class BindableObject
 {
-    public object? BindingContext { get; set; }
+    private object? _bindingContext;
+    public object? BindingContext
+    {
+        get => _bindingContext;
+        set { _bindingContext = value; if (this is ContentPage page) TestUserInteraction.CurrentPage = page; }
+    }
 }
 
 public class Element : BindableObject;
@@ -25,12 +30,12 @@ public class ContentPage : Element
     protected virtual void OnNavigatedTo(NavigatedToEventArgs args) { }
     protected virtual bool OnBackButtonPressed() => false;
     protected void OnPropertyChanged(string? propertyName = null) { }
-    protected Task DisplayAlertAsync(string title, string message, string cancel)
+    internal Task DisplayAlertAsync(string title, string message, string cancel)
     {
         Alerts.Add((title, message));
         return Task.CompletedTask;
     }
-    protected Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel)
+    internal Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel)
     {
         Alerts.Add((title, message));
         return OnConfirmation?.Invoke(title, message, accept, cancel) ??
@@ -82,7 +87,23 @@ public static class ServiceHelper
 {
     private static readonly Dictionary<Type, object> Services = [];
     public static void Set<T>(T value) where T : class => Services[typeof(T)] = value;
-    public static T GetRequiredService<T>() where T : class => (T)Services[typeof(T)];
+    public static T GetRequiredService<T>() where T : class
+    {
+        if (Services.TryGetValue(typeof(T), out var value)) return (T)value;
+        if (typeof(T) == typeof(IUiDispatcher)) return (T)(object)new TestUiDispatcher();
+        if (typeof(T) == typeof(IAppNavigator)) return (T)(object)new TestAppNavigator();
+        if (typeof(T) == typeof(IUserInteraction)) return (T)(object)new TestUserInteraction();
+        if (typeof(T) == typeof(IApplicationPresentation)) return (T)(object)new TestApplicationPresentation();
+        if (typeof(T) == typeof(IFirmwareFilePicker)) return (T)(object)new TestFirmwareFilePicker();
+        if (typeof(T).Namespace == "ArriLight.ViewModels")
+        {
+            var constructor = typeof(T).GetConstructors().Single();
+            var arguments = constructor.GetParameters().Select(parameter =>
+                typeof(ServiceHelper).GetMethod(nameof(GetRequiredService))!.MakeGenericMethod(parameter.ParameterType).Invoke(null, null)).ToArray();
+            return (T)constructor.Invoke(arguments);
+        }
+        throw new KeyNotFoundException(typeof(T).FullName);
+    }
 }
 
 public static class ToastService
@@ -95,6 +116,7 @@ public static class ToastService
 public sealed record Color(string Value)
 {
     public static Color FromArgb(string value) => new(value);
+    public static implicit operator PresentationColor(Color color) => PresentationColor.FromArgb(color.Value);
 }
 
 public static class Colors
@@ -110,15 +132,14 @@ public partial class MainPage
     private void InitializeComponent() { }
     internal void AppearForTest() => OnAppearing();
     internal void DisappearForTest() => OnDisappearing();
-    internal Task TogglePowerForTestAsync(LightDeviceItem device) => ToggleDevicePowerAsync(device);
+    internal Task TogglePowerForTestAsync(LightDeviceItem device) => ViewModel.TogglePowerCommand.ExecuteAsync(device);
     internal Task QueryForTestAsync(LightDeviceItem device, TimeSpan timeout) =>
-        QueryDeviceStatusAsync(device, timeout, CancellationToken.None);
-    internal void MarkOfflineForTest(LightDeviceItem device) => MarkDeviceOffline(device);
-    internal Task OpenControlForTestAsync(LightDeviceItem device) => OpenDeviceControlAsync(device);
+        ViewModel.QueryForTestAsync(device, timeout);
+    internal void MarkOfflineForTest(LightDeviceItem device) => ViewModel.MarkOfflineForTest(device);
+    internal Task OpenControlForTestAsync(LightDeviceItem device) => ViewModel.OpenControlCommand.ExecuteAsync(device);
     internal void SetHomeRefreshForTest(Task task, CancellationTokenSource cancellation)
     {
-        _statusRefreshTask = task;
-        _statusRefreshCancellation = cancellation;
+        ViewModel.SetHomeRefreshForTest(task, cancellation);
     }
 }
 
@@ -179,18 +200,17 @@ public partial class BluetoothScanPage
     private void InitializeComponent() { }
 
     internal bool PromptIsVisible => BindingPromptOverlay.IsVisible;
-    internal Task? CountdownTask => _bindingCountdownTask;
-    internal Task AddForTestAsync(string name, string address) => AddDeviceAsync(name, address);
-    internal void CancelForTest() => OnCancelBindingClicked(this, EventArgs.Empty);
+    internal Task? CountdownTask => ViewModel.CountdownForTest;
+    internal Task AddForTestAsync(string name, string address) => ViewModel.AddForTestAsync(name, address);
+    internal void CancelForTest() => ViewModel.CancelBindingCommand.Execute(null);
     internal void DisappearForTest() => OnDisappearing();
     internal Task ShowProgressForTestAsync(CancellationToken token) =>
-        UpdateBindingProgressAsync(AgpBindingStage.Connecting, token, _bindingCancellation!.Token);
+        ViewModel.ShowProgressForTestAsync(token);
 
     internal void SetPageCancellationForTest(CancellationTokenSource source)
     {
-        _bindingCancellation = source;
-        _bindingDeadline = DateTimeOffset.UtcNow + AgpLightControlService.BindingTimeout;
+        ViewModel.SetPageCancellationForTest(source);
     }
 
-    internal void ExpireCountdownForTest() => _bindingDeadline = DateTimeOffset.UtcNow;
+    internal void ExpireCountdownForTest() => ViewModel.ExpireCountdownForTest();
 }

@@ -37,7 +37,9 @@ SOURCE_VERSIONS = {
 def copy_document(data, name, source):
     # Deduplicate shared terms without dropping any package-specific notices.
     filename = hashlib.sha256(data).hexdigest()[:24] + ".txt"
-    (OUTPUT / "texts" / filename).write_bytes(data)
+    path = OUTPUT / "texts" / filename
+    if not path.exists() or path.read_bytes() != data:
+        path.write_bytes(data)
     return {"name": name, "assetPath": "OpenSourceLicenses/texts/" + filename, "source": source}
 
 
