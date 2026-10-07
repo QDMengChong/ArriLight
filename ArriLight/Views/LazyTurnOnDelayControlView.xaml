@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<local:TimedLazyContentView
+    x:Class="ArriLight.LazyTurnOnDelayControlView"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
+    xmlns:local="clr-namespace:ArriLight"
+    x:DataType="local:DeviceControlPage">
+    <Border Style="{StaticResource MenuCardStyle}">
+        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+            <CheckBox
+                IsChecked="{Binding IsTurnOnDelayEnabled, Mode=TwoWay}"
+                SemanticProperties.Description="{x:Static strings:AppResources.Control_Delay}"
+                VerticalOptions="Center" />
+            <Label
+                Grid.Column="1"
+                FontFamily="OpenSansSemibold"
+                FontSize="14"
+                Text="{x:Static strings:AppResources.Control_Delay}"
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                VerticalTextAlignment="Center" />
+            <Border
+                Grid.Column="2"
+                Padding="10,0"
+                IsEnabled="{Binding IsTurnOnDelayEnabled}"
+                BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
+                StrokeThickness="0"
+                StrokeShape="RoundRectangle 12">
+                <Border.Triggers>
+                    <DataTrigger TargetType="Border" Binding="{Binding IsTurnOnDelayEnabled}" Value="False">
+                        <Setter Property="Opacity" Value="0.45" />
+                    </DataTrigger>
+                </Border.Triggers>
+                <Grid ColumnDefinitions="*,Auto">
+                    <Entry
+                        x:Name="TurnOnDelaySecondsEntryElement"
+                        FontSize="14"
+                        Focused="OnSecondsFocused"
+                        TextChanged="OnSecondsTextChanged"
+                        HorizontalTextAlignment="Center"
+                        Keyboard="Numeric"
+                        MaxLength="5"
+                        Text="60"
+                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                        VerticalTextAlignment="Center" />
+                    <Label
+                        Grid.Column="1"
+                        FontSize="12"
+                        Text="s"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                        VerticalTextAlignment="Center" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</local:TimedLazyContentView>

@@ -659,6 +659,9 @@ Logs will be appended to:
     <value>Up to 6</value>
     <comment>DeviceControlPage.xaml.cs:965; LazyPresetControlView.xaml:Text</comment>
   </data>
+  <data name="Control_Delay" xml:space="preserve">
+    <value>Delay</value>
+  </data>
   <data name="Timer_InvalidSeconds" xml:space="preserve">
     <value>Unable to send: enter 1 to 86400 seconds</value>
     <comment>DeviceControlPage.xaml.cs:1006</comment>

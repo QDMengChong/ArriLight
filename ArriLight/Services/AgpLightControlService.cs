@@ -327,11 +327,13 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     public AgpLightControlService(
         BluetoothConnectionService connectionService,
         AppDiagnosticService diagnostics,
-        DeviceRepository repository)
+        DeviceRepository repository,
+        TimeProvider? timeProvider = null)
     {
         _connectionService = connectionService;
         _diagnostics = diagnostics;
         _repository = repository;
+        _controlDelayTimeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>Disconnect a forgotten device before deleting its local record and credentials.</summary>
@@ -351,6 +353,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             await _connectionService.DisconnectDeviceAsync(address, cancellationToken);
             _deviceStatuses.TryRemove(address, out _);
             var removed = _repository.Remove(address);
+            CancelPendingControlDelay(address);
             _diagnostics.Information(
                 "BLE/Removal", $"解除绑定完成：device={address}，removed={removed}，目标连接已释放，状态与扫描缓存已清理。");
             timing.SetResult(removed ? "removed" : "already-absent");
@@ -502,12 +505,16 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     public Task SetOnOffAsync(
         string address,
         bool isOn,
-        CancellationToken cancellationToken = default) =>
-        WithClientAsync(
+        CancellationToken cancellationToken = default)
+    {
+        var cancelTimer = CancelPendingControlDelay(address);
+        return WithClientAsync(
             address,
             async handle =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.OnOff);
+                if (cancelTimer)
+                    await CancelDeviceTurnOnTimerAsync(handle, cancellationToken);
                 await MeasureAsync("AGP.Command.OnOff", address, async () =>
                 {
                     var response = await handle.Client.SetOnOffAsync(
@@ -519,6 +526,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                 CacheControlState(handle);
             },
             cancellationToken);
+    }
 
     public Task SetLightnessAsync(
         string address,
@@ -595,11 +603,22 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         AgpLightMode mode,
         ushort periodMilliseconds,
         CancellationToken cancellationToken = default) =>
+        SetEffectCoreAsync(address, mode, periodMilliseconds,
+            CancelPendingControlDelay(address), cancellationToken);
+
+    private Task<AgpEffectResponse> SetEffectCoreAsync(
+        string address,
+        AgpLightMode mode,
+        ushort periodMilliseconds,
+        bool cancelTimer,
+        CancellationToken cancellationToken) =>
         WithClientAsync(
             address,
             async handle =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.Effects);
+                if (cancelTimer)
+                    await CancelDeviceTurnOnTimerAsync(handle, cancellationToken);
                 var response = await handle.Client.SetEffectAsync(
                     mode,
                     periodMilliseconds,
@@ -859,12 +878,12 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                 var seconds = checked((uint)Math.Ceiling(delay.TotalSeconds));
                 if (turnOn)
                 {
-                    var response = await handle.Client.SetDelayOnAsync(seconds, cancellationToken);
+                    var response = await handle.Client.SetDelayOnAsync(seconds, cancellationToken: cancellationToken);
                     EnsureSuccess(response.Result);
                 }
                 else
                 {
-                    var response = await handle.Client.SetDelayOffAsync(seconds, cancellationToken);
+                    var response = await handle.Client.SetDelayOffAsync(seconds, cancellationToken: cancellationToken);
                     EnsureSuccess(response.Result);
                 }
             },
@@ -900,6 +919,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        CancelAllPendingControlDelays();
         try
         {
             await DisconnectForApplicationCloseAsync();

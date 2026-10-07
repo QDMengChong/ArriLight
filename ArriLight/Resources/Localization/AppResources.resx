@@ -659,6 +659,9 @@
     <value>最多 6 个</value>
     <comment>DeviceControlPage.xaml.cs:965; LazyPresetControlView.xaml:Text</comment>
   </data>
+  <data name="Control_Delay" xml:space="preserve">
+    <value>延时</value>
+  </data>
   <data name="Timer_InvalidSeconds" xml:space="preserve">
     <value>发送失败：请输入 1 至 86400 秒</value>
     <comment>DeviceControlPage.xaml.cs:1006</comment>

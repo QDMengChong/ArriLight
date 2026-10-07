@@ -50,6 +50,11 @@
                 Spacing="18"
                 IsEnabled="{Binding IsDeviceOnline}"
                 Opacity="{Binding ControlOpacity}">
+                <toolkit:LazyView
+                    x:Name="TurnOnDelayControlLazyView"
+                    IsVisible="False"
+                    x:TypeArguments="local:LazyTurnOnDelayControlView" />
+
                 <Border Style="{StaticResource MenuCardStyle}">
                     <VerticalStackLayout Spacing="14">
                         <Grid ColumnDefinitions="*,Auto">

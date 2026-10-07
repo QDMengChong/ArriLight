@@ -5,6 +5,7 @@ namespace ArriLight.Resources.Localization;
 // Typed accessors for AppResources.resx. All lookups use the application language service.
 public static class AppResources
 {
+    public static string Control_Delay => global::ArriLight.Localization.GetString(nameof(Control_Delay));
     internal static ResourceManager ResourceManager { get; } =
         new("ArriLight.Resources.Localization.AppResources", typeof(AppResources).Assembly);
 

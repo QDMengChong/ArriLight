@@ -335,6 +335,7 @@ public partial class BluetoothScanPage : ContentPage
             TimeSpan.FromSeconds(1));
 
         await _discoveryService.StopAsync();
+        await Shell.Current.GoToAsync("//DevicesPage");
     }
 
     private async Task UpdateBindingProgressAsync(

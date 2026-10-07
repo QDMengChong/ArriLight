@@ -6,7 +6,7 @@ namespace ArriLight.Tests;
 public sealed class BindingPromptTests
 {
     [Fact]
-    public async Task SuccessfulAddClosesPromptAndStaysOnScanPageBeforeCountdownDeadline()
+    public async Task SuccessfulAddClosesPromptAndReturnsHomeBeforeCountdownDeadline()
     {
         await using var fixture = new PairingFixture();
         fixture.Ble.DisconnectAfterToken = true;
@@ -21,7 +21,7 @@ public sealed class BindingPromptTests
             Assert.Null(page.CountdownTask);
             Assert.Equal("A1B2C3D4", fixture.Repository.GetToken(fixture.Address));
             Assert.Contains("添加成功", ToastService.Messages);
-            Assert.Empty(Shell.Current.Routes);
+            Assert.Equal("//DevicesPage", Assert.Single(Shell.Current.Routes));
         }
         finally
         {

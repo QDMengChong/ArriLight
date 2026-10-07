@@ -27,6 +27,7 @@
     <Compile Include="..\..\ArriLight\Services\BackExitGate.cs" Link="Services\BackExitGate.cs" />
     <Compile Include="..\..\ArriLight\Services\OpenSourceLicenseCatalog.cs" Link="Services\OpenSourceLicenseCatalog.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.cs" Link="Services\AgpLightControlService.cs" />
+    <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Delay.cs" Link="Services\AgpLightControlService.Delay.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Schedules.cs" Link="Services\AgpLightControlService.Schedules.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpGattTransport.cs" Link="Services\AgpGattTransport.cs" />
     <Compile Include="..\..\ArriLight\Services\BleTimingScope.cs" Link="Services\BleTimingScope.cs" />

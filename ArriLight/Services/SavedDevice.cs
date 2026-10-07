@@ -26,7 +26,9 @@ public sealed record SavedDevice(
     IReadOnlyList<SavedControlPreset>? CustomPresets = null,
     int TimerSeconds = 60,
     AgpCapabilities? Capabilities = null,
-    string? HardwareRevision = null)
+    string? HardwareRevision = null,
+    bool TurnOnDelayEnabled = false,
+    int TurnOnDelaySeconds = 60)
 {
     public const string UnknownFirmwareVersion = "unknown";
 

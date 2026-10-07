@@ -254,12 +254,14 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged += OnRequestedThemeChanged;
         _connectionService.StateChanged += OnConnectionStateChanged;
+        _agpLight.DeviceStatusChanged += OnControlDeviceStatusChanged;
 
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
             _repository.GetByAddress(DeviceAddress) is { } device)
         {
             _pendingTimerSeconds = device.TimerSeconds is >= 1 and <= 86400
                 ? device.TimerSeconds : 60;
+            LoadTurnOnDelaySettings();
             _isDemo = device.IsDemo;
             timing.Mark($"载入控制页; isDemo={_isDemo}");
             OnPropertyChanged(nameof(CanRefreshStatus));
@@ -316,6 +318,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         if (Application.Current is not null)
             Application.Current.RequestedThemeChanged -= OnRequestedThemeChanged;
         _connectionService.StateChanged -= OnConnectionStateChanged;
+        _agpLight.DeviceStatusChanged -= OnControlDeviceStatusChanged;
 
         CancelPresetPress();
         CancelEffectPress();
@@ -450,7 +453,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private void ApplyLightState(AgpLightState state)
     {
         _pendingLightState = state;
-        _isMasterPowerOn = state.IsOn;
+        _isMasterPowerOn = state.IsOn || _agpLight.HasPendingControlTurnOn(DeviceAddress);
         UpdateMasterPowerVisual();
         if (!HasBrightnessView)
             return;
@@ -627,7 +630,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         return true;
     }
 
-    private async Task SetEffectAsync(AgpLightMode mode, ushort periodMilliseconds)
+    private async Task SetEffectAsync(
+        AgpLightMode mode, ushort periodMilliseconds,
+        Func<CancellationToken, Task>? beforeEffect = null)
     {
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Control.Effect", DeviceAddress,
@@ -638,10 +643,27 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
         }
 
+        if (!TryGetTurnOnDelaySeconds(out var delaySeconds))
+            return;
+        var commandVersion = ++_powerCommandVersion;
+        var previousPower = _isMasterPowerOn;
+        var previousMode = _effectMode;
+        if (delaySeconds > 0)
+        {
+            // Show the pending action as cancellable through the master button.
+            _isMasterPowerOn = true;
+            _effectMode = mode;
+            UpdateMasterPowerVisual();
+            UpdateEffectVisual();
+        }
+
         try
         {
             var period = mode == AgpLightMode.Steady ? (ushort)0 : periodMilliseconds;
-            var response = await _agpLight.SetEffectAsync(DeviceAddress, mode, period);
+            var response = await _agpLight.SetControlPageEffectAsync(
+                DeviceAddress, mode, period, delaySeconds, beforeEffect: beforeEffect);
+            if (commandVersion != _powerCommandVersion)
+                return;
             _effectMode = response.Mode;
             if (response.Mode is AgpLightMode.Blink or AgpLightMode.Breathe)
             {
@@ -654,8 +676,25 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             UpdateEffectVisual();
             timing.SetResult("success");
         }
+        catch (OperationCanceledException)
+        {
+            if (commandVersion == _powerCommandVersion)
+            {
+                _isMasterPowerOn = _agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState?.IsOn ?? previousPower;
+                _effectMode = previousMode;
+                UpdateMasterPowerVisual();
+                UpdateEffectVisual();
+            }
+            timing.SetResult("cancelled");
+        }
         catch (Exception exception)
         {
+            if (commandVersion != _powerCommandVersion)
+                return;
+            _isMasterPowerOn = previousPower;
+            _effectMode = previousMode;
+            UpdateMasterPowerVisual();
+            UpdateEffectVisual();
             timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error("Light/Effect", $"发送特效指令失败：{DeviceName}。", exception);
             ToastService.Show(AppResources.Effect_CommandFailed);
@@ -899,6 +938,17 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         var hasLightSettings = (SupportsColor && preset.HasColor) ||
             (SupportsTemperature && preset.HasTemperature) ||
             (SupportsBrightness && preset.HasBrightness);
+        if (hasLightSettings && SupportsEffect && preset.EffectMode is { } delayedEffect &&
+            IsTurnOnDelayEnabled && _supportedCapabilities.HasFlag(AgpCapabilities.RelativeTimer))
+        {
+            // Brightness/color writes can also light the device. Defer the entire
+            // restore so they cannot bypass the saved effect's power-on delay.
+            await StopPendingLightSettingsAsync();
+            await SetEffectAsync(delayedEffect,
+                preset.EffectPeriodMilliseconds ?? GetEffectPeriod(delayedEffect),
+                CaptureLightSettingsCommand());
+            return;
+        }
         if (hasLightSettings)
         {
             // Light-model writes can reset a running effect. Send them first,
@@ -1041,6 +1091,10 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 
     private void ApplyTimerCapabilities(AgpCapabilities capabilities)
     {
+        TurnOnDelayControlLazyView.IsVisible = HasTurnOnDelayView &&
+            capabilities.HasFlag(AgpCapabilities.RelativeTimer);
+        TimerControlLazyView.IsVisible = ShowTimedControls && HasTimerView &&
+            capabilities.HasFlag(AgpCapabilities.RelativeTimer);
         if (!HasTimerView)
             return;
         // The schedule card is itself capability-dependent and is loaded lazily.
@@ -1049,7 +1103,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         // first capability load.
         if (HasScheduleView)
             ScheduleSettingsCard.IsVisible = capabilities.HasFlag(AgpCapabilities.RtcTime);
-        RelativeTimerCard.IsVisible = capabilities.HasFlag(AgpCapabilities.RelativeTimer);
+        RelativeTimerCard.IsVisible = ShowTimedControls && capabilities.HasFlag(AgpCapabilities.RelativeTimer);
 
         var wasTimedOn = TimerModePicker.SelectedIndex == 1;
         var supportsTimedOn = capabilities.HasFlag(AgpCapabilities.RelativeTimer);
@@ -1080,7 +1134,13 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             timing.SetResult("ignored-not-online");
             return;
         }
-        _isMasterPowerOn = !_isMasterPowerOn;
+        var desiredOn = !_isMasterPowerOn;
+        var delaySeconds = 0;
+        if (desiredOn && !TryGetTurnOnDelaySeconds(out delaySeconds))
+            return;
+        var commandVersion = ++_powerCommandVersion;
+        var previousPower = _isMasterPowerOn;
+        _isMasterPowerOn = desiredOn;
         UpdateMasterPowerVisual();
 
         if (!_isReady)
@@ -1098,11 +1158,22 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         try
         {
             timing.Mark($"提交开关操作; desiredOn={_isMasterPowerOn}; initializing={_isInitializingConnection}");
-            await _agpLight.SetOnOffAsync(DeviceAddress, _isMasterPowerOn);
+            await _agpLight.SetControlPageOnOffAsync(DeviceAddress, desiredOn, delaySeconds);
+            if (commandVersion == _powerCommandVersion &&
+                _agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState is { } state)
+            {
+                _effectMode = state.Mode;
+                UpdateEffectVisual();
+            }
             timing.SetResult("success");
         }
         catch (Exception exception)
         {
+            if (commandVersion == _powerCommandVersion)
+            {
+                _isMasterPowerOn = previousPower;
+                UpdateMasterPowerVisual();
+            }
             timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error(
                 "Light/Power",
@@ -1436,6 +1507,19 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         }
 
         if (_supportedCapabilities.HasFlag(AgpCapabilities.RelativeTimer))
+        {
+            var view = await LoadLazyViewAsync(TurnOnDelayControlLazyView);
+            view.SecondsFocused -= OnTurnOnDelaySecondsFocused;
+            view.SecondsTextChanged -= OnTurnOnDelaySecondsTextChanged;
+            view.SecondsFocused += OnTurnOnDelaySecondsFocused;
+            view.SecondsTextChanged += OnTurnOnDelaySecondsTextChanged;
+            view.SecondsEntry.Text = _pendingTurnOnDelaySeconds.ToString();
+            TurnOnDelayControlLazyView.IsVisible = true;
+            timing.Mark("turn-on delay LazyView loaded");
+            await YieldControlFrameAsync(token);
+        }
+
+        if (ShowTimedControls && _supportedCapabilities.HasFlag(AgpCapabilities.RelativeTimer))
         {
             var view = await LoadLazyViewAsync(TimerControlLazyView);
             view.DelayFocused -= OnDelaySecondsFocused;

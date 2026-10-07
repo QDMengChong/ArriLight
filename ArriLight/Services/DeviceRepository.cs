@@ -197,6 +197,25 @@ public sealed class DeviceRepository
         return Update(address, device => device with { TimerSeconds = seconds });
     }
 
+    public bool GetTurnOnDelayEnabled(string address) =>
+        GetByAddress(address)?.TurnOnDelayEnabled ?? false;
+
+    public bool SetTurnOnDelayEnabled(string address, bool enabled) =>
+        Update(address, device => device with { TurnOnDelayEnabled = enabled });
+
+    public int GetTurnOnDelaySeconds(string address) =>
+        GetByAddress(address)?.TurnOnDelaySeconds is { } seconds && seconds is >= 1 and <= 86400
+            ? seconds
+            : 60;
+
+    public bool SetTurnOnDelaySeconds(string address, int seconds)
+    {
+        if (seconds is < 1 or > 86400)
+            return false;
+
+        return Update(address, device => device with { TurnOnDelaySeconds = seconds });
+    }
+
     public bool Remove(string address)
     {
         var removed = false;
