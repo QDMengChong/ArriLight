@@ -7,6 +7,7 @@ namespace ArriLight
             InitializeComponent();
             Routing.RegisterRoute(nameof(MessageCenterPage), typeof(MessageCenterPage));
             Routing.RegisterRoute(nameof(AppVersionPage), typeof(AppVersionPage));
+            Routing.RegisterRoute(nameof(DebugConfigurationPage), typeof(DebugConfigurationPage));
             Routing.RegisterRoute(nameof(AboutUsPage), typeof(AboutUsPage));
             Routing.RegisterRoute(nameof(SettingsPage), typeof(SettingsPage));
             Routing.RegisterRoute(nameof(LegalDocumentPage), typeof(LegalDocumentPage));

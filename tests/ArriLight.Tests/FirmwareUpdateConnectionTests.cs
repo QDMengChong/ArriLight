@@ -55,20 +55,23 @@ public sealed class FirmwareUpdateConnectionTests
     public async Task NativeConnectionEventsUpdateConnectingConnectedLostAndReconnectedText()
     {
         await using var fixture = new PairingFixture();
-        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        fixture.Ble.OnConnect = (_, token) => release.Task.WaitAsync(token);
+        // Complete initial device-info reads before injecting connection loss.
+        // Otherwise the page's background initialization may itself reconnect.
+        await fixture.Connection.ConnectAsync(fixture.Address);
         var page = CreatePage(fixture);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         try
         {
             page.AppearForTest();
-            Assert.Equal("正在连接设备", page.ConnectionText);
-            release.SetResult();
-            await fixture.Connection.ConnectAsync(fixture.Address).WaitAsync(TimeSpan.FromSeconds(3));
             Assert.Equal("设备已连接", page.ConnectionText);
 
             fixture.Ble.RaiseUnexpectedDisconnect();
             Assert.Equal("连接意外断开", page.ConnectionText);
-            await fixture.Connection.ConnectAsync(fixture.Address);
+            fixture.Ble.OnConnect = (_, token) => release.Task.WaitAsync(token);
+            var reconnecting = fixture.Connection.ConnectAsync(fixture.Address);
+            Assert.Equal("正在连接设备", page.ConnectionText);
+            release.SetResult();
+            await reconnecting.WaitAsync(TimeSpan.FromSeconds(3));
             Assert.Equal("设备已连接", page.ConnectionText);
         }
         finally

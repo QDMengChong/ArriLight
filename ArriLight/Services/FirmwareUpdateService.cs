@@ -74,14 +74,9 @@ public sealed class FirmwareCandidate
         Protocol == OtaProtocol.Slb ? "SLB" : "Single Bank";
 }
 
-public sealed class FirmwareUpdateConfiguration
+public sealed class FirmwareUpdateConfiguration(AppSettingsService? appSettingsService = null)
 {
-    private const string ConfigurationAssetName = "appsettings.json";
-
-    private static readonly JsonSerializerOptions ConfigurationJsonOptions = new()
-    {
-        PropertyNameCaseInsensitive = true
-    };
+    private AppSettingsService? _appSettings = appSettingsService;
 
     public string? ListWorkerUrl { get; init; }
 
@@ -100,17 +95,12 @@ public sealed class FirmwareUpdateConfiguration
         if (string.IsNullOrWhiteSpace(listWorkerUrl) ||
             string.IsNullOrWhiteSpace(getWorkerUrl))
         {
-            await using var stream = await FileSystem.OpenAppPackageFileAsync(
-                ConfigurationAssetName);
-            var document = await JsonSerializer.DeserializeAsync<ConfigurationDocument>(
-                stream,
-                ConfigurationJsonOptions,
-                cancellationToken);
+            var saved = await (_appSettings ??= new AppSettingsService()).LoadWorkerUrlsAsync(cancellationToken);
             listWorkerUrl = string.IsNullOrWhiteSpace(listWorkerUrl)
-                ? document?.FirmwareUpdate?.ListWorkerUrl
+                ? saved.ListWorkerUrl
                 : listWorkerUrl;
             getWorkerUrl = string.IsNullOrWhiteSpace(getWorkerUrl)
-                ? document?.FirmwareUpdate?.GetWorkerUrl
+                ? saved.GetWorkerUrl
                 : getWorkerUrl;
         }
 
@@ -118,21 +108,10 @@ public sealed class FirmwareUpdateConfiguration
             string.IsNullOrWhiteSpace(getWorkerUrl))
         {
             throw new InvalidOperationException(
-                Localization.Format(nameof(AppResources.Firmware_ServiceConfigurationMissing), ConfigurationAssetName));
+                Localization.Format(nameof(AppResources.Firmware_ServiceConfigurationMissing), AppSettingsService.FileName));
         }
 
         return (listWorkerUrl.Trim(), getWorkerUrl.Trim());
-    }
-
-    private sealed class ConfigurationDocument
-    {
-        public FirmwareUpdateEndpoints? FirmwareUpdate { get; set; }
-    }
-
-    private sealed class FirmwareUpdateEndpoints
-    {
-        public string? ListWorkerUrl { get; set; }
-        public string? GetWorkerUrl { get; set; }
     }
 }
 

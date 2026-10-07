@@ -128,7 +128,7 @@ ArriOpto.BLE.Agp AgpClient
 
 选中延时后，总开关的开灯使用设备 `DELAY_ON_SET`，离开页面、APP 进入后台或断开 BLE 后设备仍继续计时。现有 `EFFECT_SET` 会立即启动输出且没有延时字段，因此特效按钮、特效参数应用及配置恢复共用服务中的 APP 等待，到时才发送原特效指令；等待不占用 BLE 操作锁，离开控制页继续等待，APP 进入后台或关闭会取消该等待，恢复前台不自动续执行。等待期间总开关显示“关闭”以允许取消，但共享设备状态不会提前记录为实际亮灯。同一设备新的开关/特效操作替换旧等待；关灯先取消待开灯的设备计时（0 秒）或 APP 特效等待，再立即关灯，删除设备也清理该等待。特效延时需 APP 保持前台运行，若要求 APP 退出后仍能延时启动指定特效，需要设备协议提供对应支持。
 
-每次读取 AGP Capabilities 特征时，`BluetoothConnectionService` 会输出 `[AGP/Capabilities]` 诊断日志，包含设备地址、实际读取的特征 UUID、完整原始十六进制字节，以及按协议解析的 64 位能力值（固定 16 位十六进制）、能力名称和 `effectsSupported`。解析失败时仍保留原始数据日志，并记录失败原因；诊断解析不改变读取结果或客户端的协议错误处理。Debug 构建始终在 Visual Studio“输出 → 调试”中显示这些日志；隐藏调试开关只控制文件写入。
+每次读取 AGP Capabilities 特征时，`BluetoothConnectionService` 会输出 `[AGP/Capabilities]` 诊断日志，包含设备地址、实际读取的特征 UUID、完整原始十六进制字节，以及按协议解析的 64 位能力值（固定 16 位十六进制）、能力名称和 `effectsSupported`。解析失败时仍保留原始数据日志，并记录失败原因；诊断解析不改变读取结果或客户端的协议错误处理。Debug 构建始终在 Visual Studio“输出 → 调试”中显示这些日志；隐藏调试模式控制文件写入和配置编辑入口。
 
 特效参数入口为长按“闪烁”或“呼吸灯”按钮约 650 ms；常亮、提示文字和卡片空白不打开参数设置。Android 使用与配对提示相同的原生居中圆角 Dialog，将整个应用背景变暗；其他平台或无法取得 Android Activity 时使用页内居中遮罩。设置不执行页面导航，因此保留控制页与 BLE 会话。周期范围为 200～10000 ms，按 100 ms 调整，点击“应用”才提交参数；取消、返回键、断连或离开页面均收起对话框并结束等待。对话框适配浅色/深色主题，长按触发、打开成功及异常记录在 `[Light/EffectSettings]` 日志中，异常同时显示重试提示。
 
@@ -230,7 +230,9 @@ Relative Timer 回归测试验证无 RTC/Scheduler 时仍可发送延时开/关�
 
 Timing 仅在 Debug 构建中启用。Release 使用共享空 scope，不创建 Stopwatch 计时、AsyncLocal 上下文或操作 ID；`Mark`/`SetResult` 调用在编译时移除，响应计时探针也不编译进 Release。原有诊断日志和文件开关保持原来的行为。
 
-Debug 启动输出 `[BLE/Test]` 环境信息（应用版本、平台、系统版本、手机型号），操作输出 `[BLE/Timing]`。两者自动进入 Visual Studio“输出 → 调试”，不需要开启隐藏文件日志开关。需要保存文件时，仍可在“我的 → 应用版本”连续点击版本号 5 次开启文件输出。
+Debug 启动输出 `[BLE/Test]` 环境信息（应用版本、平台、系统版本、手机型号），操作输出 `[BLE/Timing]`。两者自动进入 Visual Studio“输出 → 调试”，不需要开启隐藏调试模式。需要保存文件时，可在“我的 → 应用版本”连续点击版本号 5 次（相邻间隔不超过 2 秒），确认开启调试模式，同时启用文件输出和配置编辑入口。沿用原有日志开关的持久化值。
+
+调试模式下，该页面的“编辑 appsettings.json”入口打开文本编辑器。`AppSettingsService` 首次读取时将应用包中的默认 JSON 复制到 `FileSystem.AppDataDirectory/appsettings.json`，之后保留用户保存的文本。当前字段为 `FirmwareUpdate.ListWorkerUrl` 和 `FirmwareUpdate.GetWorkerUrl`；保存前检查 JSON、未知字段、必填值、HTTP/HTTPS 地址及 64 KiB 大小限制，写入同目录临时文件后替换原文件。失败时保留编辑内容和原配置。`FirmwareUpdateConfiguration` 每次在线检查重新读取文件，已有服务实例无需重建；已经生成的更新候选仍使用该次检查取得的下载地址。关闭调试模式会停止文件输出、隐藏编辑入口，保存的配置继续生效。回归测试覆盖点击间隔与确认、编辑入口权限、无效配置保留、持久化，以及同一个升级服务保存后再次检查使用新地址。
 
 页面性能还输出 `UI.Control.Construct`（页面构造总耗时）、`UI.Control.CreateViews`（页面 XAML 框架创建）、`UI.Control.LoadCapabilityViews`（能力确认后各个 `LazyView` 的首次加载）、`UI.Control.Preload`（主页预加载）、`UI.Control.RoutePage`（路由获取及是否命中预加载）、`UI.Home.NavigateControl`（导航）、`UI.Control.Entrance`（短动画）、`UI.Control.BleAfterFirstFrame`（首帧后的扫描清理与连接）及 `UI.Control.AfterNavigation`（内容加载、BLE 与动画全部结束）。能力相关区域使用 CommunityToolkit.Maui 的 `LazyView<T>`；只有设备支持并需要显示时才调用 `LoadViewAsync`，不支持的区域不会创建内部视图。特效参数弹层在首次打开参数设置时才加载。上述阶段同样仅在 Debug 启用，动画 120 ms 是目标时长，不代表创建、布局、导航和设备连接总共只需要 120 ms。
 

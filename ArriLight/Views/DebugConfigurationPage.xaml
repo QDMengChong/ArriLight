@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.DebugConfigurationPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
+    xmlns:local="clr-namespace:ArriLight"
+    x:DataType="local:DebugConfigurationPage"
+    Title="appsettings.json"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+    <Grid Padding="20,20,20,24" RowDefinitions="Auto,*,Auto" RowSpacing="14">
+        <Label
+            FontSize="12"
+            Text="{x:Static strings:AppResources.Configuration_EditDescription}"
+            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+        <Border Grid.Row="1" Style="{StaticResource MenuCardStyle}">
+            <Editor
+                AutoSize="Disabled"
+                FontSize="13"
+                IsEnabled="{Binding CanSave}"
+                IsSpellCheckEnabled="False"
+                IsTextPredictionEnabled="False"
+                Text="{Binding ConfigurationText, Mode=TwoWay}"
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                VerticalOptions="Fill">
+                <Editor.FontFamily>
+                    <OnPlatform x:TypeArguments="x:String">
+                        <On Platform="Android" Value="monospace" />
+                        <On Platform="iOS" Value="Menlo" />
+                    </OnPlatform>
+                </Editor.FontFamily>
+            </Editor>
+        </Border>
+        <VerticalStackLayout Grid.Row="2" Spacing="10">
+            <Label
+                FontSize="12"
+                Text="{Binding StatusText}"
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            <ActivityIndicator IsRunning="{Binding IsConfigurationBusy}" IsVisible="{Binding IsConfigurationBusy}" />
+            <Button
+                Clicked="OnSaveClicked"
+                IsEnabled="{Binding CanSave}"
+                Text="{x:Static strings:AppResources.Common_Save}" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

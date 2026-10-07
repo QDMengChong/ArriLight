@@ -33,6 +33,8 @@ public sealed class FileResult
 
 public static class FileSystem
 {
+    public static string AppDataDirectory =>
+        throw new NotSupportedException("Host tests supply an isolated configuration directory.");
     public static Task<Stream> OpenAppPackageFileAsync(string fileName) =>
         throw new NotSupportedException("App package assets are not used when worker URLs are supplied by host tests.");
 

@@ -32,8 +32,8 @@ public sealed class FirmwareOnlineTests
             "AABBCCDDEEFF00112233445566778899AABBCCDDEEFF00112233445566778899",
             candidate.Sha256);
         Assert.Equal(
-            "https://get.example?fileName=PW01_A1%2F1.0.2.hex16",
-            candidate.DownloadUri?.ToString());
+            new Uri("https://get.example?fileName=PW01_A1%2F1.0.2.hex16"),
+            candidate.DownloadUri);
 
         Assert.NotNull(handler.RequestUri);
         Assert.Contains("tenant=dev", handler.RequestUri!.Query);

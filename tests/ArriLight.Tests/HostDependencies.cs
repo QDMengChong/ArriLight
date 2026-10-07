@@ -46,6 +46,8 @@ public sealed class BluetoothDiscoveryException(string message) : Exception(mess
 
 public sealed class AppDiagnosticService
 {
+    public bool IsEnabled { get; set; }
+    public string LogFilePath => "arrilight_debug.txt";
     public List<(string Area, string Message)> Entries { get; } = [];
     public BleTimingScope BeginBleTiming(
         string stage, string? address = null, string? detail = null)

@@ -340,12 +340,12 @@
     <value>版本 {0}（{1}）</value>
     <comment>AppVersionPage.xaml.cs:12</comment>
   </data>
-  <data name="Version_DebugFileOutput" xml:space="preserve">
-    <value>调试文件输出</value>
+  <data name="Version_DebugMode" xml:space="preserve">
+    <value>调试模式</value>
     <comment>AppVersionPage.xaml.cs:35; AppVersionPage.xaml.cs:47</comment>
   </data>
   <data name="Version_EnableDebugPrompt" xml:space="preserve">
-    <value>是否打开调试文件输出？
+    <value>是否开启调试模式？开启后可编辑 appsettings.json，并输出调试日志。
 
 日志文件：
 {0}
@@ -353,12 +353,12 @@
     <comment>AppVersionPage.xaml.cs:37</comment>
   </data>
   <data name="Version_DisableDebugPrompt" xml:space="preserve">
-    <value>调试文件输出当前已开启。
+    <value>调试模式当前已开启。
 
 日志文件：
 {0}
 
-是否关闭文件输出？</value>
+是否关闭调试模式？关闭后将停止日志输出并隐藏配置编辑入口，已保存的配置仍然生效。</value>
     <comment>AppVersionPage.xaml.cs:38</comment>
   </data>
   <data name="Common_Enable" xml:space="preserve">
@@ -374,13 +374,13 @@
     <comment>AppVersionPage.xaml.cs:40; BluetoothScanPage.xaml.cs:270; DeviceControlPage.EffectSettings.cs:242</comment>
   </data>
   <data name="Version_DebugEnabled" xml:space="preserve">
-    <value>已打开。
+    <value>调试模式已开启，可在本页编辑 appsettings.json。
 日志将追加写入：
 {0}</value>
     <comment>AppVersionPage.xaml.cs:49</comment>
   </data>
   <data name="Version_DebugDisabled" xml:space="preserve">
-    <value>文件输出已关闭，已有日志会保留。</value>
+    <value>调试模式已关闭，已有日志和配置会保留。</value>
     <comment>AppVersionPage.xaml.cs:50</comment>
   </data>
   <data name="Scan_Ready" xml:space="preserve">
@@ -1703,5 +1703,35 @@ Product ID：{3}
   </data>
   <data name="Licenses_Authors" xml:space="preserve">
     <value>作者：{0}</value>
+  </data>
+  <data name="Configuration_Edit" xml:space="preserve">
+    <value>编辑 appsettings.json</value>
+  </data>
+  <data name="Configuration_EditDescription" xml:space="preserve">
+    <value>以文本编辑在线固件升级服务地址，保存后立即生效，无需重启。</value>
+  </data>
+  <data name="Configuration_DebugModeRequired" xml:space="preserve">
+    <value>请先开启调试模式，再编辑配置。</value>
+  </data>
+  <data name="Configuration_Saved" xml:space="preserve">
+    <value>配置已保存并生效。</value>
+  </data>
+  <data name="Configuration_LoadFailed" xml:space="preserve">
+    <value>读取配置失败：{0}</value>
+  </data>
+  <data name="Configuration_SaveFailed" xml:space="preserve">
+    <value>保存失败，原配置未更改：{0}</value>
+  </data>
+  <data name="Configuration_InvalidJson" xml:space="preserve">
+    <value>JSON 格式或配置字段错误：{0}</value>
+  </data>
+  <data name="Configuration_MissingSetting" xml:space="preserve">
+    <value>缺少配置或值为空：{0}</value>
+  </data>
+  <data name="Configuration_InvalidUrl" xml:space="preserve">
+    <value>{0} 必须是完整的 HTTP 或 HTTPS 地址。</value>
+  </data>
+  <data name="Configuration_TooLarge" xml:space="preserve">
+    <value>配置文件不能超过 64 KB。</value>
   </data>
 </root>

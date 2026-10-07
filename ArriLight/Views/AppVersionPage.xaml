@@ -36,6 +36,16 @@
                 </Label>
             </VerticalStackLayout>
 
+            <Border Style="{StaticResource MenuCardStyle}" IsVisible="{Binding IsDebugModeEnabled}">
+                <VerticalStackLayout Spacing="12">
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Version_DebugMode}" />
+                    <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Configuration_EditDescription}" />
+                    <Button
+                        Clicked="OnEditConfigurationClicked"
+                        Text="{x:Static strings:AppResources.Configuration_Edit}" />
+                </VerticalStackLayout>
+            </Border>
+
             <Border Style="{StaticResource MenuCardStyle}">
                 <VerticalStackLayout Spacing="13">
                     <Label

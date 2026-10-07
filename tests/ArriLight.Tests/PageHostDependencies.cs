@@ -17,15 +17,25 @@ public abstract class RouteFactory
 
 public class ContentPage : Element
 {
+    public Func<string, string, string, string, Task<bool>>? OnConfirmation { get; set; }
+    public List<(string Title, string Message)> Alerts { get; } = [];
     public TestDispatcher Dispatcher { get; } = new();
     protected virtual void OnAppearing() { }
     protected virtual void OnDisappearing() { }
     protected virtual void OnNavigatedTo(NavigatedToEventArgs args) { }
     protected virtual bool OnBackButtonPressed() => false;
     protected void OnPropertyChanged(string? propertyName = null) { }
-    protected Task DisplayAlertAsync(string title, string message, string cancel) => Task.CompletedTask;
-    protected Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel) =>
-        throw new NotSupportedException("Native OTA confirmation is not available in host tests.");
+    protected Task DisplayAlertAsync(string title, string message, string cancel)
+    {
+        Alerts.Add((title, message));
+        return Task.CompletedTask;
+    }
+    protected Task<bool> DisplayAlertAsync(string title, string message, string accept, string cancel)
+    {
+        Alerts.Add((title, message));
+        return OnConfirmation?.Invoke(title, message, accept, cancel) ??
+            throw new NotSupportedException("Native OTA confirmation is not available in host tests.");
+    }
     protected Task<string?> DisplayPromptAsync(
         string title, string message, string accept, string cancel, string placeholder,
         string initialValue, int maxLength) => Task.FromResult<string?>(initialValue);
