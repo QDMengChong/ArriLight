@@ -28,7 +28,6 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private AgpCapabilities _supportedCapabilities => ViewModel.SupportedCapabilities;
     private AgpLightState? _pendingLightState => ViewModel.PendingLightState;
     private int _pendingTimerSeconds => ViewModel.PendingTimerSeconds;
-    private int _pendingTurnOnDelaySeconds => ViewModel.PendingTurnOnDelaySeconds;
     private LazyColorControlView ColorView =>
         (LazyColorControlView)ColorControlLazyView.Content!;
     private LazyBrightnessControlView BrightnessView =>
@@ -407,7 +406,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private void ApplyTimerCapabilities(AgpCapabilities capabilities)
     {
         TurnOnDelayControlLazyView.IsVisible = HasTurnOnDelayView &&
-            capabilities.HasFlag(AgpCapabilities.RelativeTimer);
+            (capabilities.HasFlag(AgpCapabilities.RelativeTimer) || ViewModel.SupportsLocalMode);
         TimerControlLazyView.IsVisible = ShowTimedControls && HasTimerView &&
             capabilities.HasFlag(AgpCapabilities.RelativeTimer);
         if (!HasTimerView)
@@ -631,14 +630,11 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             await YieldControlFrameAsync(token);
         }
 
-        if (_supportedCapabilities.HasFlag(AgpCapabilities.RelativeTimer))
+        if (ViewModel.SupportsTurnOnDelay || ViewModel.SupportsLocalMode)
         {
             var view = await LoadLazyViewAsync(TurnOnDelayControlLazyView);
             view.SecondsFocused -= OnTurnOnDelaySecondsFocused;
-            view.SecondsTextChanged -= OnTurnOnDelaySecondsTextChanged;
             view.SecondsFocused += OnTurnOnDelaySecondsFocused;
-            view.SecondsTextChanged += OnTurnOnDelaySecondsTextChanged;
-            view.SecondsEntry.Text = _pendingTurnOnDelaySeconds.ToString();
             TurnOnDelayControlLazyView.IsVisible = true;
             timing.Mark("turn-on delay LazyView loaded");
             await YieldControlFrameAsync(token);

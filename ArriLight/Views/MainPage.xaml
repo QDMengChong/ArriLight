@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage
     x:Class="ArriLight.MainPage"
+    x:Name="HomePage"
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
@@ -145,6 +146,7 @@
                 </CollectionView.EmptyView>
 
                 <CollectionView.ItemTemplate>
+                    <!-- Keep page commands available while refreshed cards detach from the visual tree. -->
                     <DataTemplate x:DataType="vm:LightDeviceItem">
                         <Border
                             Margin="0,0,0,12"
@@ -166,7 +168,7 @@
                             <Grid ColumnDefinitions="*,56,60" MinimumHeightRequest="96">
                                 <Grid Padding="16,16,0,16" ColumnDefinitions="64,*" ColumnSpacing="12">
                                     <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
+                                        <TapGestureRecognizer Command="{Binding ViewModel.OpenControlCommand, Source={x:Reference HomePage}, x:DataType=local:MainPage}" CommandParameter="{Binding .}" />
                                     </Grid.GestureRecognizers>
                                 <Border
                                     InputTransparent="True"
@@ -209,22 +211,22 @@
                                 <Grid Grid.Column="1" ColumnDefinitions="6,44,6" RowDefinitions="*,44,*">
                                     <Grid Grid.Row="0" Grid.ColumnSpan="3">
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
+                                            <TapGestureRecognizer Command="{Binding ViewModel.OpenControlCommand, Source={x:Reference HomePage}, x:DataType=local:MainPage}" CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
                                     </Grid>
                                     <Grid Grid.Row="2" Grid.ColumnSpan="3">
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
+                                            <TapGestureRecognizer Command="{Binding ViewModel.OpenControlCommand, Source={x:Reference HomePage}, x:DataType=local:MainPage}" CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
                                     </Grid>
                                     <Grid Grid.Row="1" Grid.Column="0">
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
+                                            <TapGestureRecognizer Command="{Binding ViewModel.OpenControlCommand, Source={x:Reference HomePage}, x:DataType=local:MainPage}" CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
                                     </Grid>
                                     <Grid Grid.Row="1" Grid.Column="2">
                                         <Grid.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
+                                            <TapGestureRecognizer Command="{Binding ViewModel.OpenControlCommand, Source={x:Reference HomePage}, x:DataType=local:MainPage}" CommandParameter="{Binding .}" />
                                         </Grid.GestureRecognizers>
                                     </Grid>
                                 <Border
@@ -240,7 +242,7 @@
                                     <ImageButton
                                         Padding="9"
                                         BackgroundColor="Transparent"
-                                        Command="{Binding TogglePowerCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}"
+                                        Command="{Binding ViewModel.TogglePowerCommand, Source={x:Reference HomePage}, x:DataType=local:MainPage}"
                                         CommandParameter="{Binding .}"
                                         IsEnabled="{Binding IsEnabled}"
                                         Opacity="{Binding PowerOpacity}"
@@ -251,7 +253,7 @@
 
                                 <Grid Grid.Column="2">
                                     <Grid.GestureRecognizers>
-                                        <TapGestureRecognizer Command="{Binding OpenControlCommand, Source={RelativeSource AncestorType={x:Type vm:MainPageViewModel}}, x:DataType=vm:MainPageViewModel}" CommandParameter="{Binding .}" />
+                                        <TapGestureRecognizer Command="{Binding ViewModel.OpenControlCommand, Source={x:Reference HomePage}, x:DataType=local:MainPage}" CommandParameter="{Binding .}" />
                                     </Grid.GestureRecognizers>
                                 <Image
                                     InputTransparent="True"

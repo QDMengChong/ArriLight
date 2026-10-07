@@ -52,17 +52,6 @@ namespace ArriLight
         public bool CanSave { get => ViewModel.CanSave; }
         public bool IsConfigurationBusy { get => ViewModel.IsConfigurationBusy; }
     }
-    public partial class DeviceMorePage
-    {
-        public bool IsAlwaysOnMode { get => ViewModel.IsAlwaysOnMode; set => ViewModel.IsAlwaysOnMode = value; }
-        public string LocalModeSecondsText { get => ViewModel.LocalModeSecondsText; set => ViewModel.LocalModeSecondsText = value; }
-        public string LocalModeNotice { get => ViewModel.LocalModeNotice; }
-        public string LocalModeLabel { get => ViewModel.LocalModeLabel; }
-        public bool CanSetLocalMode { get => ViewModel.CanSetLocalMode; }
-        public bool CanEditLocalModeSeconds { get => ViewModel.CanEditLocalModeSeconds; }
-        public bool IsLocalModeSupported { get => ViewModel.IsLocalModeSupported; }
-        public bool IsLocalModeBusy { get => ViewModel.IsLocalModeBusy; }
-    }
 }
 namespace ArriLight.ViewModels
 {
@@ -76,8 +65,6 @@ namespace ArriLight.ViewModels
     }
     public partial class AppVersionPageViewModel
     { internal Task TapForTestAsync(DateTimeOffset now) => HandleVersionTapAsync(now); }
-    public partial class DeviceMorePageViewModel
-    { internal Task SetLocalModeForTestAsync() => SetLocalModeAsync(); }
     public partial class BluetoothScanPageViewModel
     {
         internal Task? CountdownForTest => _bindingCountdownTask;
@@ -89,5 +76,13 @@ namespace ArriLight.ViewModels
         internal void ExpireCountdownForTest() => _bindingDeadline = DateTimeOffset.UtcNow;
     }
     public partial class DeviceControlPageViewModel
-    { internal void SetEffectForTest(ArriOpto.BLE.Agp.AgpLightMode mode) => EffectMode = mode; }
+    {
+        internal void SetEffectForTest(ArriOpto.BLE.Agp.AgpLightMode mode) => EffectMode = mode;
+        internal Task LocalModeLoadForTest => _localModeLoadTask;
+        internal async Task LoadModeForTestAsync()
+        {
+            await EnsureConnectedAsync(showError: false);
+            await _localModeLoadTask;
+        }
+    }
 }

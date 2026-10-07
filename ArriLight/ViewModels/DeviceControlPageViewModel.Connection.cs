@@ -28,6 +28,7 @@ public partial class DeviceControlPageViewModel
             "UI.Control.Initialize", DeviceAddress,
             $"refreshStatus={refreshStatus}; useCachedLightState={!refreshStatus}");
         IsInitializingConnection = true;
+        var delaySecondsVersion = _delaySecondsEditVersion;
         OnPropertyChanged(nameof(CanRefreshStatus));
         using var initializationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _connectionInitializationCancellation = initializationCancellation;
@@ -50,6 +51,9 @@ public partial class DeviceControlPageViewModel
             // A legacy record may have failed before its capabilities were
             // obtained. A later successful manual retry must still fill the UI.
             CapabilityViewsRetryRequested?.Invoke();
+            // MODE_GET runs after the profile, without delaying capability views
+            // or the main controls. It owns cancellation for this appearance.
+            _localModeLoadTask = LoadLocalModeAsync(initializationCancellation.Token, delaySecondsVersion);
             timing.Mark("控制资料已应用到页面，控制初始化完成");
             timing.SetResult("ready");
             if (refreshStatus)

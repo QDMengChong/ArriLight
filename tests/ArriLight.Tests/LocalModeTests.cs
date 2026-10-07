@@ -42,7 +42,7 @@ public sealed class LocalModeTests
     }
 
     [Fact]
-    public async Task DeviceInformationLoadsDefaultAndOnlySettingSendsTheSelectedMode()
+    public async Task ControlPageLoadsDefaultAndOnlySettingSendsTheSelectedMode()
     {
         await using var fixture = CreateFixture();
         var page = CreatePage(fixture);
@@ -51,27 +51,27 @@ public sealed class LocalModeTests
             await page.LoadModeForTestAsync();
             Assert.True(page.IsAlwaysOnMode);
             Assert.Equal(AppResources.DeviceMode_AlwaysOn, page.LocalModeLabel);
-            Assert.Equal("60", page.LocalModeSecondsText);
+            Assert.Equal("60", page.TurnOnDelaySecondsText);
             Assert.True(page.CanSetLocalMode);
-            Assert.False(page.CanEditLocalModeSeconds);
+            Assert.False(page.CanEditDelaySeconds);
 
             page.IsAlwaysOnMode = false;
             Assert.Equal(AppResources.DeviceMode_Delayed, page.LocalModeLabel);
-            Assert.True(page.CanEditLocalModeSeconds);
+            Assert.True(page.CanEditDelaySeconds);
             Assert.DoesNotContain(AgpOpcode.ModeSet, fixture.Ble.Requests);
-            await page.SetModeForTestAsync();
+            await page.SetLocalModeCommand.ExecuteAsync(null);
             Assert.Equal(Convert.FromHexString("043C000000"), fixture.Ble.RequestMessages.Last().Payload.ToArray());
             Assert.Equal(new(AgpLocalMode.OnAutoOff, OffSeconds: 60), fixture.Ble.LocalMode);
             Assert.Equal(AppResources.DeviceMode_SetSucceeded, ToastService.Messages.Last());
 
             page.IsAlwaysOnMode = true;
-            page.LocalModeSecondsText = "invalid but disabled";
-            Assert.False(page.CanEditLocalModeSeconds);
-            await page.SetModeForTestAsync();
+            page.TurnOnDelaySecondsText = "invalid but disabled";
+            Assert.False(page.CanEditDelaySeconds);
+            await page.SetLocalModeCommand.ExecuteAsync(null);
             Assert.Equal(new byte[] { 0 }, fixture.Ble.RequestMessages.Last().Payload.ToArray());
             Assert.Equal(new(AgpLocalMode.DelayNone), fixture.Ble.LocalMode);
         }
-        finally { page.DisappearForTest(); }
+        finally { page.OnDisappearing(); }
     }
 
     [Theory]
@@ -85,20 +85,20 @@ public sealed class LocalModeTests
         {
             await page.LoadModeForTestAsync();
             page.IsAlwaysOnMode = false;
-            page.LocalModeSecondsText = seconds;
-            await page.SetModeForTestAsync();
+            page.TurnOnDelaySecondsText = seconds;
+            await page.SetLocalModeCommand.ExecuteAsync(null);
         }
-        finally { page.DisappearForTest(); }
+        finally { page.OnDisappearing(); }
 
         var reopened = CreatePage(fixture);
         try
         {
             await reopened.LoadModeForTestAsync();
             Assert.False(reopened.IsAlwaysOnMode);
-            Assert.Equal(seconds, reopened.LocalModeSecondsText);
-            Assert.True(reopened.CanEditLocalModeSeconds);
+            Assert.Equal(seconds, reopened.TurnOnDelaySecondsText);
+            Assert.True(reopened.CanEditDelaySeconds);
         }
-        finally { reopened.DisappearForTest(); }
+        finally { reopened.OnDisappearing(); }
     }
 
     [Theory]
@@ -116,14 +116,14 @@ public sealed class LocalModeTests
         {
             await page.LoadModeForTestAsync();
             page.IsAlwaysOnMode = false;
-            page.LocalModeSecondsText = text;
-            await page.SetModeForTestAsync();
+            page.TurnOnDelaySecondsText = text;
+            await page.SetLocalModeCommand.ExecuteAsync(null);
             Assert.DoesNotContain(AgpOpcode.ModeSet, fixture.Ble.Requests);
             Assert.Equal(new(AgpLocalMode.DelayNone), fixture.Ble.LocalMode);
             Assert.Equal(AppResources.DeviceMode_InvalidSeconds, ToastService.Messages.Last());
-            Assert.Equal(text, page.LocalModeSecondsText);
+            Assert.Equal(text, page.TurnOnDelaySecondsText);
         }
-        finally { page.DisappearForTest(); }
+        finally { page.OnDisappearing(); }
     }
 
     [Fact]
@@ -136,16 +136,16 @@ public sealed class LocalModeTests
             await page.LoadModeForTestAsync();
             fixture.Ble.ModeResult = AgpResultCode.InternalError;
             page.IsAlwaysOnMode = false;
-            page.LocalModeSecondsText = "90";
-            await page.SetModeForTestAsync();
+            page.TurnOnDelaySecondsText = "90";
+            await page.SetLocalModeCommand.ExecuteAsync(null);
             Assert.Equal(new(AgpLocalMode.DelayNone), fixture.Ble.LocalMode);
             Assert.False(page.IsAlwaysOnMode);
-            Assert.Equal("90", page.LocalModeSecondsText);
+            Assert.Equal("90", page.TurnOnDelaySecondsText);
             Assert.True(page.CanSetLocalMode);
             Assert.Contains(nameof(AgpResultCode.InternalError), ToastService.Messages.Last());
             Assert.DoesNotContain(AppResources.DeviceMode_SetSucceeded, ToastService.Messages);
         }
-        finally { page.DisappearForTest(); }
+        finally { page.OnDisappearing(); }
     }
 
     [Fact]
@@ -157,13 +157,13 @@ public sealed class LocalModeTests
         try
         {
             await page.LoadModeForTestAsync();
-            await page.SetModeForTestAsync();
+            await page.SetLocalModeCommand.ExecuteAsync(null);
             Assert.False(page.IsLocalModeSupported);
             Assert.False(page.CanSetLocalMode);
             Assert.DoesNotContain(AgpOpcode.ModeGet, fixture.Ble.Requests);
             Assert.DoesNotContain(AgpOpcode.ModeSet, fixture.Ble.Requests);
         }
-        finally { page.DisappearForTest(); }
+        finally { page.OnDisappearing(); }
     }
 
     [Theory]
@@ -182,24 +182,29 @@ public sealed class LocalModeTests
             Assert.Equal(original, fixture.Ble.LocalMode);
             Assert.DoesNotContain(AgpOpcode.ModeSet, fixture.Ble.Requests);
         }
-        finally { page.DisappearForTest(); }
+        finally { page.OnDisappearing(); }
     }
 
     [Fact]
-    public async Task LeavingWhileLoadingCancelsConnectionAndDoesNotShowStaleMessages()
+    public async Task LeavingWhileLoadingCancelsModeReadAndDoesNotShowStaleMessages()
     {
         await using var fixture = CreateFixture();
-        var blocked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        fixture.Ble.OnConnect = (_, token) => blocked.Task.WaitAsync(token);
+        fixture.Ble.SuppressedResponseOpcode = AgpOpcode.ModeGet;
+        var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Ble.BeforeControlResponse = request =>
+        {
+            if (request.Opcode == AgpOpcode.ModeGet) reading.TrySetResult();
+        };
         var page = CreatePage(fixture);
         var loading = page.LoadModeForTestAsync();
+        await reading.Task.WaitAsync(TimeSpan.FromSeconds(3));
         Assert.True(page.IsLocalModeBusy);
-        page.DisappearForTest();
+        page.OnDisappearing();
         await loading.WaitAsync(TimeSpan.FromSeconds(3));
         Assert.False(page.IsLocalModeSupported);
         Assert.False(page.IsLocalModeBusy);
         Assert.Empty(ToastService.Messages);
-        Assert.DoesNotContain(AgpOpcode.ModeGet, fixture.Ble.Requests);
+        Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.ModeGet);
     }
 
     [Fact]
@@ -216,14 +221,187 @@ public sealed class LocalModeTests
                 if (request.Opcode != AgpOpcode.ModeSet)
                     return;
                 Assert.False(page.CanSetLocalMode);
-                Assert.False(page.CanEditLocalModeSeconds);
-                Assert.True(page.SetModeForTestAsync().IsCompletedSuccessfully);
+                Assert.False(page.CanEditDelaySeconds);
+                Assert.True(page.SetLocalModeCommand.ExecuteAsync(null).IsCompletedSuccessfully);
             };
-            await page.SetModeForTestAsync();
+            await page.SetLocalModeCommand.ExecuteAsync(null);
             Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.ModeSet);
             Assert.True(page.CanSetLocalMode);
         }
-        finally { page.DisappearForTest(); }
+        finally { page.OnDisappearing(); }
+    }
+
+    [Fact]
+    public async Task SharedSecondsFeedBothActionsWithoutCouplingTheCheckboxAndModeSwitch()
+    {
+        await using var fixture = CreateFixture();
+        fixture.Ble.Capabilities |= AgpCapabilities.RelativeTimer | AgpCapabilities.OnOff;
+        var model = CreatePage(fixture);
+        try
+        {
+            await model.LoadModeForTestAsync();
+            Assert.True(model.SupportsTurnOnDelay);
+            Assert.True(model.SupportsLocalMode);
+            Assert.False(model.CanEditDelaySeconds);
+            var notifications = new List<string?>();
+            model.PropertyChanged += (_, args) => notifications.Add(args.PropertyName);
+            model.IsTurnOnDelayEnabled = true;
+            Assert.True(model.CanEditDelaySeconds); // Always-on mode does not disable the first row.
+            Assert.Contains(nameof(model.CanEditDelaySeconds), notifications);
+            model.IsAlwaysOnMode = false;
+            model.TurnOnDelaySecondsText = "135";
+            fixture.Ble.Requests.Clear();
+            fixture.Ble.RequestMessages.Clear();
+
+            await model.SetLocalModeCommand.ExecuteAsync(null);
+            Assert.Equal([AgpOpcode.ModeSet], fixture.Ble.Requests);
+            Assert.Equal(Convert.FromHexString("0487000000"), fixture.Ble.RequestMessages.Last().Payload.ToArray());
+            Assert.Equal(135, fixture.Repository.GetTurnOnDelaySeconds(fixture.Address));
+
+            model.IsMasterPowerOn = false;
+            await model.MasterPowerCommand.ExecuteAsync(null);
+            Assert.Equal([AgpOpcode.ModeSet, AgpOpcode.OnOffSet, AgpOpcode.DelayOffSet], fixture.Ble.Requests);
+            Assert.Equal(Convert.FromHexString("87000000"), fixture.Ble.RequestMessages.Last().Payload.ToArray());
+
+            model.IsTurnOnDelayEnabled = false;
+            Assert.True(model.CanEditDelaySeconds); // Hardware delayed mode can still use the shared input.
+            model.TurnOnDelaySecondsText = "240";
+            await model.SetLocalModeCommand.ExecuteAsync(null);
+            Assert.Equal(new(AgpLocalMode.OnAutoOff, OffSeconds: 240), fixture.Ble.LocalMode);
+            Assert.False(fixture.Repository.GetTurnOnDelayEnabled(fixture.Address));
+            Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.DelayOffSet);
+
+            notifications.Clear();
+            model.IsAlwaysOnMode = true;
+            Assert.False(model.CanEditDelaySeconds);
+            Assert.Contains(nameof(model.CanEditDelaySeconds), notifications);
+            Assert.Contains(nameof(model.LocalModeLabel), notifications);
+            model.IsAlwaysOnMode = false;
+            Assert.True(model.CanEditDelaySeconds);
+            Assert.Equal(new(AgpLocalMode.OnAutoOff, OffSeconds: 240), fixture.Ble.LocalMode);
+        }
+        finally { model.OnDisappearing(); }
+    }
+
+    [Fact]
+    public async Task SharedInputPreservesTheFullModeRangeAndTheOriginalOneShotLimit()
+    {
+        await using var fixture = CreateFixture();
+        fixture.Ble.Capabilities |= AgpCapabilities.RelativeTimer | AgpCapabilities.OnOff;
+        var model = CreatePage(fixture);
+        try
+        {
+            await model.LoadModeForTestAsync();
+            model.IsAlwaysOnMode = false;
+            model.IsTurnOnDelayEnabled = true;
+            model.TurnOnDelaySecondsText = "2592000";
+            await model.SetLocalModeCommand.ExecuteAsync(null);
+            Assert.Equal(new(AgpLocalMode.OnAutoOff, OffSeconds: 2_592_000), fixture.Ble.LocalMode);
+            model.IsMasterPowerOn = false;
+            await model.MasterPowerCommand.ExecuteAsync(null);
+            Assert.DoesNotContain(AgpOpcode.OnOffSet, fixture.Ble.Requests);
+            Assert.DoesNotContain(AgpOpcode.DelayOffSet, fixture.Ble.Requests);
+            Assert.Equal(AppResources.Timer_InvalidSeconds, ToastService.Messages.Last());
+        }
+        finally { model.OnDisappearing(); }
+    }
+
+    [Fact]
+    public async Task PendingModeReadDoesNotBlockControlInitializationOrOverwriteNewSeconds()
+    {
+        await using var fixture = CreateFixture();
+        fixture.Ble.Capabilities |= AgpCapabilities.RelativeTimer;
+        fixture.Ble.LocalMode = new(AgpLocalMode.OnAutoOff, OffSeconds: 90);
+        fixture.Ble.SuppressedResponseOpcode = AgpOpcode.ModeGet;
+        fixture.Repository.SetTurnOnDelaySeconds(fixture.Address, 120);
+        var reading = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Ble.BeforeControlResponse = request =>
+        {
+            if (request.Opcode == AgpOpcode.ModeGet) reading.TrySetResult();
+        };
+        var model = CreatePage(fixture);
+        try
+        {
+            await model.EnsureConnectedAsync(showError: false).WaitAsync(TimeSpan.FromSeconds(3));
+            await reading.Task.WaitAsync(TimeSpan.FromSeconds(3));
+            Assert.True(model.IsDeviceOnline);
+            Assert.False(model.IsInitializingConnection);
+            Assert.True(model.CanRefreshStatus);
+            Assert.False(model.LocalModeLoadForTest.IsCompleted);
+            Assert.Equal("120", model.TurnOnDelaySecondsText);
+
+            model.TurnOnDelaySecondsText = "180";
+            var request = fixture.Ble.RequestMessages.Last(item => item.Opcode == AgpOpcode.ModeGet);
+            fixture.Ble.IndicateControlResponse(AgpCodec.Encode(AgpMessageType.Response,
+                AgpOpcode.ModeGet, request.TransactionId, [0, 4, 90, 0, 0, 0]));
+            await model.LocalModeLoadForTest.WaitAsync(TimeSpan.FromSeconds(3));
+            Assert.False(model.IsAlwaysOnMode);
+            Assert.Equal("180", model.TurnOnDelaySecondsText);
+            Assert.Equal(180, fixture.Repository.GetTurnOnDelaySeconds(fixture.Address));
+            Assert.DoesNotContain(AgpOpcode.ModeSet, fixture.Ble.Requests);
+        }
+        finally { model.OnDisappearing(); }
+    }
+
+    [Fact]
+    public async Task LeavingWhileSettingCancelsWaitingAndDoesNotShowStaleSuccess()
+    {
+        await using var fixture = CreateFixture();
+        var model = CreatePage(fixture);
+        await model.LoadModeForTestAsync();
+        fixture.Ble.SuppressedResponseOpcode = AgpOpcode.ModeSet;
+        var writing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Ble.BeforeControlResponse = request =>
+        {
+            if (request.Opcode == AgpOpcode.ModeSet) writing.TrySetResult();
+        };
+        model.IsAlwaysOnMode = false;
+        var setting = model.SetLocalModeCommand.ExecuteAsync(null);
+        await writing.Task.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.True(model.IsLocalModeBusy);
+        Assert.False(model.CanEditDelaySeconds);
+        model.OnDisappearing();
+        await setting.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(model.IsLocalModeBusy);
+        Assert.False(model.CanSetLocalMode);
+        Assert.Empty(ToastService.Messages);
+    }
+
+    [Fact]
+    public async Task ModeReadFailureKeepsTheOneShotDelayAvailableAndRefreshCanRetry()
+    {
+        await using var fixture = CreateFixture();
+        fixture.Ble.Capabilities |= AgpCapabilities.RelativeTimer;
+        fixture.Ble.ModeResult = AgpResultCode.InternalError;
+        fixture.Repository.SetTurnOnDelayEnabled(fixture.Address, true);
+        var model = CreatePage(fixture);
+        try
+        {
+            await model.LoadModeForTestAsync();
+            Assert.True(model.IsDeviceOnline);
+            Assert.False(model.IsLocalModeSupported);
+            Assert.True(model.CanEditDelaySeconds);
+            fixture.Ble.ModeResult = AgpResultCode.Success;
+            await model.RefreshCommand.ExecuteAsync(null);
+            await model.LocalModeLoadForTest;
+            Assert.True(model.IsLocalModeSupported);
+            Assert.True(model.CanSetLocalMode);
+            Assert.Equal(2, fixture.Ble.Requests.Count(opcode => opcode == AgpOpcode.ModeGet));
+        }
+        finally { model.OnDisappearing(); }
+    }
+
+    [Fact]
+    public async Task DeviceInformationNoLongerReadsOrWritesTheMovedModeConfiguration()
+    {
+        await using var fixture = CreateFixture();
+        var model = new DeviceMorePageViewModel(fixture.Repository, fixture.Service,
+            new TestAppNavigator(), new TestUserInteraction());
+        model.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = fixture.Address });
+        await model.OnAppearingAsync();
+        Assert.Empty(fixture.Ble.Requests);
+        Assert.Empty(fixture.Ble.ConnectAttempts);
+        Assert.Equal(fixture.Repository.GetByAddress(fixture.Address)!.DisplayName, model.DeviceName);
     }
 
     private static PairingFixture CreateFixture()
@@ -234,13 +412,13 @@ public sealed class LocalModeTests
         return fixture;
     }
 
-    private static DeviceMorePage CreatePage(PairingFixture fixture)
+    private static DeviceControlPageViewModel CreatePage(PairingFixture fixture)
     {
         ToastService.Messages.Clear();
-        ServiceHelper.Set(fixture.Repository);
-        ServiceHelper.Set(fixture.Service);
-        var page = new DeviceMorePage();
+        var page = new DeviceControlPageViewModel(fixture.Repository, fixture.Discovery, fixture.Connection,
+            fixture.Service, new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction());
         page.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = fixture.Address });
+        page.OnAppearingAsync().GetAwaiter().GetResult();
         return page;
     }
 }

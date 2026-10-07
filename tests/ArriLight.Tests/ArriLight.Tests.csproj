@@ -48,7 +48,6 @@
     <Compile Include="..\..\ArriLight\Views\AppVersionPage.xaml.cs" Link="Views\AppVersionPage.xaml.cs" />
     <Compile Include="..\..\ArriLight\Views\DebugConfigurationPage.xaml.cs" Link="Views\DebugConfigurationPage.xaml.cs" />
     <Compile Include="..\..\ArriLight\Views\DeviceMorePage.xaml.cs" Link="Views\DeviceMorePage.xaml.cs" />
-    <Compile Include="..\..\ArriLight\Views\DeviceMorePage.LocalMode.cs" Link="Views\DeviceMorePage.LocalMode.cs" />
     <Compile Include="..\..\ArriLight\Views\FirmwareUpdatePage.xaml.cs" Link="Views\FirmwareUpdatePage.xaml.cs" />
     <Compile Include="..\..\ArriLight\Views\BluetoothScanPage.xaml.cs" Link="Views\BluetoothScanPage.xaml.cs" />
     <Compile Include="..\..\ArriLight\Views\MainPage.xaml.cs" Link="Views\MainPage.xaml.cs" />

@@ -9,5 +9,4 @@ public partial class DeviceControlPage
         TurnOnDelaySecondsEntry.CursorPosition = 0;
         TurnOnDelaySecondsEntry.SelectionLength = TurnOnDelaySecondsEntry.Text?.Length ?? 0;
     });
-    private void OnTurnOnDelaySecondsTextChanged(object? sender, TextChangedEventArgs e) => ViewModel.TurnOnDelaySecondsText = e.NewTextValue;
 }

@@ -8,50 +8,78 @@
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="vm:DeviceControlPageViewModel">
     <Border Style="{StaticResource MenuCardStyle}">
-        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
-            <CheckBox
-                IsChecked="{Binding IsTurnOnDelayEnabled, Mode=TwoWay}"
-                SemanticProperties.Description="{x:Static strings:AppResources.Control_Delay}"
-                VerticalOptions="Center" />
+        <VerticalStackLayout Spacing="10">
+            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+                <CheckBox
+                    IsVisible="{Binding SupportsTurnOnDelay}"
+                    IsChecked="{Binding IsTurnOnDelayEnabled, Mode=TwoWay}"
+                    SemanticProperties.Description="{x:Static strings:AppResources.Control_Delay}"
+                    VerticalOptions="Center" />
+                <Label
+                    Grid.Column="1"
+                    FontFamily="OpenSansSemibold"
+                    FontSize="14"
+                    Text="{x:Static strings:AppResources.Control_Delay}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    VerticalTextAlignment="Center" />
+                <Border
+                    Grid.Column="2"
+                    Padding="10,0"
+                    IsEnabled="{Binding CanEditDelaySeconds}"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 12">
+                    <Border.Triggers>
+                        <DataTrigger TargetType="Border" Binding="{Binding CanEditDelaySeconds}" Value="False">
+                            <Setter Property="Opacity" Value="0.45" />
+                        </DataTrigger>
+                    </Border.Triggers>
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Entry
+                            x:Name="TurnOnDelaySecondsEntryElement"
+                            FontSize="14"
+                            Focused="OnSecondsFocused"
+                            HorizontalTextAlignment="Center"
+                            Keyboard="Numeric"
+                            MaxLength="7"
+                            Text="{Binding TurnOnDelaySecondsText, Mode=TwoWay}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                            VerticalTextAlignment="Center" />
+                        <Label
+                            Grid.Column="1"
+                            FontSize="12"
+                            Text="s"
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                            VerticalTextAlignment="Center" />
+                    </Grid>
+                </Border>
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" IsVisible="{Binding SupportsLocalMode}">
+                <Switch
+                    IsEnabled="{Binding CanSetLocalMode}"
+                    IsToggled="{Binding IsAlwaysOnMode, Mode=TwoWay}"
+                    SemanticProperties.Description="{Binding LocalModeLabel}"
+                    VerticalOptions="Center" />
+                <Label
+                    Grid.Column="1"
+                    FontFamily="OpenSansSemibold"
+                    FontSize="14"
+                    Text="{Binding LocalModeLabel}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    VerticalTextAlignment="Center" />
+                <Button
+                    Grid.Column="2"
+                    Command="{Binding SetLocalModeCommand}"
+                    FontSize="14"
+                    IsEnabled="{Binding CanSetLocalMode}"
+                    MinimumWidthRequest="84"
+                    Text="{x:Static strings:AppResources.DeviceMode_Set}"
+                    VerticalOptions="Center" />
+            </Grid>
             <Label
-                Grid.Column="1"
-                FontFamily="OpenSansSemibold"
-                FontSize="14"
-                Text="{x:Static strings:AppResources.Control_Delay}"
-                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                VerticalTextAlignment="Center" />
-            <Border
-                Grid.Column="2"
-                Padding="10,0"
-                IsEnabled="{Binding IsTurnOnDelayEnabled}"
-                BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
-                StrokeThickness="0"
-                StrokeShape="RoundRectangle 12">
-                <Border.Triggers>
-                    <DataTrigger TargetType="Border" Binding="{Binding IsTurnOnDelayEnabled}" Value="False">
-                        <Setter Property="Opacity" Value="0.45" />
-                    </DataTrigger>
-                </Border.Triggers>
-                <Grid ColumnDefinitions="*,Auto">
-                    <Entry
-                        x:Name="TurnOnDelaySecondsEntryElement"
-                        FontSize="14"
-                        Focused="OnSecondsFocused"
-                        TextChanged="OnSecondsTextChanged"
-                        HorizontalTextAlignment="Center"
-                        Keyboard="Numeric"
-                        MaxLength="5"
-                        Text="60"
-                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
-                        VerticalTextAlignment="Center" />
-                    <Label
-                        Grid.Column="1"
-                        FontSize="12"
-                        Text="s"
-                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
-                        VerticalTextAlignment="Center" />
-                </Grid>
-            </Border>
-        </Grid>
+                IsVisible="{Binding HasLocalModeNotice}"
+                Style="{StaticResource MenuDescriptionStyle}"
+                Text="{Binding LocalModeNotice}" />
+        </VerticalStackLayout>
     </Border>
 </local:TimedLazyContentView>

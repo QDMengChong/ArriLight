@@ -5,18 +5,21 @@ using ArriOpto.BLE.Agp;
 
 namespace ArriLight.ViewModels;
 
-public partial class DeviceMorePageViewModel
+public partial class DeviceControlPageViewModel
 {
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(LocalModeLabel)), NotifyPropertyChangedFor(nameof(CanEditLocalModeSeconds))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(LocalModeLabel)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private bool _isAlwaysOnMode = true;
-    [ObservableProperty]
-    private string _localModeSecondsText = "60";
     private bool _isLocalModeSupported;
     private bool _isLocalModeBusy;
-    [ObservableProperty]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(HasLocalModeNotice))]
     private string _localModeNotice = string.Empty;
     private CancellationTokenSource? _localModeCancellation;
+    private Task _localModeLoadTask = Task.CompletedTask;
+    private int _delaySecondsEditVersion;
 
+    public bool SupportsTurnOnDelay => SupportedCapabilities.HasFlag(AgpCapabilities.RelativeTimer);
+    public bool SupportsLocalMode => !IsDemo && SupportedCapabilities.HasFlag(AgpCapabilities.LocalMode);
+    public bool HasLocalModeNotice => !string.IsNullOrEmpty(LocalModeNotice);
     public string LocalModeLabel => IsAlwaysOnMode
         ? AppResources.DeviceMode_AlwaysOn : AppResources.DeviceMode_Delayed;
 
@@ -42,40 +45,53 @@ public partial class DeviceMorePageViewModel
         }
     }
 
-    public bool CanSetLocalMode => IsLocalModeSupported && !IsLocalModeBusy;
-    public bool CanEditLocalModeSeconds => CanSetLocalMode && !IsAlwaysOnMode;
+    public bool CanSetLocalMode => SupportsLocalMode && IsLocalModeSupported && IsDeviceOnline &&
+        !IsLocalModeBusy && _localModeCancellation is { IsCancellationRequested: false };
+    public bool CanEditDelaySeconds => IsDeviceOnline && !IsLocalModeBusy &&
+        ((SupportsTurnOnDelay && IsTurnOnDelayEnabled) || (CanSetLocalMode && !IsAlwaysOnMode));
 
     private void NotifyLocalModeAvailability()
     {
         OnPropertyChanged(nameof(CanSetLocalMode));
-        OnPropertyChanged(nameof(CanEditLocalModeSeconds));
+        OnPropertyChanged(nameof(CanEditDelaySeconds));
     }
 
-    private async Task LoadLocalModeAsync()
+    private void ResetLocalModeState()
     {
         CancelLocalModeOperations();
         IsLocalModeSupported = false;
-        if (_repository.GetByAddress(DeviceId) is not { IsDemo: false })
+        IsAlwaysOnMode = true;
+        LocalModeNotice = string.Empty;
+    }
+
+    private async Task LoadLocalModeAsync(CancellationToken appearanceToken, int secondsVersion)
+    {
+        CancelLocalModeOperations();
+        IsLocalModeSupported = false;
+        if (!SupportsLocalMode || _repository.GetByAddress(DeviceAddress) is not { IsDemo: false })
             return;
 
-        var cancellation = new CancellationTokenSource();
+        var cancellation = CancellationTokenSource.CreateLinkedTokenSource(appearanceToken);
         _localModeCancellation = cancellation;
         var token = cancellation.Token;
         IsLocalModeBusy = true;
         try
         {
-            var configuration = await _agpLight.GetLocalModeAsync(DeviceId, token);
+            var configuration = await _agpLight.GetLocalModeAsync(DeviceAddress, token);
             token.ThrowIfCancellationRequested();
-            ApplyLocalModeConfiguration(configuration);
+            // Preserve an edit made while connection/profile/MODE_GET was pending.
+            ApplyLocalModeConfiguration(configuration, secondsVersion == _delaySecondsEditVersion);
             IsLocalModeSupported = true;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (NotSupportedException) { /* Older devices do not expose this configuration. */ }
         catch (Exception exception)
         {
-            ErrorMessage = exception.Message;
             if (!token.IsCancellationRequested)
+            {
+                ErrorMessage = exception.Message;
                 _interaction.ShowToast(Localization.Format(nameof(AppResources.DeviceMode_LoadFailed), exception.Message));
+            }
         }
         finally
         {
@@ -92,7 +108,7 @@ public partial class DeviceMorePageViewModel
 
         uint seconds = 0;
         if (!IsAlwaysOnMode &&
-            (!uint.TryParse(LocalModeSecondsText, NumberStyles.None, CultureInfo.InvariantCulture, out seconds) ||
+            (!uint.TryParse(TurnOnDelaySecondsText, NumberStyles.None, CultureInfo.InvariantCulture, out seconds) ||
              seconds is < 1 or > AgpModelCodec.MaximumDelaySeconds))
         {
             _interaction.ShowToast(AppResources.DeviceMode_InvalidSeconds);
@@ -102,21 +118,24 @@ public partial class DeviceMorePageViewModel
         var configuration = IsAlwaysOnMode
             ? new AgpModeConfig(AgpLocalMode.DelayNone)
             : new AgpModeConfig(AgpLocalMode.OnAutoOff, OffSeconds: seconds);
+        var secondsVersion = _delaySecondsEditVersion;
         var token = cancellation.Token;
         IsLocalModeBusy = true;
         try
         {
-            var saved = await _agpLight.SetLocalModeAsync(DeviceId, configuration, token);
+            var saved = await _agpLight.SetLocalModeAsync(DeviceAddress, configuration, token);
             token.ThrowIfCancellationRequested();
-            ApplyLocalModeConfiguration(saved);
+            ApplyLocalModeConfiguration(saved, secondsVersion == _delaySecondsEditVersion);
             _interaction.ShowToast(AppResources.DeviceMode_SetSucceeded);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { }
         catch (Exception exception)
         {
-            ErrorMessage = exception.Message;
             if (!token.IsCancellationRequested)
+            {
+                ErrorMessage = exception.Message;
                 _interaction.ShowToast(Localization.Format(nameof(AppResources.DeviceMode_SetFailed), exception.Message));
+            }
         }
         finally
         {
@@ -125,20 +144,20 @@ public partial class DeviceMorePageViewModel
         }
     }
 
-    private void ApplyLocalModeConfiguration(AgpModeConfig configuration)
+    private void ApplyLocalModeConfiguration(AgpModeConfig configuration, bool updateSeconds)
     {
         IsAlwaysOnMode = configuration.Mode != AgpLocalMode.OnAutoOff;
-        if (configuration.Mode == AgpLocalMode.OnAutoOff)
-            LocalModeSecondsText = configuration.OffSeconds.ToString(CultureInfo.InvariantCulture);
+        if (updateSeconds && configuration.Mode == AgpLocalMode.OnAutoOff)
+            TurnOnDelaySecondsText = configuration.OffSeconds.ToString(CultureInfo.InvariantCulture);
         LocalModeNotice = configuration.Mode is AgpLocalMode.DelayNone or AgpLocalMode.OnAutoOff
             ? string.Empty : AppResources.DeviceMode_OtherMode;
     }
 
     private void CancelLocalModeOperations()
     {
-        _localModeCancellation?.Cancel();
-        _localModeCancellation?.Dispose();
+        var cancellation = _localModeCancellation;
         _localModeCancellation = null;
         IsLocalModeBusy = false;
+        _ = CancellationDispatch.Request(cancellation, _diagnostics, "Control.LocalMode", dispose: true, address: DeviceAddress);
     }
 }

@@ -43,16 +43,10 @@ public partial class DeviceMorePageViewModel : ViewModelBase
             DeviceId = Uri.UnescapeDataString(value.ToString()!);
     }
 
-    public override async Task OnAppearingAsync()
+    public override Task OnAppearingAsync()
     {
         ReloadDevice();
-        await LoadLocalModeAsync();
-    }
-
-    public override void OnDisappearing()
-    {
-        CancelLocalModeOperations();
-
+        return Task.CompletedTask;
     }
 
     private void ReloadDevice()

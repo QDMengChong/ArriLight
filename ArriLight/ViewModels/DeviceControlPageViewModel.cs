@@ -22,7 +22,9 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     // 能力相关区域使用 LazyView；内部视图只在能力确认后加载。
     [ObservableProperty, NotifyPropertyChangedFor(nameof(SupportsBrightness)), NotifyPropertyChangedFor(nameof(SupportsColor)), NotifyPropertyChangedFor(nameof(SupportsTemperature))]
     private AgpControlPageKind _controlPageKind;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(SupportsBrightness)), NotifyPropertyChangedFor(nameof(SupportsEffect))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SupportsBrightness)), NotifyPropertyChangedFor(nameof(SupportsEffect)),
+        NotifyPropertyChangedFor(nameof(SupportsTurnOnDelay)), NotifyPropertyChangedFor(nameof(SupportsLocalMode)),
+        NotifyPropertyChangedFor(nameof(CanSetLocalMode)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private AgpCapabilities _supportedCapabilities = AgpCapabilities.Lightness;
 
     [ObservableProperty]
@@ -38,9 +40,11 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     [ObservableProperty]
     private bool _canConnect = true;
     private bool _isReady;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanRefreshStatus))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanRefreshStatus)), NotifyPropertyChangedFor(nameof(SupportsLocalMode)),
+        NotifyPropertyChangedFor(nameof(CanSetLocalMode)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private bool _isDemo;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(ControlOpacity))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ControlOpacity)),
+        NotifyPropertyChangedFor(nameof(CanSetLocalMode)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private bool _isDeviceOnline;
     [ObservableProperty]
     private bool _isMasterPowerOn = true;
@@ -89,7 +93,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     [ObservableProperty] private int _timerModeIndex;
     [ObservableProperty] private string _turnOnDelaySecondsText = "60";
     [ObservableProperty] private bool _isReorderMode;
-    [ObservableProperty] private bool _isTurnOnDelayEnabled;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))] private bool _isTurnOnDelayEnabled;
     private int _pendingTurnOnDelaySeconds = 60;
     private int _powerCommandVersion;
     private BlinkEffectParameters _blinkEffectParameters = new();
@@ -143,7 +147,11 @@ public partial class DeviceControlPageViewModel : ViewModelBase
         if (_isReady && !string.IsNullOrWhiteSpace(DeviceAddress))
             _repository.SetTurnOnDelayEnabled(DeviceAddress, value);
     }
-    partial void OnTurnOnDelaySecondsTextChanged(string value) => SaveTurnOnDelaySeconds(value);
+    partial void OnTurnOnDelaySecondsTextChanged(string value)
+    {
+        _delaySecondsEditVersion++;
+        SaveTurnOnDelaySeconds(value);
+    }
     partial void OnTimerSecondsTextChanged(string value) => SaveTimerSeconds(value);
     private void SaveTimerSeconds(string value)
     {
@@ -177,6 +185,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
         _connectionService.StateChanged += OnConnectionStateChanged;
         _agpLight.DeviceStatusChanged += OnControlDeviceStatusChanged;
+        ResetLocalModeState();
 
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
             _repository.GetByAddress(DeviceAddress) is { } device)
@@ -235,6 +244,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     public override void OnDisappearing()
     {
+        CancelLocalModeOperations();
         _connectionInitializationCancellation?.Cancel();
 
         _connectionService.StateChanged -= OnConnectionStateChanged;

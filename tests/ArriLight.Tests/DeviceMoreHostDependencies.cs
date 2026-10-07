@@ -16,10 +16,5 @@ public partial class DeviceMorePage
 {
     private readonly TestSwitch PinnedSwitch = new();
     private void InitializeComponent() { }
-    internal async Task LoadModeForTestAsync()
-    {
-        await ViewModel.OnAppearingAsync();
-    }
-    internal Task SetModeForTestAsync() => ViewModel.SetLocalModeForTestAsync();
     internal void DisappearForTest() => OnDisappearing();
 }

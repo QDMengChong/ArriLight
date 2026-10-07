@@ -9,9 +9,9 @@ public partial class MainPage : ContentPage
     public MainPage() : this(ServiceHelper.GetRequiredService<MainPageViewModel>()) { }
     public MainPage(MainPageViewModel viewModel)
     {
+        ViewModel = viewModel;
         InitializeComponent();
         _diagnostics = ServiceHelper.GetRequiredService<AppDiagnosticService>();
-        ViewModel = viewModel;
         BindingContext = viewModel;
         viewModel.PreparingControl += OnPreparingControl;
         viewModel.ControlNavigationCompleted += OnControlNavigationCompleted;
