@@ -252,7 +252,7 @@ internal sealed class PairingFixture : IAsyncDisposable
         var diagnostics = new AppDiagnosticService();
         Discovery = new BluetoothDiscoveryService(Ble.Device);
         Connection = new BluetoothConnectionService(Ble.Adapter, Discovery, diagnostics, timeProvider);
-        Service = new AgpLightControlService(Connection, diagnostics, Repository, timeProvider);
+        Service = new AgpLightControlService(Connection, diagnostics, Repository);
     }
 
     public Task ReportProgress(AgpBindingStage stage, CancellationToken token)
@@ -308,6 +308,9 @@ internal sealed class FakeBle
     public AgpResultCode AuthenticationResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode TimerResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode EffectResult { get; set; } = AgpResultCode.Success;
+    public AgpResultCode OnOffResult { get; set; } = AgpResultCode.Success;
+    public Queue<AgpResultCode> OnOffResults { get; } = [];
+    public AgpOpcode? SuppressedResponseOpcode { get; set; }
     public AgpResultCode ModeResult { get; set; } = AgpResultCode.Success;
     public AgpModeConfig LocalMode { get; set; } = new(AgpLocalMode.DelayNone);
     public AgpLightMode CurrentEffectMode { get; set; } = AgpLightMode.Steady;
@@ -495,7 +498,7 @@ internal sealed class FakeBle
         {
             AgpOpcode.AuthGetToken => ProvisionPayload,
             AgpOpcode.AuthToken => [(byte)AuthenticationResult],
-            AgpOpcode.OnOffSet => [0, 1, 0, 0, 0],
+            AgpOpcode.OnOffSet => [(byte)(OnOffResults.TryDequeue(out var result) ? result : OnOffResult), 1, 0, 0, 0],
             AgpOpcode.TimeSet => Convert.FromHexString("000100B955690100"),
             AgpOpcode.DelayOnSet or AgpOpcode.DelayOffSet => TimerResponse(request),
             AgpOpcode.EffectSet or AgpOpcode.EffectGet => EffectResponse(request),
@@ -505,8 +508,9 @@ internal sealed class FakeBle
             _ => throw new NotSupportedException(request.Opcode.ToString())
         };
         BeforeControlResponse?.Invoke(request);
-        IndicateControlResponse(AgpCodec.Encode(
-            AgpMessageType.Response, request.Opcode, request.TransactionId, payload));
+        if (request.Opcode != SuppressedResponseOpcode)
+            IndicateControlResponse(AgpCodec.Encode(
+                AgpMessageType.Response, request.Opcode, request.TransactionId, payload));
         if (DisconnectAfterToken && request.Opcode == AgpOpcode.AuthGetToken)
         {
             _state = DeviceState.Disconnected;
@@ -554,6 +558,11 @@ internal sealed class FakeBle
             payload[1] = request.Payload.Span[0];
             BinaryPrimitives.WriteUInt16LittleEndian(payload.AsSpan(2),
                 BinaryPrimitives.ReadUInt16LittleEndian(request.Payload.Span[1..]));
+            if (EffectResult == AgpResultCode.Success)
+            {
+                CurrentEffectMode = (AgpLightMode)payload[1];
+                CurrentEffectPeriodMilliseconds = BinaryPrimitives.ReadUInt16LittleEndian(payload.AsSpan(2));
+            }
         }
         else
         {

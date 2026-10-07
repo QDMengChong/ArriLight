@@ -453,7 +453,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private void ApplyLightState(AgpLightState state)
     {
         _pendingLightState = state;
-        _isMasterPowerOn = state.IsOn || _agpLight.HasPendingControlTurnOn(DeviceAddress);
+        _isMasterPowerOn = state.IsOn;
         UpdateMasterPowerVisual();
         if (!HasBrightnessView)
             return;
@@ -631,8 +631,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     }
 
     private async Task SetEffectAsync(
-        AgpLightMode mode, ushort periodMilliseconds,
-        Func<CancellationToken, Task>? beforeEffect = null)
+        AgpLightMode mode, ushort periodMilliseconds)
     {
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Control.Effect", DeviceAddress,
@@ -648,30 +647,17 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         var commandVersion = ++_powerCommandVersion;
         var previousPower = _isMasterPowerOn;
         var previousMode = _effectMode;
-        if (delaySeconds > 0)
-        {
-            // Show the pending action as cancellable through the master button.
-            _isMasterPowerOn = true;
-            _effectMode = mode;
-            UpdateMasterPowerVisual();
-            UpdateEffectVisual();
-        }
-
         try
         {
             var period = mode == AgpLightMode.Steady ? (ushort)0 : periodMilliseconds;
             var response = await _agpLight.SetControlPageEffectAsync(
-                DeviceAddress, mode, period, delaySeconds, beforeEffect: beforeEffect);
+                DeviceAddress, mode, period, delaySeconds);
             if (commandVersion != _powerCommandVersion)
                 return;
             _effectMode = response.Mode;
-            if (response.Mode is AgpLightMode.Blink or AgpLightMode.Breathe)
-            {
-                // The device turns the light on before presenting these effects.
-                // Reflect that implicit power change in the master control.
-                _isMasterPowerOn = true;
-                UpdateMasterPowerVisual();
-            }
+            // The batch explicitly confirms ONOFF_SET for all effect modes.
+            _isMasterPowerOn = true;
+            UpdateMasterPowerVisual();
             RememberEffectPeriod(response.Mode, response.PeriodMilliseconds);
             UpdateEffectVisual();
             timing.SetResult("success");
@@ -680,10 +666,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         {
             if (commandVersion == _powerCommandVersion)
             {
-                _isMasterPowerOn = _agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState?.IsOn ?? previousPower;
-                _effectMode = previousMode;
-                UpdateMasterPowerVisual();
-                UpdateEffectVisual();
+                RestoreConfirmedControlState(previousPower, previousMode);
             }
             timing.SetResult("cancelled");
         }
@@ -691,10 +674,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         {
             if (commandVersion != _powerCommandVersion)
                 return;
-            _isMasterPowerOn = previousPower;
-            _effectMode = previousMode;
-            UpdateMasterPowerVisual();
-            UpdateEffectVisual();
+            RestoreConfirmedControlState(previousPower, previousMode);
             timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error("Light/Effect", $"发送特效指令失败：{DeviceName}。", exception);
             ToastService.Show(AppResources.Effect_CommandFailed);
@@ -938,21 +918,10 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         var hasLightSettings = (SupportsColor && preset.HasColor) ||
             (SupportsTemperature && preset.HasTemperature) ||
             (SupportsBrightness && preset.HasBrightness);
-        if (hasLightSettings && SupportsEffect && preset.EffectMode is { } delayedEffect &&
-            IsTurnOnDelayEnabled && _supportedCapabilities.HasFlag(AgpCapabilities.RelativeTimer))
-        {
-            // Brightness/color writes can also light the device. Defer the entire
-            // restore so they cannot bypass the saved effect's power-on delay.
-            await StopPendingLightSettingsAsync();
-            await SetEffectAsync(delayedEffect,
-                preset.EffectPeriodMilliseconds ?? GetEffectPeriod(delayedEffect),
-                CaptureLightSettingsCommand());
-            return;
-        }
         if (hasLightSettings)
         {
             // Light-model writes can reset a running effect. Send them first,
-            // then send the saved effect as the final command in this restore.
+            // then apply the saved effect and explicitly turn the light on.
             await StopPendingLightSettingsAsync();
             await SendLightSettingsAsync(CancellationToken.None, debounce: false);
         }
@@ -1140,6 +1109,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             return;
         var commandVersion = ++_powerCommandVersion;
         var previousPower = _isMasterPowerOn;
+        var previousMode = _effectMode;
         _isMasterPowerOn = desiredOn;
         UpdateMasterPowerVisual();
 
@@ -1171,14 +1141,14 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         {
             if (commandVersion == _powerCommandVersion)
             {
-                _isMasterPowerOn = previousPower;
-                UpdateMasterPowerVisual();
+                RestoreConfirmedControlState(previousPower, previousMode);
             }
             timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error(
                 "Light/Power",
                 $"发送总开关指令失败：{DeviceName} = {_isMasterPowerOn}。",
                 exception);
+            ToastService.Show(AppResources.Control_SendFailed);
         }
     }
 

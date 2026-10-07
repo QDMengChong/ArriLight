@@ -246,14 +246,16 @@ public sealed class DeviceStatusTests
     }
 
     [Theory]
-    [InlineData(AgpLightMode.Blink)]
-    [InlineData(AgpLightMode.Breathe)]
-    public async Task StartingDynamicEffectFromOffPublishesTheHardwarePowerOnState(
-        AgpLightMode mode)
+    [InlineData(AgpLightMode.Blink, false)]
+    [InlineData(AgpLightMode.Breathe, false)]
+    [InlineData(AgpLightMode.Blink, true)]
+    [InlineData(AgpLightMode.Breathe, true)]
+    public async Task SettingDynamicEffectAlonePreservesPowerState(
+        AgpLightMode mode, bool isOn)
     {
         await using var fixture = new PairingFixture();
         fixture.Ble.Capabilities |= AgpCapabilities.Effects;
-        fixture.Ble.LightStatePacket = LightStatePacket(false, 0);
+        fixture.Ble.LightStatePacket = LightStatePacket(isOn, isOn ? (byte)50 : (byte)0);
         fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
         await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
 
@@ -261,7 +263,7 @@ public sealed class DeviceStatusTests
         var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
 
         Assert.Equal(mode, response.Mode);
-        Assert.True(cached.LightState!.IsOn);
+        Assert.Equal(isOn, cached.LightState!.IsOn);
         Assert.Equal(mode, cached.LightState.Mode);
         Assert.Equal(mode, cached.Profile!.EffectMode);
         Assert.Equal((ushort)1_000, cached.Profile.EffectPeriodMilliseconds);

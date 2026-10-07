@@ -327,13 +327,11 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     public AgpLightControlService(
         BluetoothConnectionService connectionService,
         AppDiagnosticService diagnostics,
-        DeviceRepository repository,
-        TimeProvider? timeProvider = null)
+        DeviceRepository repository)
     {
         _connectionService = connectionService;
         _diagnostics = diagnostics;
         _repository = repository;
-        _controlDelayTimeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <summary>Disconnect a forgotten device before deleting its local record and credentials.</summary>
@@ -353,7 +351,6 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             await _connectionService.DisconnectDeviceAsync(address, cancellationToken);
             _deviceStatuses.TryRemove(address, out _);
             var removed = _repository.Remove(address);
-            CancelPendingControlDelay(address);
             _diagnostics.Information(
                 "BLE/Removal", $"解除绑定完成：device={address}，removed={removed}，目标连接已释放，状态与扫描缓存已清理。");
             timing.SetResult(removed ? "removed" : "already-absent");
@@ -507,14 +504,11 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         bool isOn,
         CancellationToken cancellationToken = default)
     {
-        var cancelTimer = CancelPendingControlDelay(address);
         return WithClientAsync(
             address,
             async handle =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.OnOff);
-                if (cancelTimer)
-                    await CancelDeviceTurnOnTimerAsync(handle, cancellationToken);
                 await MeasureAsync("AGP.Command.OnOff", address, async () =>
                 {
                     var response = await handle.Client.SetOnOffAsync(
@@ -603,37 +597,18 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         AgpLightMode mode,
         ushort periodMilliseconds,
         CancellationToken cancellationToken = default) =>
-        SetEffectCoreAsync(address, mode, periodMilliseconds,
-            CancelPendingControlDelay(address), cancellationToken);
-
-    private Task<AgpEffectResponse> SetEffectCoreAsync(
-        string address,
-        AgpLightMode mode,
-        ushort periodMilliseconds,
-        bool cancelTimer,
-        CancellationToken cancellationToken) =>
         WithClientAsync(
             address,
             async handle =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.Effects);
-                if (cancelTimer)
-                    await CancelDeviceTurnOnTimerAsync(handle, cancellationToken);
                 var response = await handle.Client.SetEffectAsync(
                     mode,
                     periodMilliseconds,
                     cancellationToken);
                 EnsureSuccess(response.Result);
-                // PW01 starts the light when a non-steady effect is selected. Keep
-                // the shared light state aligned with that device-side behavior so
-                // the control page's master power button does not remain "开启".
-                handle.LastState = handle.LastState with
-                {
-                    Mode = response.Mode,
-                    IsOn = response.Mode is AgpLightMode.Blink or AgpLightMode.Breathe
-                        ? true
-                        : handle.LastState.IsOn
-                };
+                // EFFECT_SET selects a mode without changing logical power.
+                handle.LastState = handle.LastState with { Mode = response.Mode };
                 CacheControlState(handle, response.PeriodMilliseconds);
                 return response;
             },
@@ -919,7 +894,6 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        CancelAllPendingControlDelays();
         try
         {
             await DisconnectForApplicationCloseAsync();

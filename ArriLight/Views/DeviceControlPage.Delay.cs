@@ -71,24 +71,15 @@ public partial class DeviceControlPage
         return false;
     }
 
-    private Func<CancellationToken, Task> CaptureLightSettingsCommand()
+    private void RestoreConfirmedControlState(bool previousPower, AgpLightMode previousMode)
     {
-        // Capture values now; later UI edits must not change a queued preset.
-        var address = DeviceAddress;
-        var brightness = (byte)Math.Clamp(Math.Round(BrightnessSlider.Value), 0, 100);
-        if (_controlPageKind == AgpControlPageKind.Hsl ||
-            (_controlPageKind == AgpControlPageKind.HslAndCtl && _activeColorModel != AgpColorModel.Ctl))
-        {
-            var hue = ColorPicker.Hue;
-            var saturation = ColorPicker.Saturation;
-            return token => _agpLight.SetHslAsync(address, brightness, hue, saturation, token);
-        }
-        if (_controlPageKind is AgpControlPageKind.Ctl or AgpControlPageKind.HslAndCtl)
-        {
-            var temperature = TemperatureRatioToKelvin(ColorPicker.Temperature);
-            return token => _agpLight.SetCtlAsync(address, brightness, temperature, cancellationToken: token);
-        }
-        return token => _agpLight.SetLightnessAsync(address, brightness, token);
+        var status = _agpLight.GetCachedDeviceStatus(DeviceAddress);
+        _isMasterPowerOn = status?.LightState?.IsOn ?? previousPower;
+        _effectMode = status?.Profile?.EffectMode ?? status?.LightState?.Mode ?? previousMode;
+        if (status?.Profile?.EffectPeriodMilliseconds is { } period)
+            RememberEffectPeriod(_effectMode, period);
+        UpdateMasterPowerVisual();
+        UpdateEffectVisual();
     }
 
     private void OnControlDeviceStatusChanged(object? sender, DeviceStatusChange change)
@@ -100,7 +91,7 @@ public partial class DeviceControlPage
         MainThread.BeginInvokeOnMainThread(() =>
         {
             ApplyLightState(state);
-            if (!_agpLight.HasPendingControlTurnOn(DeviceAddress) && change.Status.Profile is { } profile)
+            if (change.Status.Profile is { } profile)
                 ApplyEffectProfile(profile);
         });
     }

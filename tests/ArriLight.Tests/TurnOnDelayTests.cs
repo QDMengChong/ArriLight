@@ -14,260 +14,240 @@ public sealed class TurnOnDelayTests
         const string second = "02:00:00:00:00:02";
         Assert.False(repository.GetTurnOnDelayEnabled(first));
         Assert.Equal(60, repository.GetTurnOnDelaySeconds(first));
-
-        Assert.True(repository.SetTurnOnDelayEnabled(first, true));
-        Assert.True(repository.SetTurnOnDelaySeconds(first, 135));
-        Assert.True(repository.SetTimerSeconds(first, 900));
+        repository.SetTurnOnDelayEnabled(first, true);
+        repository.SetTurnOnDelaySeconds(first, 135);
+        repository.SetTimerSeconds(first, 900);
         var reloaded = new DeviceRepository();
         Assert.True(reloaded.GetTurnOnDelayEnabled(first));
         Assert.Equal(135, reloaded.GetTurnOnDelaySeconds(first));
         Assert.Equal(900, reloaded.GetTimerSeconds(first));
         Assert.False(reloaded.GetTurnOnDelayEnabled(second));
         Assert.Equal(60, reloaded.GetTurnOnDelaySeconds(second));
-
-        Assert.True(reloaded.SetTurnOnDelayEnabled(first, false));
-        Assert.False(new DeviceRepository().GetTurnOnDelayEnabled(first));
+        reloaded.SetTurnOnDelayEnabled(first, false);
         Assert.Equal(135, new DeviceRepository().GetTurnOnDelaySeconds(first));
     }
 
     [Fact]
-    public void LegacyDevicesStartWithDelayUncheckedAnd60Seconds()
+    public void ExistingDeviceRecordsKeepCheckboxAndSecondsForAutomaticOff()
     {
         Preferences.Default.Clear();
         Preferences.Default.Set("saved_bluetooth_devices_v1", """
-            [{"Name":"旧设备","Address":"AA:BB:CC:DD:EE:01","TimerSeconds":900}]
+            [{"Name":"旧设备","Address":"AA:BB:CC:DD:EE:01","TurnOnDelayEnabled":true,"TurnOnDelaySeconds":135}]
             """);
         var repository = new DeviceRepository();
-        Assert.False(repository.GetTurnOnDelayEnabled("AA:BB:CC:DD:EE:01"));
-        Assert.Equal(60, repository.GetTurnOnDelaySeconds("AA:BB:CC:DD:EE:01"));
+        Assert.True(repository.GetTurnOnDelayEnabled("AA:BB:CC:DD:EE:01"));
+        Assert.Equal(135, repository.GetTurnOnDelaySeconds("AA:BB:CC:DD:EE:01"));
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(86401)]
+    public async Task InvalidDelayIsRejectedBeforeSending(int seconds)
+    {
+        await using var fixture = CreateFixture();
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, seconds));
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() =>
+            fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, seconds));
+        Assert.Empty(fixture.Ble.Requests);
+    }
+
+    [Fact]
+    public async Task UncheckedPowerOnSendsOnlyOnOffAndPreservesSelectedEffect()
+    {
+        await using var fixture = CreateFixture();
+        await fixture.Service.SetEffectAsync(fixture.Address, AgpLightMode.Blink, 1000);
+        fixture.Ble.Requests.Clear();
+        await fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, 0);
+        Assert.Equal([AgpOpcode.OnOffSet], Controls(fixture));
+        var state = fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState!;
+        Assert.True(state.IsOn);
+        Assert.Equal(AgpLightMode.Blink, state.Mode);
+    }
+
+    [Theory]
+    [InlineData(1, "01000000")]
+    [InlineData(60, "3C000000")]
+    [InlineData(86400, "80510100")]
+    public async Task CheckedPowerOnImmediatelySendsPowerThenDeviceAutomaticOff(int seconds, string payload)
+    {
+        await using var fixture = CreateFixture();
+        await fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, seconds);
+        Assert.Equal([AgpOpcode.OnOffSet, AgpOpcode.DelayOffSet], Controls(fixture));
+        Assert.Equal(new byte[] { 1 }, Request(fixture, AgpOpcode.OnOffSet).Payload.ToArray());
+        Assert.Equal(Convert.FromHexString(payload), Request(fixture, AgpOpcode.DelayOffSet).Payload.ToArray());
+        Assert.True(fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState!.IsOn);
+        await fixture.Service.SuspendForBackgroundAsync();
+        Assert.Equal([AgpOpcode.OnOffSet, AgpOpcode.DelayOffSet], Controls(fixture));
+    }
+
+    [Theory]
+    [InlineData(AgpLightMode.Steady, 0, 0, "000000")]
+    [InlineData(AgpLightMode.Blink, 1000, 0, "01E803")]
+    [InlineData(AgpLightMode.Breathe, 2500, 0, "02C409")]
+    [InlineData(AgpLightMode.Steady, 0, 60, "000000")]
+    [InlineData(AgpLightMode.Blink, 1000, 60, "01E803")]
+    [InlineData(AgpLightMode.Breathe, 2500, 60, "02C409")]
+    public async Task EveryEffectIsImmediatelyFollowedByPowerOnAndOptionalAutomaticOff(
+        AgpLightMode mode, ushort period, int seconds, string payload)
+    {
+        await using var fixture = CreateFixture();
+        var response = await fixture.Service.SetControlPageEffectAsync(fixture.Address, mode, period, seconds);
+        Assert.Equal(mode, response.Mode);
+        Assert.Equal(period, response.PeriodMilliseconds);
+        Assert.Equal(seconds == 0
+            ? new[] { AgpOpcode.EffectSet, AgpOpcode.OnOffSet }
+            : [AgpOpcode.EffectSet, AgpOpcode.OnOffSet, AgpOpcode.DelayOffSet], Controls(fixture));
+        Assert.Equal(Convert.FromHexString(payload), Request(fixture, AgpOpcode.EffectSet).Payload.ToArray());
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.True(cached.LightState!.IsOn);
+        Assert.Equal(mode, cached.LightState.Mode);
+        Assert.Equal(period, cached.Profile!.EffectPeriodMilliseconds);
     }
 
     [Theory]
     [InlineData(0)]
-    [InlineData(-1)]
-    [InlineData(86401)]
-    public void InvalidSecondsDoNotOverwriteTheRememberedDelay(int seconds)
+    [InlineData(60)]
+    public async Task PowerOffSendsOnlyOffWithoutChangingOrClearingEffect(int seconds)
     {
-        Preferences.Default.Clear();
-        var repository = new DeviceRepository();
-        const string address = "02:00:00:00:00:01";
-        repository.SetTurnOnDelaySeconds(address, 135);
-        Assert.False(repository.SetTurnOnDelaySeconds(address, seconds));
-        Assert.Equal(135, new DeviceRepository().GetTurnOnDelaySeconds(address));
-        Assert.False(repository.SetTurnOnDelayEnabled("missing", true));
+        await using var fixture = CreateFixture();
+        await fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Breathe, 2500, 60);
+        fixture.Ble.Requests.Clear();
+        await fixture.Service.SetControlPageOnOffAsync(fixture.Address, false, seconds);
+        Assert.Equal([AgpOpcode.OnOffSet], Controls(fixture));
+        Assert.Equal(new byte[] { 0 }, fixture.Ble.RequestMessages.Last().Payload.ToArray());
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.False(cached.LightState!.IsOn);
+        Assert.Equal(AgpLightMode.Breathe, cached.LightState.Mode);
     }
 
     [Fact]
-    public async Task UncheckedDelayPreservesImmediatePowerAndEffectCommands()
+    public async Task EffectFailureStopsBeforePowerOrTimerAndPreservesState()
     {
-        await using var fixture = new PairingFixture();
-        fixture.Ble.Capabilities = AgpCapabilities.OnOff | AgpCapabilities.Effects;
-        await fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, 0);
-        await fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 0);
-        Assert.Equal([AgpOpcode.OnOffSet, AgpOpcode.EffectSet], fixture.Ble.Requests);
-        Assert.False(fixture.Service.HasPendingControlTurnOn(fixture.Address));
+        await using var fixture = CreateFixture();
+        fixture.Ble.EffectResult = AgpResultCode.NotAuthorized;
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60));
+        Assert.Equal([AgpOpcode.EffectSet], Controls(fixture));
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.False(cached.LightState!.IsOn);
+        Assert.Equal(AgpLightMode.Steady, cached.LightState.Mode);
     }
 
     [Fact]
-    public async Task CheckedDelayUsesDeviceTimerAndDoesNotPublishPowerOnBeforeExpiry()
+    public async Task PowerFailureRetainsConfirmedEffectAndDoesNotSendTimer()
     {
-        await using var fixture = new PairingFixture();
-        fixture.Ble.Capabilities = AgpCapabilities.RelativeTimer;
-        fixture.Ble.LightStatePacket = OffLightStatePacket();
-        await fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, 135);
-        Assert.Equal([AgpOpcode.DelayOnSet], fixture.Ble.Requests);
-        Assert.Equal(Convert.FromHexString("87000000"), fixture.Ble.RequestMessages.Single().Payload.ToArray());
-        Assert.False(fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState!.IsOn);
-        Assert.True(fixture.Service.HasPendingControlTurnOn(fixture.Address));
-        await fixture.Service.SuspendForBackgroundAsync();
-        Assert.True(fixture.Service.HasPendingControlTurnOn(fixture.Address));
-    }
-
-    [Fact]
-    public async Task PowerOffCancelsNativeCountdownBeforeImmediatelyTurningOff()
-    {
-        await using var fixture = new PairingFixture();
-        fixture.Ble.Capabilities = AgpCapabilities.OnOff | AgpCapabilities.RelativeTimer;
-        await fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, 60);
-        await fixture.Service.SetControlPageOnOffAsync(fixture.Address, false, 60);
-        Assert.Equal([AgpOpcode.DelayOnSet, AgpOpcode.DelayOnSet, AgpOpcode.OnOffSet], fixture.Ble.Requests);
-        Assert.Equal(new byte[4], fixture.Ble.RequestMessages[1].Payload.ToArray());
-        Assert.Equal((byte)0, fixture.Ble.RequestMessages[2].Payload.Span[0]);
-        Assert.False(fixture.Service.HasPendingControlTurnOn(fixture.Address));
+        await using var fixture = CreateFixture();
+        fixture.Ble.OnOffResult = AgpResultCode.InternalError;
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60));
+        Assert.Equal([AgpOpcode.EffectSet, AgpOpcode.OnOffSet], Controls(fixture));
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.False(cached.LightState!.IsOn);
+        Assert.Equal(AgpLightMode.Blink, cached.LightState.Mode);
+        Assert.Equal((ushort)1000, cached.Profile!.EffectPeriodMilliseconds);
     }
 
     [Theory]
-    [InlineData(AgpLightMode.Steady, 0)]
-    [InlineData(AgpLightMode.Blink, 1000)]
-    [InlineData(AgpLightMode.Breathe, 2500)]
-    public async Task EffectsAreSentOnlyWhenTheConfiguredSecondsHaveElapsed(AgpLightMode mode, ushort period)
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task TimerFailureKeepsConfirmedPowerAndEffect(bool withEffect)
     {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        var effect = fixture.Service.SetControlPageEffectAsync(fixture.Address, mode, period, 60);
-        Assert.False(effect.IsCompleted);
-        Assert.DoesNotContain(AgpOpcode.EffectSet, fixture.Ble.Requests);
-        clock.Advance(TimeSpan.FromSeconds(59));
-        Assert.False(effect.IsCompleted);
-        clock.Advance(TimeSpan.FromSeconds(1));
-        var response = await effect.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.Equal(mode, response.Mode);
-        Assert.Equal(period, response.PeriodMilliseconds);
-        Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.EffectSet);
-        Assert.False(fixture.Service.HasPendingControlTurnOn(fixture.Address));
+        await using var fixture = CreateFixture();
+        fixture.Ble.TimerResult = AgpResultCode.InternalError;
+        await Assert.ThrowsAsync<InvalidOperationException>(() => withEffect
+            ? fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Breathe, 2500, 60)
+            : fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, 60));
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.True(cached.LightState!.IsOn);
+        Assert.Equal(withEffect ? AgpLightMode.Breathe : AgpLightMode.Steady, cached.LightState.Mode);
+        Assert.Equal(AgpOpcode.DelayOffSet, Controls(fixture).Last());
     }
 
     [Fact]
-    public async Task PowerOffCancelsWaitingEffectWithoutHoldingTheBleLock()
+    public async Task BusyRetriesOnlyPowerStepWithNewTransactionId()
     {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        var effect = fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60);
-        await fixture.Service.SetOnOffAsync(fixture.Address, false).WaitAsync(TimeSpan.FromSeconds(2));
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => effect);
-        clock.Advance(TimeSpan.FromSeconds(60));
-        Assert.DoesNotContain(AgpOpcode.EffectSet, fixture.Ble.Requests);
-        Assert.False(fixture.Service.HasPendingControlTurnOn(fixture.Address));
+        await using var fixture = CreateFixture();
+        fixture.Ble.OnOffResults.Enqueue(AgpResultCode.Busy);
+        fixture.Ble.OnOffResults.Enqueue(AgpResultCode.Success);
+        await fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60);
+        Assert.Equal([AgpOpcode.EffectSet, AgpOpcode.OnOffSet, AgpOpcode.OnOffSet, AgpOpcode.DelayOffSet], Controls(fixture));
+        var attempts = fixture.Ble.RequestMessages.Where(request => request.Opcode == AgpOpcode.OnOffSet).ToArray();
+        Assert.NotEqual(attempts[0].TransactionId, attempts[1].TransactionId);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MissingRequiredCapabilityRejectsSequenceBeforeEffectOrPower(bool missingTimer)
+    {
+        await using var fixture = CreateFixture();
+        fixture.Ble.Capabilities &= ~(missingTimer ? AgpCapabilities.RelativeTimer : AgpCapabilities.OnOff);
+        await Assert.ThrowsAsync<NotSupportedException>(() => fixture.Service.SetControlPageEffectAsync(
+            fixture.Address, AgpLightMode.Blink, 1000, missingTimer ? 60 : 0));
+        Assert.Empty(Controls(fixture));
     }
 
     [Fact]
-    public async Task NewEffectReplacesWaitingEffectAndUsesItsOwnDeadline()
+    public async Task CancellationWhilePowerResponseIsPendingRetainsSuccessfulEffect()
     {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        var first = fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60);
-        clock.Advance(TimeSpan.FromSeconds(30));
-        var second = fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Breathe, 2500, 60);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => first);
-        clock.Advance(TimeSpan.FromSeconds(30));
-        Assert.False(second.IsCompleted);
-        clock.Advance(TimeSpan.FromSeconds(30));
-        Assert.Equal(AgpLightMode.Breathe, (await second.WaitAsync(TimeSpan.FromSeconds(2))).Mode);
-        Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.EffectSet);
+        await using var fixture = CreateFixture();
+        fixture.Ble.SuppressedResponseOpcode = AgpOpcode.OnOffSet;
+        using var cancellation = new CancellationTokenSource();
+        var sending = fixture.Service.SetControlPageEffectAsync(
+            fixture.Address, AgpLightMode.Blink, 1000, 60, cancellation.Token);
+        Assert.Equal([AgpOpcode.EffectSet, AgpOpcode.OnOffSet], Controls(fixture));
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<AgpBatchCanceledException>(() => sending);
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.Equal(AgpLightMode.Blink, cached.LightState!.Mode);
+        Assert.False(cached.LightState.IsOn);
+        Assert.DoesNotContain(AgpOpcode.DelayOffSet, fixture.Ble.Requests);
     }
 
     [Fact]
-    public async Task BackgroundingCancelsWaitingEffectRatherThanLightingAfterResume()
+    public async Task BackgroundCancellationStopsUnconfirmedPowerWithoutLosingEffectSelection()
     {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        var effect = fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60);
-        await fixture.Service.SuspendForBackgroundAsync();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => effect);
-        clock.Advance(TimeSpan.FromSeconds(60));
-        await fixture.Service.ResumeAfterBackgroundAsync();
-        Assert.DoesNotContain(AgpOpcode.EffectSet, fixture.Ble.Requests);
+        await using var fixture = CreateFixture();
+        fixture.Ble.SuppressedResponseOpcode = AgpOpcode.OnOffSet;
+        var sending = fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60);
+        await fixture.Service.SuspendForBackgroundAsync().WaitAsync(TimeSpan.FromSeconds(2));
+        await Assert.ThrowsAsync<AgpBatchCanceledException>(() => sending);
+        Assert.DoesNotContain(AgpOpcode.DelayOffSet, fixture.Ble.Requests);
+        Assert.Equal(AgpLightMode.Blink, fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState!.Mode);
     }
 
     [Fact]
-    public async Task EffectReplacingNativeTimerCancelsTimerBeforeWaiting()
+    public async Task TransportFailureAfterEffectRetainsProgressWithoutInventingPowerOn()
     {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        await fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, 60);
-        var effect = fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60);
-        // Flush the preflight cancellation through the same serialized client.
-        await fixture.Service.EnsureAuthorizedAsync(fixture.Address);
-        Assert.Equal(new byte[4], fixture.Ble.RequestMessages.Last().Payload.ToArray());
-        clock.Advance(TimeSpan.FromSeconds(60));
-        await effect.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.Equal([AgpOpcode.DelayOnSet, AgpOpcode.DelayOnSet, AgpOpcode.EffectSet], fixture.Ble.Requests);
+        await using var fixture = CreateFixture();
+        fixture.Ble.BeforeControlResponse = request =>
+        {
+            if (request.Opcode == AgpOpcode.OnOffSet)
+                throw new IOException("radio failed");
+        };
+        await Assert.ThrowsAsync<AgpBatchException>(() => fixture.Service.SetControlPageEffectAsync(
+            fixture.Address, AgpLightMode.Blink, 1000, 60));
+        var cached = fixture.Service.GetCachedDeviceStatus(fixture.Address)!;
+        Assert.Equal(AgpLightMode.Blink, cached.LightState!.Mode);
+        Assert.False(cached.LightState.IsOn);
+        Assert.DoesNotContain(AgpOpcode.DelayOffSet, fixture.Ble.Requests);
     }
 
-    [Fact]
-    public async Task RemovingDeviceCancelsItsWaitingEffect()
+    private static PairingFixture CreateFixture()
     {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        var effect = fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60);
-        await fixture.Service.RemoveDeviceAsync(fixture.Address);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => effect);
-        clock.Advance(TimeSpan.FromSeconds(60));
-        Assert.DoesNotContain(AgpOpcode.EffectSet, fixture.Ble.Requests);
+        var fixture = new PairingFixture();
+        fixture.Ble.Capabilities = AgpCapabilities.SecureControl | AgpCapabilities.OnOff |
+                                   AgpCapabilities.Effects | AgpCapabilities.RelativeTimer;
+        fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
+        fixture.Ble.LightStatePacket = AgpCodec.Encode(AgpMessageType.Status, AgpOpcode.LightStateStatus, 0,
+            [2, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0]);
+        return fixture;
     }
 
-    [Fact]
-    public async Task RejectedNativeTimerDoesNotLeaveAPendingPowerAction()
-    {
-        await using var fixture = new PairingFixture();
-        fixture.Ble.Capabilities = AgpCapabilities.RelativeTimer;
-        fixture.Ble.TimerResult = AgpResultCode.NotAuthorized;
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            fixture.Service.SetControlPageOnOffAsync(fixture.Address, true, 60));
-        Assert.False(fixture.Service.HasPendingControlTurnOn(fixture.Address));
-    }
+    private static AgpOpcode[] Controls(PairingFixture fixture) => fixture.Ble.Requests
+        .Where(opcode => opcode != AgpOpcode.AuthToken).ToArray();
 
-    private static async Task PrepareEffectsAsync(PairingFixture fixture)
-    {
-        fixture.Ble.Capabilities = AgpCapabilities.OnOff | AgpCapabilities.Effects | AgpCapabilities.RelativeTimer;
-        fixture.Ble.LightStatePacket = OffLightStatePacket();
-        await fixture.Service.EnsureAuthorizedAsync(fixture.Address);
-    }
-
-    [Fact]
-    public async Task PresetLightSettingsWaitWithTheEffectAndAreAppliedFirst()
-    {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        var applied = false;
-        var effect = fixture.Service.SetControlPageEffectAsync(
-            fixture.Address, AgpLightMode.Blink, 1000, 60,
-            beforeEffect: token =>
-            {
-                token.ThrowIfCancellationRequested();
-                Assert.DoesNotContain(AgpOpcode.EffectSet, fixture.Ble.Requests);
-                applied = true;
-                return Task.CompletedTask;
-            });
-        Assert.False(applied);
-        clock.Advance(TimeSpan.FromSeconds(60));
-        await effect.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.True(applied);
-        Assert.Contains(AgpOpcode.EffectSet, fixture.Ble.Requests);
-    }
-
-    [Fact]
-    public async Task CancellingPresetDoesNotApplyItsLightSettings()
-    {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        var applied = false;
-        var effect = fixture.Service.SetControlPageEffectAsync(
-            fixture.Address, AgpLightMode.Blink, 1000, 60,
-            beforeEffect: _ => { applied = true; return Task.CompletedTask; });
-        await fixture.Service.SetOnOffAsync(fixture.Address, false);
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => effect);
-        clock.Advance(TimeSpan.FromSeconds(60));
-        Assert.False(applied);
-        Assert.DoesNotContain(AgpOpcode.EffectSet, fixture.Ble.Requests);
-    }
-
-    [Fact]
-    public async Task DelayingOneDeviceDoesNotDelayOrCancelAnotherDevice()
-    {
-        var clock = new ManualTimeProvider();
-        await using var fixture = new PairingFixture(clock);
-        await PrepareEffectsAsync(fixture);
-        var other = fixture.AddDevice();
-        other.Capabilities = AgpCapabilities.OnOff;
-        var effect = fixture.Service.SetControlPageEffectAsync(fixture.Address, AgpLightMode.Blink, 1000, 60);
-        await fixture.Service.SetOnOffAsync(other.Address, true).WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.False(effect.IsCompleted);
-        Assert.Equal([AgpOpcode.OnOffSet], other.Requests);
-        clock.Advance(TimeSpan.FromSeconds(60));
-        await effect.WaitAsync(TimeSpan.FromSeconds(2));
-        Assert.Contains(AgpOpcode.EffectSet, fixture.Ble.Requests);
-    }
-
-    private static byte[] OffLightStatePacket() => AgpCodec.Encode(
-        AgpMessageType.Status, AgpOpcode.LightStateStatus, 0,
-        [2, 0, 0, 0, 0, 0, 0, 50, 0, 0, 0]);
+    private static AgpMessage Request(PairingFixture fixture, AgpOpcode opcode) =>
+        Assert.Single(fixture.Ble.RequestMessages, request => request.Opcode == opcode);
 }

@@ -27,6 +27,7 @@ public sealed record SavedDevice(
     int TimerSeconds = 60,
     AgpCapabilities? Capabilities = null,
     string? HardwareRevision = null,
+    // Keep persisted property names so existing checkbox/seconds settings survive the semantic change.
     bool TurnOnDelayEnabled = false,
     int TurnOnDelaySeconds = 60)
 {
