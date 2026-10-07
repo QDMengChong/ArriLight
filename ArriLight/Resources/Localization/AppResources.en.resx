@@ -1734,4 +1734,31 @@ This is sample text for interface design. The final version should be profession
   <data name="Configuration_TooLarge" xml:space="preserve">
     <value>The configuration file must not exceed 64 KB.</value>
   </data>
+  <data name="DeviceMode_AlwaysOn" xml:space="preserve">
+    <value>Always-on mode</value>
+  </data>
+  <data name="DeviceMode_Delayed" xml:space="preserve">
+    <value>Delay mode</value>
+  </data>
+  <data name="DeviceMode_Seconds" xml:space="preserve">
+    <value>Seconds before turning off automatically after touch power-on</value>
+  </data>
+  <data name="DeviceMode_Set" xml:space="preserve">
+    <value>Set</value>
+  </data>
+  <data name="DeviceMode_SetSucceeded" xml:space="preserve">
+    <value>Device mode set.</value>
+  </data>
+  <data name="DeviceMode_SetFailed" xml:space="preserve">
+    <value>Unable to set device mode: {0}</value>
+  </data>
+  <data name="DeviceMode_LoadFailed" xml:space="preserve">
+    <value>Unable to read device mode: {0}</value>
+  </data>
+  <data name="DeviceMode_InvalidSeconds" xml:space="preserve">
+    <value>Enter a whole number of seconds from 1 to 2592000.</value>
+  </data>
+  <data name="DeviceMode_OtherMode" xml:space="preserve">
+    <value>The device uses another switch mode. Tap Set to apply the selected mode.</value>
+  </data>
 </root>

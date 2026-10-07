@@ -78,10 +78,17 @@ public partial class DeviceMorePage : ContentPage, IQueryAttributable
             DeviceId = Uri.UnescapeDataString(value.ToString()!);
     }
 
-    protected override void OnAppearing()
+    protected override async void OnAppearing()
     {
         base.OnAppearing();
         ReloadDevice();
+        await LoadLocalModeAsync();
+    }
+
+    protected override void OnDisappearing()
+    {
+        CancelLocalModeOperations();
+        base.OnDisappearing();
     }
 
     private void ReloadDevice()

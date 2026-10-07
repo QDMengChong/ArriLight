@@ -308,6 +308,8 @@ internal sealed class FakeBle
     public AgpResultCode AuthenticationResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode TimerResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode EffectResult { get; set; } = AgpResultCode.Success;
+    public AgpResultCode ModeResult { get; set; } = AgpResultCode.Success;
+    public AgpModeConfig LocalMode { get; set; } = new(AgpLocalMode.DelayNone);
     public AgpLightMode CurrentEffectMode { get; set; } = AgpLightMode.Steady;
     public ushort CurrentEffectPeriodMilliseconds { get; set; }
     public string? FirmwareRevision { get; set; }
@@ -497,6 +499,7 @@ internal sealed class FakeBle
             AgpOpcode.TimeSet => Convert.FromHexString("000100B955690100"),
             AgpOpcode.DelayOnSet or AgpOpcode.DelayOffSet => TimerResponse(request),
             AgpOpcode.EffectSet or AgpOpcode.EffectGet => EffectResponse(request),
+            AgpOpcode.ModeSet or AgpOpcode.ModeGet => ModeResponse(request),
             AgpOpcode.ScheduleListGet => ScheduleListResponse(),
             AgpOpcode.ScheduleGet => ScheduleResponse(request.Payload.Span[0]),
             _ => throw new NotSupportedException(request.Opcode.ToString())
@@ -510,6 +513,26 @@ internal sealed class FakeBle
             InterfaceProxy.From(Adapter).Raise("DeviceConnectionLost", Adapter, new DeviceErrorEventArgs { Device = Device });
         }
         return Task.FromResult(0);
+    }
+
+    private byte[] ModeResponse(AgpMessage request)
+    {
+        if (ModeResult != AgpResultCode.Success)
+            return [(byte)ModeResult];
+        if (request.Opcode == AgpOpcode.ModeSet)
+        {
+            var echoed = new byte[request.Payload.Length + 1];
+            request.Payload.Span.CopyTo(echoed.AsSpan(1));
+            LocalMode = AgpModelCodec.DecodeModeResponse(request with
+            {
+                MessageType = AgpMessageType.Response,
+                Payload = echoed
+            }).Config!;
+        }
+        var settings = AgpModelCodec.EncodeModeSet(LocalMode);
+        var response = new byte[settings.Length + 1];
+        settings.CopyTo(response, 1);
+        return response;
     }
 
     private byte[] TimerResponse(AgpMessage request)

@@ -1734,4 +1734,31 @@ Product ID：{3}
   <data name="Configuration_TooLarge" xml:space="preserve">
     <value>配置文件不能超过 64 KB。</value>
   </data>
+  <data name="DeviceMode_AlwaysOn" xml:space="preserve">
+    <value>常亮模式</value>
+  </data>
+  <data name="DeviceMode_Delayed" xml:space="preserve">
+    <value>延时模式</value>
+  </data>
+  <data name="DeviceMode_Seconds" xml:space="preserve">
+    <value>触摸开灯后自动关灯的秒数</value>
+  </data>
+  <data name="DeviceMode_Set" xml:space="preserve">
+    <value>设置</value>
+  </data>
+  <data name="DeviceMode_SetSucceeded" xml:space="preserve">
+    <value>设备模式已设置。</value>
+  </data>
+  <data name="DeviceMode_SetFailed" xml:space="preserve">
+    <value>设置设备模式失败：{0}</value>
+  </data>
+  <data name="DeviceMode_LoadFailed" xml:space="preserve">
+    <value>读取设备模式失败：{0}</value>
+  </data>
+  <data name="DeviceMode_InvalidSeconds" xml:space="preserve">
+    <value>请输入 1～2592000 的整数秒数。</value>
+  </data>
+  <data name="DeviceMode_OtherMode" xml:space="preserve">
+    <value>设备当前采用其他开关模式，点击“设置”将切换为所选模式。</value>
+  </data>
 </root>

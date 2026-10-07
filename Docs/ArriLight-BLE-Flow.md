@@ -47,6 +47,16 @@ APP 按设备地址维护多条独立 BLE GATT 会话、通知订阅、AGP 客�
 
 ## 3. 设备连接流程
 
+### 设备信息页的触摸模式配置
+
+`DeviceMorePage` 进入时通过 `AgpLightControlService.GetLocalModeAsync` 读取 `MODE_GET=0x0122`，仅对支持能力 bit22 `LocalMode` 的真实设备显示模式配置。第一行 Switch 开启显示“常亮模式”，关闭显示“延时模式”，紧跟秒数输入框和 `s`；默认 60 秒，常亮模式禁用输入。第二行“设置”按钮靠右。用户编辑不会发送 BLE 消息；点击设置才分别发送 `AgpModeConfig(DelayNone)` 或 `AgpModeConfig(OnAutoOff, OffSeconds: seconds)`，秒数严格为 1～2,592,000 的整数。配置由 PW01 持久化，重新进入页面以设备值为准，写入失败保留草稿。
+
+`MODE_SET=0x0121` 沿用按设备的连接、Token 认证和串行请求调度。`DELAY_NONE` 负载为 `00`；`ON_AUTO_OFF=60s` 负载为 `04 3C 00 00 00`。协议库也支持 `OFF_AUTO_ON`，其参数对应 `OnSeconds`；两种自动模式的编号 4/5 不能当成方向位掩码。页面只提供常亮和自动关灯两个选项，读到其他合法模式时显示提示，等待用户显式设置，不在读取时改写设备。离开页面取消尚未完成的读取或设置，发送期间禁用编辑和重复设置。
+
+MODE 配置仅作用于硬件直接操作（PW01 的 T1 触摸），与 `Light State.Mode` 的灯效、控制页原有一次性延时开灯独立。ON_AUTO_OFF 在触摸开灯或切换亮度时立即执行，再安排自动关灯；重复短按重新计时，触摸关灯立即执行并取消自动动作。MODE_SET 自身不改变灯输出。回归测试覆盖六种模式编解码、自动模式精确报文、边界秒数、能力检查、读取设备保存值、失败保留草稿和页面离开取消。
+
+### 连接调用链
+
 设备连接入口主要是 `BluetoothConnectionService.ConnectAsync`，调用链如下：
 
 ```text

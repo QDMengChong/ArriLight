@@ -37,8 +37,8 @@ public class ContentPage : Element
             throw new NotSupportedException("Native OTA confirmation is not available in host tests.");
     }
     protected Task<string?> DisplayPromptAsync(
-        string title, string message, string accept, string cancel, string placeholder,
-        string initialValue, int maxLength) => Task.FromResult<string?>(initialValue);
+        string title, string message, string accept, string cancel, string placeholder = "",
+        string initialValue = "", int maxLength = -1) => Task.FromResult<string?>(initialValue);
     protected Task<string?> DisplayPromptAsync(
         string title, string message, string accept, string cancel, string placeholder, Keyboard keyboard) =>
         throw new NotSupportedException("Native OTA prompts are not available in host tests.");

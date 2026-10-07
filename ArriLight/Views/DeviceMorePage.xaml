@@ -36,6 +36,63 @@
                     </Grid>
                 </Border>
 
+                <Border Style="{StaticResource MenuCardStyle}" IsVisible="{Binding IsLocalModeSupported}">
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="12">
+                        <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10">
+                            <Switch
+                                IsEnabled="{Binding CanSetLocalMode}"
+                                IsToggled="{Binding IsAlwaysOnMode, Mode=TwoWay}"
+                                SemanticProperties.Description="{Binding LocalModeLabel}"
+                                VerticalOptions="Center" />
+                            <Label
+                                Grid.Column="1"
+                                Style="{StaticResource MenuTitleStyle}"
+                                Text="{Binding LocalModeLabel}"
+                                VerticalTextAlignment="Center" />
+                            <Border
+                                Grid.Column="2"
+                                Padding="10,0"
+                                IsEnabled="{Binding CanEditLocalModeSeconds}"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 12">
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding CanEditLocalModeSeconds}" Value="False">
+                                        <Setter Property="Opacity" Value="0.45" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <Entry
+                                        FontSize="14"
+                                        HorizontalTextAlignment="Center"
+                                        Keyboard="Numeric"
+                                        MaxLength="7"
+                                        SemanticProperties.Description="{x:Static strings:AppResources.DeviceMode_Seconds}"
+                                        Text="{Binding LocalModeSecondsText, Mode=TwoWay}"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                                        VerticalTextAlignment="Center" />
+                                    <Label
+                                        Grid.Column="1"
+                                        FontSize="12"
+                                        Text="s"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                                        VerticalTextAlignment="Center" />
+                                </Grid>
+                            </Border>
+                        </Grid>
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Label Style="{StaticResource MenuDescriptionStyle}" Text="{Binding LocalModeNotice}" VerticalTextAlignment="Center" />
+                            <Button
+                                Grid.Column="1"
+                                Clicked="OnSetLocalModeClicked"
+                                HorizontalOptions="End"
+                                IsEnabled="{Binding CanSetLocalMode}"
+                                MinimumWidthRequest="84"
+                                Text="{x:Static strings:AppResources.DeviceMode_Set}" />
+                        </Grid>
+                    </Grid>
+                </Border>
+
                 <Border Style="{StaticResource MenuCardStyle}" Padding="0">
                     <VerticalStackLayout Spacing="0">
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">

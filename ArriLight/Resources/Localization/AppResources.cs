@@ -341,6 +341,15 @@ public static class AppResources
     public static string Manual_Content => global::ArriLight.Localization.GetString(nameof(Manual_Content));
     public static string Manual_Placeholder => global::ArriLight.Localization.GetString(nameof(Manual_Placeholder));
     public static string Device_Information => global::ArriLight.Localization.GetString(nameof(Device_Information));
+    public static string DeviceMode_AlwaysOn => global::ArriLight.Localization.GetString(nameof(DeviceMode_AlwaysOn));
+    public static string DeviceMode_Delayed => global::ArriLight.Localization.GetString(nameof(DeviceMode_Delayed));
+    public static string DeviceMode_Seconds => global::ArriLight.Localization.GetString(nameof(DeviceMode_Seconds));
+    public static string DeviceMode_Set => global::ArriLight.Localization.GetString(nameof(DeviceMode_Set));
+    public static string DeviceMode_SetSucceeded => global::ArriLight.Localization.GetString(nameof(DeviceMode_SetSucceeded));
+    public static string DeviceMode_SetFailed => global::ArriLight.Localization.GetString(nameof(DeviceMode_SetFailed));
+    public static string DeviceMode_LoadFailed => global::ArriLight.Localization.GetString(nameof(DeviceMode_LoadFailed));
+    public static string DeviceMode_InvalidSeconds => global::ArriLight.Localization.GetString(nameof(DeviceMode_InvalidSeconds));
+    public static string DeviceMode_OtherMode => global::ArriLight.Localization.GetString(nameof(DeviceMode_OtherMode));
     public static string Device_Name => global::ArriLight.Localization.GetString(nameof(Device_Name));
     public static string Device_AddedAt => global::ArriLight.Localization.GetString(nameof(Device_AddedAt));
     public static string Device_Id => global::ArriLight.Localization.GetString(nameof(Device_Id));
