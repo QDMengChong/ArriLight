@@ -1762,9 +1762,10 @@ Product ID：{3}
     <value>设备当前采用其他开关模式，点击“设置”将切换为所选模式。</value>
   </data>
   <data name="Home_Sort" xml:space="preserve"><value>设备排序</value></data>
-  <data name="Home_SortLastOperation" xml:space="preserve"><value>按上次操作时间</value></data>
-  <data name="Home_SortAddedAt" xml:space="preserve"><value>按加入时间</value></data>
-  <data name="Home_SortName" xml:space="preserve"><value>按名字</value></data>
+  <data name="Home_SortLabel" xml:space="preserve"><value>排序:</value></data>
+  <data name="Home_SortLastOperation" xml:space="preserve"><value>操作时间</value></data>
+  <data name="Home_SortAddedAt" xml:space="preserve"><value>加入时间</value></data>
+  <data name="Home_SortName" xml:space="preserve"><value>名称</value></data>
   <data name="Control_StateUnavailable" xml:space="preserve"><value>开关操作结果暂未确认，请刷新设备状态后再设置延时。</value></data>
   <data name="Device_Ready" xml:space="preserve"><value>就绪</value></data>
   <data name="Settings_DevicePreparation" xml:space="preserve"><value>设备准备</value></data>

@@ -10,6 +10,7 @@ public static class AppResources
     public static string Settings_DeviceConcurrency => global::ArriLight.Localization.GetString(nameof(Settings_DeviceConcurrency));
     public static string Settings_DeviceConcurrencyDescription => global::ArriLight.Localization.GetString(nameof(Settings_DeviceConcurrencyDescription));
     public static string Home_Sort => global::ArriLight.Localization.GetString(nameof(Home_Sort));
+    public static string Home_SortLabel => global::ArriLight.Localization.GetString(nameof(Home_SortLabel));
     public static string Home_SortLastOperation => global::ArriLight.Localization.GetString(nameof(Home_SortLastOperation));
     public static string Home_SortAddedAt => global::ArriLight.Localization.GetString(nameof(Home_SortAddedAt));
     public static string Home_SortName => global::ArriLight.Localization.GetString(nameof(Home_SortName));

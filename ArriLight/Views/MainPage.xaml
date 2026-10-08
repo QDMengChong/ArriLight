@@ -103,14 +103,20 @@
             Padding="20,24,20,12"
             RowDefinitions="Auto,*"
             RowSpacing="14">
-            <Grid ColumnDefinitions="*,Auto">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                 <Label
                     FontFamily="OpenSansSemibold"
                     FontSize="20"
                     Text="{x:Static strings:AppResources.Home_MyDevices}"
                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                <Picker
+                <Label
                     Grid.Column="1"
+                    FontSize="13"
+                    Text="{x:Static strings:AppResources.Home_SortLabel}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                    VerticalOptions="Center" />
+                <Picker
+                    Grid.Column="2"
                     FontSize="13"
                     Title="{x:Static strings:AppResources.Home_Sort}"
                     ItemsSource="{Binding SortOptions}"

@@ -1762,6 +1762,7 @@ This is sample text for interface design. The final version should be profession
     <value>The device uses another switch mode. Tap Set to apply the selected mode.</value>
   </data>
   <data name="Home_Sort" xml:space="preserve"><value>Sort devices</value></data>
+  <data name="Home_SortLabel" xml:space="preserve"><value>Sort:</value></data>
   <data name="Home_SortLastOperation" xml:space="preserve"><value>Last operated</value></data>
   <data name="Home_SortAddedAt" xml:space="preserve"><value>Date added</value></data>
   <data name="Home_SortName" xml:space="preserve"><value>Name</value></data>
