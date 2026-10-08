@@ -67,6 +67,7 @@ namespace ArriLight.ViewModels
     { internal Task TapForTestAsync(DateTimeOffset now) => HandleVersionTapAsync(now); }
     public partial class BluetoothScanPageViewModel
     {
+        internal Task ScanForTest => _scanTask ?? Task.CompletedTask;
         internal Task? CountdownForTest => _bindingCountdownTask;
         internal Task AddForTestAsync(string name, string address) => AddDeviceAsync(name, address);
         internal Task ShowProgressForTestAsync(CancellationToken token) =>

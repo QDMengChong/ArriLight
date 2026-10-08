@@ -87,9 +87,8 @@ public sealed class BluetoothConnectionService
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly AppDiagnosticService _diagnostics;
     private readonly TimeProvider _timeProvider;
-    // Serialize native GATT calls for Android stability; ownership and lifetime
-    // are per device, so holding this lock never switches another connection.
-    private readonly SemaphoreSlim _operationLock = new(1, 1);
+    // A device's native calls are ordered, while independent devices can prepare
+    // concurrently. OTA holds this same device-owned gate for its whole session.
     private readonly ConcurrentDictionary<string, ConnectionSession> _sessions =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<Guid, ConnectionSession> _sessionsByDeviceId = new();
@@ -129,7 +128,7 @@ public sealed class BluetoothConnectionService
             .ToList();
 
     public bool IsConnected(string address) =>
-        !string.IsNullOrWhiteSpace(address) &&
+        !_applicationSuspended && !string.IsNullOrWhiteSpace(address) &&
         _sessions.TryGetValue(address, out var session) &&
         session.Device?.State == DeviceState.Connected &&
         session.Snapshot.IsConnected;
@@ -251,7 +250,11 @@ public sealed class BluetoothConnectionService
     {
         _applicationSuspended = suspended;
         if (suspended)
+        {
             CancelConnectionLease();
+            foreach (var session in _sessions.Values)
+                session.InvalidatePendingConnection();
+        }
     }
 
     public async Task<IDevice> ConnectAsync(
@@ -274,7 +277,7 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -291,22 +294,35 @@ public sealed class BluetoothConnectionService
         CancellationToken cancellationToken = default)
     {
         CancelConnectionLease();
-        var addresses = GetConnectedAddresses();
+        // Include pending connections. A late native connect must not escape
+        // application shutdown merely because it was not connected yet.
+        var sessions = _sessions.Values.ToArray();
+        var targets = sessions.Select(session =>
+            (Session: session, Generation: session.InvalidatePendingConnection())).ToArray();
+        var addresses = sessions.Select(session => session.Address);
         using var timing = _diagnostics.BeginBleTiming(
             "Connection.Disconnect", string.Join(",", addresses));
-        await WaitForOperationLockAsync("disconnect", string.Join(",", addresses), cancellationToken);
         try
         {
-            List<Exception> failures = [];
-            foreach (var address in GetConnectedAddresses())
+            // Independent cleanup also runs independently. A failed device
+            // cannot prevent another device from releasing its native session.
+            var results = await Task.WhenAll(targets.Select(async target =>
             {
-                var session = GetOrCreateSession(address);
-                try { await DisconnectCoreAsync(session, cancellationToken, reason); }
+                var session = target.Session;
+                await WaitForOperationLockAsync("disconnect", session.Address, cancellationToken);
+                try
+                {
+                    if (session.Generation == target.Generation)
+                        await DisconnectCoreAsync(session, cancellationToken, reason);
+                    return (Exception?)null;
+                }
                 catch (Exception exception) when (!cancellationToken.IsCancellationRequested)
                 {
-                    failures.Add(exception);
+                    return exception;
                 }
-            }
+                finally { session.OperationLock.Release(); }
+            }));
+            var failures = results.OfType<Exception>().ToList();
             if (failures.Count > 0)
                 throw new AggregateException(AppResources.Ble_ReleaseFailed, failures);
             timing.SetResult("disconnected");
@@ -316,10 +332,6 @@ public sealed class BluetoothConnectionService
             timing.SetResult(TimingFailure(exception));
             throw;
         }
-        finally
-        {
-            _operationLock.Release();
-        }
     }
 
     public async Task<int> WriteAsync(
@@ -328,7 +340,8 @@ public sealed class BluetoothConnectionService
         Guid characteristicId,
         byte[] data,
         CharacteristicWriteType? writeType = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        long? expectedConnectionGeneration = null)
     {
         ArgumentNullException.ThrowIfNull(data);
         var packetDetail = FormatAgpHeader(serviceId, characteristicId, data);
@@ -338,11 +351,12 @@ public sealed class BluetoothConnectionService
         await WaitForOperationLockAsync("write", address, cancellationToken);
         try
         {
+            RequireCurrentConnection(address, expectedConnectionGeneration);
             var characteristic = await GetCharacteristicCoreAsync(
                 address,
                 serviceId,
                 characteristicId,
-                cancellationToken);
+                cancellationToken, expectedConnectionGeneration);
             if (writeType is not null)
                 characteristic.WriteType = writeType.Value;
             _diagnostics.Trace(
@@ -364,7 +378,7 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -433,7 +447,7 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -455,7 +469,7 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -463,18 +477,20 @@ public sealed class BluetoothConnectionService
         string address,
         Guid serviceId,
         Guid characteristicId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        long? expectedConnectionGeneration = null)
     {
         using var timing = _diagnostics.BeginBleTiming(
             "Connection.Read", address, $"service={serviceId}, characteristic={characteristicId}");
         await WaitForOperationLockAsync("read", address, cancellationToken);
         try
         {
+            RequireCurrentConnection(address, expectedConnectionGeneration);
             var characteristic = await GetCharacteristicCoreAsync(
                 address,
                 serviceId,
                 characteristicId,
-                cancellationToken);
+                cancellationToken, expectedConnectionGeneration);
             var result = await MeasureAsync(
                 "GATT.NativeRead", address, $"characteristic={characteristicId}",
                 () => characteristic.ReadAsync(cancellationToken),
@@ -500,7 +516,7 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -508,18 +524,20 @@ public sealed class BluetoothConnectionService
         string address,
         Guid serviceId,
         Guid characteristicId,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        long? expectedConnectionGeneration = null)
     {
         using var timing = _diagnostics.BeginBleTiming(
             "Connection.Subscribe", address, $"service={serviceId}, characteristic={characteristicId}");
         await WaitForOperationLockAsync("subscribe", address, cancellationToken);
         try
         {
+            RequireCurrentConnection(address, expectedConnectionGeneration);
             var characteristic = await GetCharacteristicCoreAsync(
                 address,
                 serviceId,
                 characteristicId,
-                cancellationToken);
+                cancellationToken, expectedConnectionGeneration);
             var session = GetOrCreateSession(address);
             if (session.NotificationCharacteristics.ContainsKey(characteristicId))
             {
@@ -562,7 +580,7 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -633,7 +651,7 @@ public sealed class BluetoothConnectionService
                 UpdateState(session, BluetoothSessionState.Disconnected, address, AppResources.Ble_DisconnectedAfterOta);
             }
 
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -654,21 +672,29 @@ public sealed class BluetoothConnectionService
             return current;
         }
 
+        using var connectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var attemptVersion = session.BeginConnectionAttempt(connectionCancellation);
+        var attemptToken = connectionCancellation.Token;
+        IDevice? connectingDevice = null;
         using var timing = _diagnostics.BeginBleTiming("Connection.ConnectCore", address);
         try
         {
+            if (_applicationSuspended)
+                throw new OperationCanceledException(AppResources.Ble_BackgroundConnectionStopped, new CancellationToken(true));
             // The platform may update Device.State before delivering its event.
             // Drop objects belonging to that closed connection before reconnecting.
             if (session.Device is { } stale)
                 _sessionsByDeviceId.TryRemove(stale.Id, out _);
             session.Device = null;
             DiscardNotificationHandlers(session);
-            UpdateState(session, BluetoothSessionState.Scanning, address, AppResources.Ble_FindingDevice);
+            UpdateState(session, BluetoothSessionState.Connecting, address, AppResources.Ble_ConnectingDevice);
             var device = await MeasureAsync(
                 "Connection.FindDevice", address, null,
                 () => _discoveryService.FindDeviceAsync(
-                    address, cancellationToken: cancellationToken),
+                    address, cancellationToken: attemptToken),
                 value => $"found:state={value.State}");
+            connectingDevice = device;
+            attemptToken.ThrowIfCancellationRequested();
 
             UpdateState(session, BluetoothSessionState.Connecting, address, AppResources.Ble_ConnectingDevice);
             _diagnostics.Information(
@@ -681,15 +707,16 @@ public sealed class BluetoothConnectionService
                 {
                     await MeasureAsync(
                         "Connection.NativeConnect", address, $"id={device.Id}, state={device.State}",
-                        () => _adapter.ConnectToDeviceAsync(device, default, cancellationToken));
+                        () => _adapter.ConnectToDeviceAsync(device, default, attemptToken));
                 }
                 else
                 {
                     timing.Mark("nativeConnect=skipped; discovered device already connected");
                 }
 
-                session.Device = device;
-                session.Generation++;
+                attemptToken.ThrowIfCancellationRequested();
+                if (!session.TryCompleteConnectionAttempt(attemptVersion, device, () => _applicationSuspended))
+                    throw new OperationCanceledException(AppResources.Ble_BackgroundConnectionStopped, new CancellationToken(true));
                 _sessionsByDeviceId[device.Id] = session;
                 UpdateState(session, BluetoothSessionState.Connected, address, AppResources.Ble_DeviceConnected);
                 _diagnostics.Information(
@@ -698,7 +725,7 @@ public sealed class BluetoothConnectionService
                 timing.SetResult("connected");
                 return device;
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException)
             {
                 // 配对的单次连接等待和用户取消都属于正常取消，由调用方决定是否重试。
                 throw;
@@ -715,23 +742,44 @@ public sealed class BluetoothConnectionService
         }
         catch (Exception exception)
         {
+            if (session.Device is null && connectingDevice is { State: DeviceState.Connected })
+            {
+                // Some native adapters complete despite cancellation. Release
+                // that connection before a new attempt can acquire this gate.
+                try { await _adapter.DisconnectDeviceAsync(connectingDevice, CancellationToken.None); }
+                catch (Exception cleanupFailure)
+                {
+                    _diagnostics.Warning("BLE/Connection",
+                        $"释放取消后的迟到连接失败：device={address}，{cleanupFailure.Message}。");
+                    session.Device = connectingDevice;
+                    _sessionsByDeviceId[connectingDevice.Id] = session;
+                }
+            }
+            if (exception is OperationCanceledException)
+                UpdateState(session, BluetoothSessionState.Disconnected, address, AppResources.Ble_NotConnected);
             timing.SetResult(TimingFailure(exception));
             throw;
         }
+        finally { await session.EndConnectionAttemptAsync(connectionCancellation); }
     }
 
     private async Task<ICharacteristic> GetCharacteristicCoreAsync(
         string address,
         Guid serviceId,
         Guid characteristicId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? expectedConnectionGeneration = null)
     {
         using var timing = _diagnostics.BeginBleTiming(
             "GATT.Lookup", address,
             $"service={serviceId}, characteristic={characteristicId}; API may use current connection cache");
         try
         {
-            var device = await ConnectCoreAsync(address, cancellationToken);
+            RequireCurrentConnection(address, expectedConnectionGeneration);
+            var device = expectedConnectionGeneration is null
+                ? await ConnectCoreAsync(address, cancellationToken)
+                : GetOrCreateSession(address).Device
+                    ?? throw new IOException("设备连接已失效，旧 AGP 操作不能重新连接。");
             var service = await MeasureAsync(
                 "GATT.GetService", address,
                 $"service={serviceId}; API may use current connection cache",
@@ -745,6 +793,7 @@ public sealed class BluetoothConnectionService
                 value => value is null ? "missing" : "found")
                 ?? throw new InvalidOperationException(
                     Localization.Format(nameof(AppResources.Ble_CharacteristicMissing), serviceId, characteristicId));
+            RequireCurrentConnection(address, expectedConnectionGeneration);
             timing.SetResult("found");
             return characteristic;
         }
@@ -794,7 +843,39 @@ public sealed class BluetoothConnectionService
         CancellationToken cancellationToken) =>
         MeasureAsync(
             "Connection.LockWait", address, $"operation={operation}",
-            () => _operationLock.WaitAsync(cancellationToken));
+            () => GetOrCreateSession(address).OperationLock.WaitAsync(cancellationToken));
+
+    private void RequireCurrentConnection(string address, long? expectedGeneration)
+    {
+        if (expectedGeneration is null) return;
+        var session = GetOrCreateSession(address);
+        if (!IsConnected(address) || session.Generation != expectedGeneration.Value)
+            throw new IOException("设备连接已失效，旧 AGP 操作不能在新连接上继续执行。");
+    }
+
+    /// <summary>Describe one required service without probing unrelated optional services.</summary>
+    public async Task<GattServiceInfo> GetGattServiceAsync(
+        string address, Guid serviceId, CancellationToken cancellationToken = default)
+    {
+        await WaitForOperationLockAsync("describeService", address, cancellationToken);
+        try
+        {
+            var device = await ConnectCoreAsync(address, cancellationToken);
+            var service = await MeasureAsync(
+                "GATT.GetService", address, $"service={serviceId}; use current connection cache",
+                () => device.GetServiceAsync(serviceId, cancellationToken),
+                value => value is null ? "missing" : "found")
+                ?? throw new InvalidOperationException(Localization.Format(nameof(AppResources.Ble_ServiceMissing), serviceId));
+            var characteristics = await MeasureAsync(
+                "GATT.GetCharacteristics", address, $"service={serviceId}; use current connection cache",
+                () => service.GetCharacteristicsAsync(cancellationToken),
+                value => $"ok:characteristics={value.Count}");
+            return new GattServiceInfo(service.Id, service.Name, service.IsPrimary,
+                characteristics.Select(characteristic => new GattCharacteristicInfo(
+                    characteristic.Id, characteristic.Name, characteristic.Properties)).ToList());
+        }
+        finally { GetOrCreateSession(address).OperationLock.Release(); }
+    }
 
     private async Task<T> MeasureAsync<T>(
         string stage,
@@ -856,14 +937,16 @@ public sealed class BluetoothConnectionService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
         CancelConnectionLease(address);
+        var session = GetOrCreateSession(address);
+        var generation = session.InvalidatePendingConnection();
         using var timing = _diagnostics.BeginBleTiming("Connection.DisconnectDevice", address);
         await WaitForOperationLockAsync("disconnectDevice", address, cancellationToken);
         try
         {
-            if (GetOrCreateSession(address).Device is not null)
+            if (session.Generation == generation && session.Device is not null)
             {
                 await DisconnectCoreAsync(
-                    GetOrCreateSession(address),
+                    session,
                     cancellationToken,
                     BluetoothDisconnectReason.DeviceRemoval);
                 timing.SetResult("disconnected");
@@ -881,7 +964,7 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -891,12 +974,14 @@ public sealed class BluetoothConnectionService
         CancellationToken cancellationToken = default)
     {
         CancelConnectionLease(address);
+        var session = GetOrCreateSession(address);
+        var generation = session.InvalidatePendingConnection();
         using var timing = _diagnostics.BeginBleTiming("Connection.Disconnect", address);
         await WaitForOperationLockAsync("disconnect", address, cancellationToken);
         try
         {
-            await DisconnectCoreAsync(
-                GetOrCreateSession(address), cancellationToken, reason);
+            if (session.Generation == generation)
+                await DisconnectCoreAsync(session, cancellationToken, reason);
             timing.SetResult("disconnected");
         }
         catch (Exception exception)
@@ -906,7 +991,7 @@ public sealed class BluetoothConnectionService
         }
         finally
         {
-            _operationLock.Release();
+            GetOrCreateSession(address).OperationLock.Release();
         }
     }
 
@@ -979,7 +1064,7 @@ public sealed class BluetoothConnectionService
             }
             finally
             {
-                _operationLock.Release();
+                session.OperationLock.Release();
             }
         }
         catch (OperationCanceledException) when (lease.IsCancellationRequested)
@@ -1035,7 +1120,7 @@ public sealed class BluetoothConnectionService
         object? sender,
         CharacteristicUpdatedEventArgs eventArgs)
     {
-        if (session.Generation != generation || !session.Snapshot.IsConnected)
+        if (_applicationSuspended || session.Generation != generation || !session.Snapshot.IsConnected)
             return;
         var address = session.Address;
         var characteristic = eventArgs.Characteristic;
@@ -1118,6 +1203,8 @@ public sealed class BluetoothConnectionService
     {
         if (!_sessionsByDeviceId.TryGetValue(eventArgs.Device.Id, out var session))
             return;
+        if (session.Device is { } current && !ReferenceEquals(current, eventArgs.Device))
+            return;
 
         _diagnostics.Information(
             "BLE/Connection",
@@ -1134,6 +1221,8 @@ public sealed class BluetoothConnectionService
     {
         if (!_sessionsByDeviceId.TryGetValue(eventArgs.Device.Id, out var session))
             return;
+        if (session.Device is { } current && !ReferenceEquals(current, eventArgs.Device))
+            return;
 
         _diagnostics.Warning(
             "BLE/Connection",
@@ -1149,6 +1238,8 @@ public sealed class BluetoothConnectionService
         DeviceErrorEventArgs eventArgs)
     {
         if (!_sessionsByDeviceId.TryGetValue(eventArgs.Device.Id, out var session))
+            return;
+        if (session.Device is { } current && !ReferenceEquals(current, eventArgs.Device))
             return;
 
         _diagnostics.Error(
@@ -1221,6 +1312,11 @@ public sealed class BluetoothConnectionService
     private sealed class ConnectionSession(string address, AppDiagnosticService diagnostics)
     {
         public string Address { get; } = address;
+        public SemaphoreSlim OperationLock { get; } = new(1, 1);
+        private readonly object _connectionSync = new();
+        private long _connectionAttemptVersion;
+        private CancellationTokenSource? _connectionCancellation;
+        private Task _connectionCancellationCallbacks = Task.CompletedTask;
         public object LeaseSync { get; } = new();
         public IDevice? Device { get; set; }
         public long Generation { get; set; }
@@ -1236,6 +1332,51 @@ public sealed class BluetoothConnectionService
         public bool HasActiveLease
         {
             get { lock (LeaseSync) return LeaseCancellation is not null; }
+        }
+
+        public long BeginConnectionAttempt(CancellationTokenSource source)
+        {
+            lock (_connectionSync)
+            {
+                _connectionCancellation = source;
+                _connectionCancellationCallbacks = Task.CompletedTask;
+                return _connectionAttemptVersion;
+            }
+        }
+
+        public bool TryCompleteConnectionAttempt(long version, IDevice device, Func<bool> isSuspended)
+        {
+            lock (_connectionSync)
+            {
+                if (version != _connectionAttemptVersion || isSuspended()) return false;
+                Device = device;
+                Generation++;
+                return true;
+            }
+        }
+
+        public long InvalidatePendingConnection()
+        {
+            lock (_connectionSync)
+            {
+                _connectionAttemptVersion++;
+                if (_connectionCancellation is { } source)
+                    _connectionCancellationCallbacks = CancellationDispatch.Request(
+                        source, diagnostics, "Connection.PendingConnect", address: Address);
+                return Generation;
+            }
+        }
+
+        public async Task EndConnectionAttemptAsync(CancellationTokenSource source)
+        {
+            Task callbacks;
+            lock (_connectionSync)
+            {
+                if (!ReferenceEquals(_connectionCancellation, source)) return;
+                _connectionCancellation = null;
+                callbacks = _connectionCancellationCallbacks;
+            }
+            await callbacks.ConfigureAwait(false);
         }
 
         public void CancelLease()

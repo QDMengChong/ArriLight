@@ -108,12 +108,15 @@
                     FontSize="20"
                     Text="{x:Static strings:AppResources.Home_MyDevices}"
                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                <Label
+                <Picker
                     Grid.Column="1"
                     FontSize="13"
-                    Text="{x:Static strings:AppResources.Home_TapToControl}"
+                    Title="{x:Static strings:AppResources.Home_Sort}"
+                    ItemsSource="{Binding SortOptions}"
+                    SelectedIndex="{Binding SelectedSortIndex, Mode=TwoWay}"
                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
-                    VerticalTextAlignment="Center" />
+                    VerticalOptions="Center"
+                    SemanticProperties.Description="{x:Static strings:AppResources.Home_Sort}" />
             </Grid>
 
             <CollectionView
@@ -205,6 +208,13 @@
                                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                                             VerticalTextAlignment="Center" />
                                     </HorizontalStackLayout>
+                                    <Label
+                                        FontSize="11"
+                                        Text="{Binding StatusDetail}"
+                                        IsVisible="{Binding HasStatusDetail}"
+                                        LineBreakMode="TailTruncation"
+                                        MaxLines="1"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                                 </VerticalStackLayout>
                                 </Grid>
 

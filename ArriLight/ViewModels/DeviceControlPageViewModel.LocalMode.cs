@@ -16,6 +16,14 @@ public partial class DeviceControlPageViewModel
     private CancellationTokenSource? _localModeCancellation;
     private Task _localModeLoadTask = Task.CompletedTask;
     private int _delaySecondsEditVersion;
+    private bool _isApplyingLocalMode;
+    private bool _localModeInputEdited;
+    private AgpModeConfig? _lastAppliedRuntimeLocalMode;
+
+    partial void OnIsAlwaysOnModeChanged(bool value)
+    {
+        if (!_isApplyingLocalMode) _localModeInputEdited = true;
+    }
 
     public bool SupportsTurnOnDelay => SupportedCapabilities.HasFlag(AgpCapabilities.RelativeTimer);
     public bool SupportsLocalMode => !IsDemo && SupportedCapabilities.HasFlag(AgpCapabilities.LocalMode);
@@ -59,8 +67,12 @@ public partial class DeviceControlPageViewModel
     private void ResetLocalModeState()
     {
         CancelLocalModeOperations();
+        _lastAppliedRuntimeLocalMode = null;
+        _localModeInputEdited = false;
         IsLocalModeSupported = false;
-        IsAlwaysOnMode = true;
+        _isApplyingLocalMode = true;
+        try { IsAlwaysOnMode = true; }
+        finally { _isApplyingLocalMode = false; }
         LocalModeNotice = string.Empty;
     }
 
@@ -123,7 +135,9 @@ public partial class DeviceControlPageViewModel
         IsLocalModeBusy = true;
         try
         {
-            var saved = await _agpLight.SetLocalModeAsync(DeviceAddress, configuration, token);
+            // Once submitted, navigation only cancels this page's response wait.
+            // Application lifecycle still governs the global command queue.
+            var saved = await _agpLight.SetLocalModeAsync(DeviceAddress, configuration);
             token.ThrowIfCancellationRequested();
             ApplyLocalModeConfiguration(saved, secondsVersion == _delaySecondsEditVersion);
             _interaction.ShowToast(AppResources.DeviceMode_SetSucceeded);
@@ -144,13 +158,18 @@ public partial class DeviceControlPageViewModel
         }
     }
 
-    private void ApplyLocalModeConfiguration(AgpModeConfig configuration, bool updateSeconds)
+    private void ApplyLocalModeConfiguration(AgpModeConfig configuration, bool updateSeconds, bool updateMode = true)
     {
-        IsAlwaysOnMode = configuration.Mode != AgpLocalMode.OnAutoOff;
-        if (updateSeconds && configuration.Mode == AgpLocalMode.OnAutoOff)
-            TurnOnDelaySecondsText = configuration.OffSeconds.ToString(CultureInfo.InvariantCulture);
-        LocalModeNotice = configuration.Mode is AgpLocalMode.DelayNone or AgpLocalMode.OnAutoOff
-            ? string.Empty : AppResources.DeviceMode_OtherMode;
+        _isApplyingLocalMode = true;
+        try
+        {
+            if (updateMode) IsAlwaysOnMode = configuration.Mode != AgpLocalMode.OnAutoOff;
+            if (updateSeconds && configuration.Mode == AgpLocalMode.OnAutoOff)
+                TurnOnDelaySecondsText = configuration.OffSeconds.ToString(CultureInfo.InvariantCulture);
+            LocalModeNotice = configuration.Mode is AgpLocalMode.DelayNone or AgpLocalMode.OnAutoOff
+                ? string.Empty : AppResources.DeviceMode_OtherMode;
+        }
+        finally { _isApplyingLocalMode = false; }
     }
 
     private void CancelLocalModeOperations()

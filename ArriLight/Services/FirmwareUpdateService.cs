@@ -271,6 +271,7 @@ public sealed class FirmwareUpdateService(
         IProgress<FirmwareUpdateProgress>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(connectionService);
         ArgumentNullException.ThrowIfNull(candidate);
         var prepared = await PrepareFirmwareAsync(
             candidate,
@@ -280,11 +281,6 @@ public sealed class FirmwareUpdateService(
 
         try
         {
-            // OTA 入口与普通控制使用同一条 AGP 会话；未认证的连接不得进入升级。
-            await agpLightControlService.EnsureAuthorizedAsync(
-                deviceAddress,
-                cancellationToken);
-
             progress?.Report(
                 new FirmwareUpdateProgress(
                     FirmwareUpdateStage.Connecting,
@@ -293,7 +289,7 @@ public sealed class FirmwareUpdateService(
 
             try
             {
-                await connectionService.RunExclusiveOtaAsync(
+                await agpLightControlService.RunExclusiveOtaAsync(
                     deviceAddress,
                     async (device, token) =>
                     {

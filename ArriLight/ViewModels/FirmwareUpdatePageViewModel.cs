@@ -10,6 +10,7 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
     private readonly BluetoothConnectionService _connectionService;
     private readonly FirmwareUpdateService _firmwareUpdateService;
     private readonly AppDiagnosticService _diagnostics;
+    private readonly AgpLightControlService? _agpLight;
 
     private string _deviceAddress = string.Empty;
     [ObservableProperty]
@@ -39,9 +40,11 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
 
     public FirmwareUpdatePageViewModel(DeviceRepository repository, BluetoothConnectionService connectionService,
         FirmwareUpdateService firmwareUpdateService, AppDiagnosticService diagnostics,
-        IUiDispatcher dispatcher, IUserInteraction interaction, IFirmwareFilePicker filePicker)
+        IUiDispatcher dispatcher, IUserInteraction interaction, IFirmwareFilePicker filePicker,
+        AgpLightControlService? agpLight = null)
     { _repository = repository; _connectionService = connectionService; _firmwareUpdateService = firmwareUpdateService;
-      _diagnostics = diagnostics; _dispatcher = dispatcher; _interaction = interaction; _filePicker = filePicker; OnlineCheckCommand = new AsyncRelayCommand(OnlineCheckAsync); }
+      _diagnostics = diagnostics; _dispatcher = dispatcher; _interaction = interaction; _filePicker = filePicker;
+      _agpLight = agpLight; OnlineCheckCommand = new AsyncRelayCommand(OnlineCheckAsync); }
 
     public string CurrentVersion
     {
@@ -122,6 +125,16 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
 
         try
         {
+            if (_agpLight?.GetRuntimeSnapshot(_deviceAddress) is not null)
+            {
+                await _agpLight.EnsureRuntimeReadyAsync(_deviceAddress);
+                if (_repository.GetByAddress(_deviceAddress) is { } prepared)
+                {
+                    CurrentVersion = prepared.FirmwareVersion;
+                    _hardwareVersion = prepared.HardwareRevision?.Trim() ?? string.Empty;
+                }
+                return;
+            }
             await _connectionService.ConnectAsync(_deviceAddress);
             var hardwareRevision =
                 await _connectionService.TryReadHardwareRevisionAsync(

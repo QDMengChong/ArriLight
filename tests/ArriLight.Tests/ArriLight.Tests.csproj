@@ -32,6 +32,10 @@
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Delay.cs" Link="Services\AgpLightControlService.Delay.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.LocalMode.cs" Link="Services\AgpLightControlService.LocalMode.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Schedules.cs" Link="Services\AgpLightControlService.Schedules.cs" />
+    <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Runtime.cs" Link="Services\AgpLightControlService.Runtime.cs" />
+    <Compile Include="..\..\ArriLight\Services\AgpLightControlService.RuntimeExclusive.cs" Link="Services\AgpLightControlService.RuntimeExclusive.cs" />
+    <Compile Include="..\..\ArriLight\Services\DeviceRuntimeState.cs" Link="Services\DeviceRuntimeState.cs" />
+    <Compile Include="..\..\ArriLight\Services\DeviceWorkScheduler.cs" Link="Services\DeviceWorkScheduler.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpGattTransport.cs" Link="Services\AgpGattTransport.cs" />
     <Compile Include="..\..\ArriLight\Services\BleTimingScope.cs" Link="Services\BleTimingScope.cs" />
     <Compile Include="..\..\ArriLight\Services\CancellationDispatch.cs" Link="Services\CancellationDispatch.cs" />

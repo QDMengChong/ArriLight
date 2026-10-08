@@ -19,6 +19,10 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
     private readonly ConcurrentDictionary<ushort, ResponseTimingProbe>
         _responseTimings = new();
 #endif
+    private readonly SemaphoreSlim _subscriptionLock = new(1, 1);
+    private GattServiceInfo? _service;
+    private bool _lightStateSubscribed;
+    private bool _colorStateSubscribed;
     private bool _started;
     private bool _disposed;
     private long _connectionGeneration;
@@ -45,92 +49,16 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
         ObjectDisposedException.ThrowIf(_disposed, this);
         using var timing = _connectionService.Diagnostics.BeginBleTiming(
             "Transport.Start", _address, $"subscribeState={subscribeState}");
+        await _subscriptionLock.WaitAsync(cancellationToken);
         try
         {
-            if (_started)
+            await StartCoreAsync(cancellationToken);
+            if (subscribeState)
             {
-                timing.Mark("transport=reused");
-                timing.SetResult("reused");
-                return;
+                await EnsureLightStateSubscriptionCoreAsync(cancellationToken);
+                await EnsureColorStateSubscriptionCoreAsync(cancellationToken);
             }
-
-            var services = await _connectionService.EnumerateGattAsync(
-                _address,
-                refreshCache: false,
-                cancellationToken);
-            var service = services.FirstOrDefault(item => item.Id == AgpProfile.ServiceId)
-                ?? throw new InvalidOperationException(
-                    $"设备未提供 AGP 服务 {AgpProfile.ServiceId}。");
-
-            var capabilities = RequireCharacteristic(
-                service,
-                AgpProfile.CapabilitiesCharacteristicId);
-            var controlPoint = RequireCharacteristic(
-                service,
-                AgpProfile.ControlPointCharacteristicId);
-            var lightState = RequireCharacteristic(
-                service,
-                AgpProfile.LightStateCharacteristicId);
-            var colorState = service.Characteristics.FirstOrDefault(
-                item => item.Id == AgpProfile.ColorStateCharacteristicId);
-            if (!capabilities.CanRead || !lightState.CanRead)
-            {
-                throw new InvalidOperationException(
-                    "AGP Capabilities 和 Light State 必须支持读取。");
-            }
-            if (!controlPoint.CanWrite || !controlPoint.CanNotify)
-            {
-                throw new InvalidOperationException(
-                    "AGP Control Point 必须支持写入和 Indicate。");
-            }
-            if (!lightState.CanNotify)
-            {
-                throw new InvalidOperationException(
-                    "AGP Light State 必须支持 Notify。");
-            }
-            if (colorState is not null && (!colorState.CanRead || !colorState.CanNotify))
-            {
-                throw new InvalidOperationException(
-                    "AGP Color State 存在时必须支持 Read 和 Notify。");
-            }
-
-            HasColorStateCharacteristic = colorState is not null;
-            _connectionGeneration = _connectionService.GetConnectionGeneration(_address);
-            timing.Mark($"profileValidated; hasColorState={HasColorStateCharacteristic}");
-
-            _connectionService.MessageReceived += OnMessageReceived;
-            try
-            {
-                // Control Point Indicate 用于响应及自动 ATT 接收确认；配对只需此项。
-                await _connectionService.SubscribeAsync(
-                    _address,
-                    AgpProfile.ServiceId,
-                    AgpProfile.ControlPointCharacteristicId,
-                    cancellationToken);
-                if (subscribeState)
-                {
-                    await _connectionService.SubscribeAsync(
-                        _address,
-                        AgpProfile.ServiceId,
-                        AgpProfile.LightStateCharacteristicId,
-                        cancellationToken);
-                    if (HasColorStateCharacteristic)
-                    {
-                        await _connectionService.SubscribeAsync(
-                            _address,
-                            AgpProfile.ServiceId,
-                            AgpProfile.ColorStateCharacteristicId,
-                            cancellationToken);
-                    }
-                }
-                _started = true;
-                timing.SetResult("started");
-            }
-            catch
-            {
-                _connectionService.MessageReceived -= OnMessageReceived;
-                throw;
-            }
+            timing.SetResult("started");
         }
         catch (Exception exception)
         {
@@ -138,42 +66,161 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
                 $"{(exception is OperationCanceledException ? "cancelled" : "failed")}:{exception.GetType().Name}");
             throw;
         }
+        finally { _subscriptionLock.Release(); }
     }
 
+    /// <summary>Upgrade the response-only transport without restarting its authenticated session.</summary>
+    public async Task EnsureLightStateSubscriptionAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _subscriptionLock.WaitAsync(cancellationToken);
+        try
+        {
+            await StartCoreAsync(cancellationToken);
+            await EnsureLightStateSubscriptionCoreAsync(cancellationToken);
+        }
+        finally { _subscriptionLock.Release(); }
+    }
+
+    /// <summary>Subscribe to the optional color channel when present; failures leave Control Point usable.</summary>
+    public async Task EnsureColorStateSubscriptionAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _subscriptionLock.WaitAsync(cancellationToken);
+        try
+        {
+            await StartCoreAsync(cancellationToken);
+            await EnsureColorStateSubscriptionCoreAsync(cancellationToken);
+        }
+        finally { _subscriptionLock.Release(); }
+    }
+
+    private async Task StartCoreAsync(CancellationToken cancellationToken)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_started)
+        {
+            EnsureCurrentConnection();
+            return;
+        }
+
+        var service = await _connectionService.GetGattServiceAsync(
+            _address, AgpProfile.ServiceId, cancellationToken);
+        var capabilities = RequireCharacteristic(service, AgpProfile.CapabilitiesCharacteristicId);
+        var controlPoint = RequireCharacteristic(service, AgpProfile.ControlPointCharacteristicId);
+        if (!capabilities.CanRead)
+            throw new InvalidOperationException("AGP Capabilities 必须支持读取。");
+        if (!controlPoint.CanWrite || !controlPoint.CanNotify)
+            throw new InvalidOperationException("AGP Control Point 必须支持写入和 Indicate。");
+
+        // Optional channels are discovered here, but their validation and CCCD
+        // writes are deferred until the corresponding background step needs them.
+        _service = service;
+        HasColorStateCharacteristic = service.Characteristics.Any(
+            item => item.Id == AgpProfile.ColorStateCharacteristicId);
+        _connectionGeneration = _connectionService.GetConnectionGeneration(_address);
+        EnsureCurrentConnection();
+        _connectionService.MessageReceived += OnMessageReceived;
+        try
+        {
+            await _connectionService.SubscribeAsync(_address, AgpProfile.ServiceId,
+                AgpProfile.ControlPointCharacteristicId, cancellationToken, _connectionGeneration);
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureCurrentConnection();
+            _started = true;
+        }
+        catch
+        {
+            _connectionService.MessageReceived -= OnMessageReceived;
+            throw;
+        }
+    }
+
+    private async Task EnsureLightStateSubscriptionCoreAsync(CancellationToken cancellationToken)
+    {
+        EnsureCurrentConnection();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_lightStateSubscribed) return;
+        var characteristic = RequireCharacteristic(_service!, AgpProfile.LightStateCharacteristicId);
+        if (!characteristic.CanRead || !characteristic.CanNotify)
+            throw new InvalidOperationException("AGP Light State 必须支持 Read 和 Notify。");
+        await _connectionService.SubscribeAsync(_address, AgpProfile.ServiceId,
+            AgpProfile.LightStateCharacteristicId, cancellationToken, _connectionGeneration);
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureCurrentConnection();
+        _lightStateSubscribed = true;
+    }
+
+    private async Task EnsureColorStateSubscriptionCoreAsync(CancellationToken cancellationToken)
+    {
+        EnsureCurrentConnection();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_colorStateSubscribed || !HasColorStateCharacteristic) return;
+        var characteristic = RequireCharacteristic(_service!, AgpProfile.ColorStateCharacteristicId);
+        if (!characteristic.CanRead || !characteristic.CanNotify)
+            throw new InvalidOperationException("AGP Color State 存在时必须支持 Read 和 Notify。");
+        await _connectionService.SubscribeAsync(_address, AgpProfile.ServiceId,
+            AgpProfile.ColorStateCharacteristicId, cancellationToken, _connectionGeneration);
+        cancellationToken.ThrowIfCancellationRequested();
+        EnsureCurrentConnection();
+        _colorStateSubscribed = true;
+    }
+
+    private void EnsureCurrentConnection()
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        if (!_connectionService.IsConnected(_address) ||
+            _connectionService.GetConnectionGeneration(_address) != _connectionGeneration)
+            throw new IOException("AGP 会话的设备连接已失效，需要重新建立通信和认证。");
+    }
     public async Task<ReadOnlyMemory<byte>> ReadCapabilitiesAsync(
-        CancellationToken cancellationToken = default) =>
-        await _connectionService.ReadAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureCurrentConnection();
+        var result = await _connectionService.ReadAsync(
             _address,
             AgpProfile.ServiceId,
             AgpProfile.CapabilitiesCharacteristicId,
-            cancellationToken);
+            cancellationToken, _connectionGeneration);
+        EnsureCurrentConnection();
+        return result;
+    }
 
     public async Task<ReadOnlyMemory<byte>> ReadLightStateAsync(
-        CancellationToken cancellationToken = default) =>
-        await _connectionService.ReadAsync(
+        CancellationToken cancellationToken = default)
+    {
+        EnsureCurrentConnection();
+        var result = await _connectionService.ReadAsync(
             _address,
             AgpProfile.ServiceId,
             AgpProfile.LightStateCharacteristicId,
-            cancellationToken);
+            cancellationToken, _connectionGeneration);
+        EnsureCurrentConnection();
+        return result;
+    }
 
     public async Task<ReadOnlyMemory<byte>> ReadColorStateAsync(
         CancellationToken cancellationToken = default)
     {
+        EnsureCurrentConnection();
         if (!HasColorStateCharacteristic)
             throw new NotSupportedException("设备未提供 AGP Color State 特征。");
 
-        return await _connectionService.ReadAsync(
+        var result = await _connectionService.ReadAsync(
             _address,
             AgpProfile.ServiceId,
             AgpProfile.ColorStateCharacteristicId,
-            cancellationToken);
+            cancellationToken, _connectionGeneration);
+        EnsureCurrentConnection();
+        return result;
     }
 
     public async Task WriteControlPointAsync(
         ReadOnlyMemory<byte> packet,
         CancellationToken cancellationToken = default)
     {
-        ObjectDisposedException.ThrowIf(_disposed, this);
+        EnsureCurrentConnection();
 #if DEBUG
         var responseKey = BeginResponseTiming(packet.Span);
         try
@@ -185,9 +232,12 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
                 AgpProfile.ControlPointCharacteristicId,
                 packet.ToArray(),
                 CharacteristicWriteType.WithResponse,
-                cancellationToken);
+                cancellationToken, _connectionGeneration);
             if (result != 0)
                 throw new IOException($"AGP Control Point 写入失败，GATT result={result}。");
+            // A valid indication may arrive immediately before a disconnect
+            // (notably AUTH_GET_TOKEN). Let AgpClient consume that response;
+            // the next command still checks connection validity before writing.
 #if DEBUG
         }
         catch
@@ -218,6 +268,7 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
     private void OnMessageReceived(object? sender, BluetoothMessage message)
     {
         if (_disposed ||
+            !_connectionService.IsConnected(_address) ||
             message.ConnectionGeneration != _connectionGeneration ||
             !string.Equals(message.Address, _address, StringComparison.OrdinalIgnoreCase))
             return;

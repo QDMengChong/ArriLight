@@ -157,8 +157,11 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     /// closed. Allow fresh connections again, waiting for its cleanup to finish.
     /// Connections released by closing are not background-resume targets.
     /// </summary>
-    public Task StartForNewWindowAsync(CancellationToken cancellationToken = default) =>
-        ResumeApplicationConnectionAsync(isNewWindow: true, cancellationToken);
+    public async Task StartForNewWindowAsync(CancellationToken cancellationToken = default)
+    {
+        await ResumeApplicationConnectionAsync(isNewWindow: true, cancellationToken);
+        if (_runtimeStarted && !_applicationSuspended) await StartRuntimeAsync(cancellationToken);
+    }
 
     /// <summary>
     /// Reconnect the device that was disconnected by a background transition;
@@ -166,8 +169,11 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     /// lease is restarted. Failure is logged and retained for a later resume
     /// attempt rather than being surfaced from a lifecycle callback.
     /// </summary>
-    public Task ResumeAfterBackgroundAsync(CancellationToken cancellationToken = default) =>
-        ResumeApplicationConnectionAsync(isNewWindow: false, cancellationToken);
+    public async Task ResumeAfterBackgroundAsync(CancellationToken cancellationToken = default)
+    {
+        await ResumeApplicationConnectionAsync(isNewWindow: false, cancellationToken);
+        if (_runtimeStarted && !_applicationSuspended) await StartRuntimeAsync(cancellationToken);
+    }
 
     private async Task ResumeApplicationConnectionAsync(
         bool isNewWindow,
@@ -193,6 +199,11 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             if (resumeCancellation is null)
                 return;
             var token = resumeCancellation.Token;
+            if (_runtimeStarted)
+            {
+                lock (_applicationSync) _backgroundConnections = null;
+                return;
+            }
             await _operationLock.WaitAsync(token);
             try
             {
@@ -293,8 +304,13 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         {
             if (!_wantsForeground || _applicationClosing)
                 return null;
-            _applicationCancellation.Dispose();
-            _applicationCancellation = new CancellationTokenSource();
+            // A duplicate foreground event must preserve cancellation links
+            // held by already running preparation and commands.
+            if (_applicationCancellation.IsCancellationRequested)
+            {
+                _applicationCancellation.Dispose();
+                _applicationCancellation = new CancellationTokenSource();
+            }
             _applicationSuspended = false;
             _connectionService.SetApplicationSuspended(false);
             return CancellationTokenSource.CreateLinkedTokenSource(
@@ -332,6 +348,8 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         _connectionService = connectionService;
         _diagnostics = diagnostics;
         _repository = repository;
+        _connectionService.StateChanged += OnRuntimeConnectionChanged;
+        _repository.DevicesChanged += OnRuntimeDevicesChanged;
     }
 
     /// <summary>Disconnect a forgotten device before deleting its local record and credentials.</summary>
@@ -339,6 +357,8 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         string address, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
+        if (_runtimeStarted)
+            return await RemoveRuntimeDeviceAsync(address, cancellationToken);
         using var timing = _diagnostics.BeginBleTiming("AGP.RemoveDevice", address);
         _diagnostics.Information("BLE/Removal", $"开始解除绑定：device={address}。");
         await MeasureAsync("AGP.RemoveDevice.Lock", address,
@@ -382,7 +402,12 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     /// Token 与配对阶段读取的能力快照后完成绑定。
     /// ATT Indication 接收确认由手机 BLE 栈完成，PW01 随后主动断开供其他 APP 配对。
     /// </summary>
-    public async Task BindAsync(
+    public Task BindAsync(string address,
+        Func<AgpBindingStage, CancellationToken, Task>? bindingProgress,
+        CancellationToken cancellationToken = default) =>
+        RunRuntimeBindingAsync(address, () => BindCoreAsync(address, bindingProgress, cancellationToken), cancellationToken);
+
+    private async Task BindCoreAsync(
         string address,
         Func<AgpBindingStage, CancellationToken, Task>? bindingProgress,
         CancellationToken cancellationToken = default)
@@ -403,6 +428,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             await bindingProgress(AgpBindingStage.Connecting, token);
 
         await _operationLock.WaitAsync(token);
+        _runtimeBindingAddresses.TryAdd(address, 0);
         try
         {
             await DisposeHandleAsync(address);
@@ -488,7 +514,9 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             }
             finally
             {
+                _runtimeBindingAddresses.TryRemove(address, out _);
                 _operationLock.Release();
+                RequestRuntimePreparation(address);
             }
         }
     }
@@ -497,7 +525,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     public Task EnsureAuthorizedAsync(
         string address,
         CancellationToken cancellationToken = default) =>
-        WithClientAsync(address, _ => Task.CompletedTask, cancellationToken);
+        WithClientAsync(address, (_, _) => Task.CompletedTask, cancellationToken);
 
     public Task SetOnOffAsync(
         string address,
@@ -506,13 +534,13 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     {
         return WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.OnOff);
                 await MeasureAsync("AGP.Command.OnOff", address, async () =>
                 {
                     var response = await handle.Client.SetOnOffAsync(
-                        isOn, cancellationToken: cancellationToken);
+                        isOn, cancellationToken: operationToken);
                     BleTimingScope.Current?.Mark($"desiredOn={isOn} protocolResult={response.Result}");
                     EnsureSuccess(response);
                 }, $"desiredOn={isOn}");
@@ -522,27 +550,117 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             cancellationToken);
     }
 
+    public Task ToggleOnOffAsync(string address, CancellationToken cancellationToken = default) =>
+        WithClientAsync(address, async (handle, operationToken) =>
+        {
+            await TogglePowerCoreAsync(handle, operationToken);
+        }, cancellationToken, skipInitialLightStateRead: true);
+
+    private async Task<AgpLightState?> TogglePowerCoreAsync(
+        AgpClientHandle handle, CancellationToken cancellationToken)
+    {
+        RequireCapability(handle.Capabilities, AgpCapabilities.OnOff);
+        var completion = new TaskCompletionSource<AgpLightState>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var confirmationSync = new object();
+        uint? baselineRevision = handle.HasLightState ? handle.LastState.Revision : null;
+        uint? acceptedRevision = null;
+        AgpLightState? candidate = null;
+        bool IsCurrentResult(AgpLightState state) => IsCurrentHandle(handle) &&
+            state.RemainingTime == 0 &&
+            (baselineRevision is not { } baseline || unchecked((int)(state.Revision - baseline)) > 0) &&
+            (!handle.HasLightState || unchecked((int)(state.Revision - handle.LastState.Revision)) >= 0) &&
+            (acceptedRevision is not { } accepted || unchecked((int)(state.Revision - accepted)) >= 0);
+        bool IsCompletedNotification(AgpLightState state) => IsCurrentResult(state) &&
+            acceptedRevision is { } accepted && unchecked((int)(state.Revision - accepted)) > 0;
+        void OnState(object? sender, AgpLightState state)
+        {
+            lock (confirmationSync)
+            {
+                if (!IsCurrentResult(state)) return;
+                // Notifications can arrive before the native write completes.
+                // Hold the latest candidate until the acceptance revision is known.
+                candidate = state;
+                if (IsCompletedNotification(state)) completion.TrySetResult(state);
+            }
+        }
+        handle.Client.LightStateChanged += OnState;
+        try
+        {
+            SetRuntimeOperationStage(handle.Address, DeviceRuntimeOperationStage.Sent);
+            var response = await handle.Client.ToggleOnOffAsync(cancellationToken: cancellationToken);
+            EnsureSuccess(response);
+            lock (confirmationSync)
+            {
+                acceptedRevision = response.StateRevision;
+                if (candidate is { } state && IsCompletedNotification(state)) completion.TrySetResult(state);
+            }
+            SetRuntimeOperationStage(handle.Address, DeviceRuntimeOperationStage.Accepted);
+            _repository.RecordOperation(handle.Address);
+            if (_runtimeStarted)
+            {
+                try { await handle.Transport!.EnsureLightStateSubscriptionAsync(cancellationToken); }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                { _diagnostics.Warning("AGP/State", $"结果订阅失败，将读取确认：{exception.Message}"); }
+            }
+            // An acceptance response carries no target power. Use the completed
+            // hardware notification, including reversals of an in-flight ramp.
+            try
+            {
+                var state = await completion.Task.WaitAsync(TimeSpan.FromSeconds(1), cancellationToken);
+                handle.LastState = state;
+                CacheControlState(handle);
+                SetRuntimeOperationStage(handle.Address, DeviceRuntimeOperationStage.Confirmed);
+                return handle.LastState;
+            }
+            catch (TimeoutException)
+            {
+                try
+                {
+                    var state = await handle.Client.ReadLightStateAsync(cancellationToken);
+                    lock (confirmationSync)
+                        if (!IsCurrentResult(state)) throw new InvalidOperationException(AppResources.Control_StateUnavailable);
+                    handle.LastState = state;
+                    CacheControlState(handle);
+                    SetRuntimeOperationStage(handle.Address, DeviceRuntimeOperationStage.Confirmed);
+                    return handle.LastState;
+                }
+                catch (Exception exception) when (exception is not OperationCanceledException)
+                {
+                    // A failed read must never resend the non-idempotent toggle.
+                    handle.InvalidateLightState(baselineRevision, acceptedRevision);
+                    CacheControlState(handle);
+                    if (_runtimeEntries.TryGetValue(handle.Address, out var entry))
+                        MarkRuntimeStep(entry, entry.Epoch, DeviceRuntimeStep.LightState, DeviceRuntimeStepStatus.Failed, exception.Message);
+                    SetRuntimeOperationStage(handle.Address, DeviceRuntimeOperationStage.Unknown, exception.Message);
+                    _diagnostics.Warning("AGP/State", $"翻转已接受，读取结果状态失败：{exception.Message}");
+                    return null;
+                }
+            }
+        }
+        finally { handle.Client.LightStateChanged -= OnState; }
+    }
+
     public Task SetLightnessAsync(
         string address,
         byte brightnessPercent,
         CancellationToken cancellationToken = default) =>
         WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 if (handle.Capabilities.HasFlag(AgpCapabilities.Lightness16))
                 {
                     EnsureSuccess(await handle.Client.SetLightness16Async(
                         AgpColorModelCodec.BrightnessPercentToLightness16(
                             brightnessPercent),
-                        cancellationToken: cancellationToken));
+                        cancellationToken: operationToken));
                 }
                 else
                 {
                     RequireCapability(handle.Capabilities, AgpCapabilities.Lightness);
                     EnsureSuccess(await handle.Client.SetLightnessAsync(
                         brightnessPercent,
-                        cancellationToken: cancellationToken));
+                        cancellationToken: operationToken));
                 }
             },
             cancellationToken);
@@ -555,7 +673,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.Hsl);
                 var value = new AgpHsl(
@@ -565,7 +683,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     RatioToUInt16(saturation));
                 EnsureSuccess(await handle.Client.SetHslAsync(
                     value,
-                    cancellationToken: cancellationToken));
+                    cancellationToken: operationToken));
             },
             cancellationToken);
 
@@ -577,7 +695,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.Ctl);
                 EnsureSuccess(await handle.Client.SetCtlAsync(
@@ -588,7 +706,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                         handle.Capabilities.HasFlag(AgpCapabilities.CtlDeltaUv)
                             ? deltaUv
                             : (short)0),
-                    cancellationToken: cancellationToken));
+                    cancellationToken: operationToken));
             },
             cancellationToken);
 
@@ -599,29 +717,36 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.Effects);
                 var response = await handle.Client.SetEffectAsync(
                     mode,
                     periodMilliseconds,
-                    cancellationToken);
+                    operationToken);
                 EnsureSuccess(response.Result);
                 // EFFECT_SET selects a mode without changing logical power.
-                handle.LastState = handle.LastState with { Mode = response.Mode };
+                handle.SelectedEffectMode = response.Mode;
+                if (handle.HasLightState) handle.LastState = handle.LastState with { Mode = response.Mode };
                 CacheControlState(handle, response.PeriodMilliseconds);
                 return response;
             },
             cancellationToken);
 
     public Task<AgpDeviceControlProfile> GetControlProfileAsync(
+        string address, CancellationToken cancellationToken = default,
+        bool useCachedLightState = false, bool refreshLightState = false) => _runtimeStarted
+            ? GetRuntimeProfileAsync(address, cancellationToken, refreshLightState)
+            : GetLegacyControlProfileAsync(address, cancellationToken, useCachedLightState, refreshLightState);
+
+    private Task<AgpDeviceControlProfile> GetLegacyControlProfileAsync(
         string address,
         CancellationToken cancellationToken = default,
         bool useCachedLightState = false,
         bool refreshLightState = false) =>
         WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 if (handle.Client.HasColorStateCharacteristic)
                 {
@@ -629,7 +754,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     {
                         handle.LastColorState = await MeasureAsync(
                             "AGP.Profile.ReadColorState", address,
-                            () => handle.Client.ReadColorStateAsync(cancellationToken));
+                            () => handle.Client.ReadColorStateAsync(operationToken));
                     }
                     catch (Exception exception)
                     {
@@ -646,7 +771,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     {
                         var response = await MeasureAsync(
                             "AGP.Profile.GetCtlRange", address,
-                            () => handle.Client.GetCtlRangeAsync(cancellationToken));
+                            () => handle.Client.GetCtlRangeAsync(operationToken));
                         if (response.IsSuccess && response.Value is not null)
                             handle.CtlRange = response.Value.Value;
                     }
@@ -666,7 +791,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     {
                         var effect = await MeasureAsync(
                             "AGP.Profile.GetEffect", address,
-                            () => handle.Client.GetEffectAsync(cancellationToken));
+                            () => handle.Client.GetEffectAsync(operationToken));
                         EnsureSuccess(effect.Result);
                         effectMode = effect.Mode;
                         effectPeriodMilliseconds = effect.PeriodMilliseconds;
@@ -679,14 +804,14 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     }
                 }
 
-                cancellationToken.ThrowIfCancellationRequested();
+                operationToken.ThrowIfCancellationRequested();
                 // The QR carries no firmware or effect settings. Populate these
                 // from the device both after import and on later control-page retries.
                 var savedDevice = _repository.GetByAddress(address);
                 if (savedDevice is { HasKnownFirmwareVersion: false })
                 {
-                    var firmware = await _connectionService.TryReadFirmwareRevisionAsync(address, cancellationToken);
-                    cancellationToken.ThrowIfCancellationRequested();
+                    var firmware = await _connectionService.TryReadFirmwareRevisionAsync(address, operationToken);
+                    operationToken.ThrowIfCancellationRequested();
                     if (!string.IsNullOrWhiteSpace(firmware))
                         _repository.SetFirmwareVersion(address, firmware);
                 }
@@ -719,9 +844,9 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         WithClientAsync<bool?>(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
-                handle.LastState = await handle.Client.ReadLightStateAsync(cancellationToken);
+                handle.LastState = await handle.Client.ReadLightStateAsync(operationToken);
                 CacheControlState(handle);
                 return handle.LastState.IsOn;
             },
@@ -736,6 +861,15 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     {
         if (string.IsNullOrWhiteSpace(address))
             throw new ArgumentException(AppResources.Ble_AddressRequired, nameof(address));
+
+        if (_runtimeStarted)
+            return await WithClientAsync(address, async (handle, operationToken) =>
+            {
+                await handle.Transport!.EnsureLightStateSubscriptionAsync(operationToken);
+                handle.LastState = await handle.Client.ReadLightStateAsync(operationToken);
+                CacheControlState(handle);
+                return GetCachedDeviceStatus(address)!;
+            }, cancellationToken, skipInitialLightStateRead: true);
 
         EnsureApplicationForeground();
         using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
@@ -847,19 +981,21 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
 
         return WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.RelativeTimer);
                 var seconds = checked((uint)Math.Ceiling(delay.TotalSeconds));
                 if (turnOn)
                 {
-                    var response = await handle.Client.SetDelayOnAsync(seconds, cancellationToken: cancellationToken);
+                    var response = await handle.Client.SetDelayOnAsync(seconds, cancellationToken: operationToken);
                     EnsureSuccess(response.Result);
+                    CacheRuntimeDelay(address, response);
                 }
                 else
                 {
-                    var response = await handle.Client.SetDelayOffAsync(seconds, cancellationToken: cancellationToken);
+                    var response = await handle.Client.SetDelayOffAsync(seconds, cancellationToken: operationToken);
                     EnsureSuccess(response.Result);
+                    CacheRuntimeDelay(address, response);
                 }
             },
             cancellationToken);
@@ -871,10 +1007,18 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.Scheduler);
-                EnsureSuccess(await handle.Client.SetScheduleAsync(schedule, cancellationToken));
+                if (_runtimeStarted && handle.Capabilities.HasFlag(AgpCapabilities.RtcTime))
+                {
+                    var synced = await handle.Client.SetTimeAsync(DateTimeOffset.UtcNow, operationToken);
+                    EnsureSuccess(synced.Result);
+                    CacheRuntimeClock(address, synced);
+                    if (!synced.IsValid) throw new InvalidOperationException(AppResources.Control_StateUnavailable);
+                }
+                EnsureSuccess(await handle.Client.SetScheduleAsync(schedule, operationToken));
+                InvalidateRuntimeSchedules(address);
             },
             cancellationToken);
 
@@ -884,11 +1028,12 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         CancellationToken cancellationToken = default) =>
         WithClientAsync(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 RequireCapability(handle.Capabilities, AgpCapabilities.Scheduler);
-                var response = await handle.Client.DeleteScheduleAsync(slot, cancellationToken);
+                var response = await handle.Client.DeleteScheduleAsync(slot, operationToken);
                 EnsureSuccess(response.Result);
+                InvalidateRuntimeSchedules(address);
             },
             cancellationToken);
 
@@ -907,6 +1052,8 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
 
         _lifecycleLock.Dispose();
         _operationLock.Dispose();
+        _connectionService.StateChanged -= OnRuntimeConnectionChanged;
+        _repository.DevicesChanged -= OnRuntimeDevicesChanged;
         _applicationCancellation.Dispose();
     }
 
@@ -914,6 +1061,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         bool rememberForResume,
         CancellationToken cancellationToken)
     {
+        StopRuntimeWork(rememberForResume ? AppResources.Ble_AppNotInForeground : AppResources.Ble_NotConnected);
         var addressesBeforeSuspend = _connectionService.GetConnectedAddresses();
         var shortLeasesBeforeSuspend = addressesBeforeSuspend
             .ToDictionary(
@@ -966,6 +1114,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                         $"应用进入后台，记录待恢复设备：{string.Join(",", addresses)}。");
                 }
 
+                await DrainRuntimeWorkAsync();
                 await DisposeAllHandlesAsync();
                 List<Exception> failures = [];
                 foreach (var address in addresses)
@@ -1005,30 +1154,36 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
 
     private async Task WithClientAsync(
         string address,
-        Func<AgpClientHandle, Task> operation,
+        Func<AgpClientHandle, CancellationToken, Task> operation,
         CancellationToken cancellationToken,
+        bool skipInitialLightStateRead = false,
         [CallerMemberName] string operationName = "")
     {
         await WithClientAsync<object?>(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
-                await operation(handle);
+                await operation(handle, operationToken);
                 return null;
             },
-            cancellationToken, operationName: operationName);
+            cancellationToken, skipInitialLightStateRead: skipInitialLightStateRead, operationName: operationName);
     }
 
     private async Task<T> WithClientAsync<T>(
         string address,
-        Func<AgpClientHandle, Task<T>> operation,
+        Func<AgpClientHandle, CancellationToken, Task<T>> operation,
         CancellationToken cancellationToken,
         bool useCachedLightState = false,
         bool refreshLightState = false,
+        bool skipInitialLightStateRead = false,
         [CallerMemberName] string operationName = "")
     {
         if (string.IsNullOrWhiteSpace(address))
             throw new ArgumentException(AppResources.Ble_AddressRequired, nameof(address));
+
+        if (_runtimeStarted)
+            return await ExecuteRuntimeOperationAsync(address, operation, cancellationToken,
+                skipInitialLightStateRead, refreshLightState, operationName);
 
         EnsureApplicationForeground();
         using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
@@ -1049,14 +1204,17 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             _connectionService.PromoteConnectionToLongLived(address);
             var previousHandle = _handles.GetValueOrDefault(address);
             var handle = await GetOrCreateClientAsync(
-                address, cancellationToken, useCachedLightState && !refreshLightState);
+                address, cancellationToken, useCachedLightState && !refreshLightState, skipInitialLightStateRead);
             try
             {
                 // New clients already read state once unless explicitly seeded from cache.
                 if (refreshLightState && ReferenceEquals(previousHandle, handle))
                     handle.LastState = await MeasureAsync("AGP.ReadLightState.Refresh", address,
                         () => handle.Client.ReadLightStateAsync(cancellationToken));
-                var result = await operation(handle);
+                var result = await operation(handle, cancellationToken);
+                if (operationName.StartsWith("Set", StringComparison.Ordinal) ||
+                    operationName == nameof(DeleteScheduleAsync))
+                    _repository.RecordOperation(address);
                 timing.SetResult("success");
                 return result;
             }
@@ -1080,7 +1238,8 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     private async Task<AgpClientHandle> GetOrCreateClientAsync(
         string address,
         CancellationToken cancellationToken,
-        bool useCachedLightState = false)
+        bool useCachedLightState = false,
+        bool skipInitialLightStateRead = false)
     {
         EnsureApplicationForeground();
         using var timing = _diagnostics.BeginBleTiming("AGP.Session.Prepare", address);
@@ -1088,15 +1247,25 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             _connectionService.IsConnected(address) &&
             existing.ConnectionGeneration == _connectionService.GetConnectionGeneration(address))
         {
+            if (!existing.HasLightState && !skipInitialLightStateRead)
+            {
+                existing.LastState = await existing.Client.ReadLightStateAsync(cancellationToken);
+                CacheControlState(existing);
+            }
             timing.SetResult("reused");
             return existing;
         }
 
         timing.Mark("reused=false");
         await MeasureAsync("AGP.Session.DisposePrevious", address, () => DisposeHandleAsync(address));
-        await _connectionService.ConnectAsync(address, cancellationToken);
+        await RunSessionStepAsync(address, DeviceRuntimeStep.Connection,
+            token => _connectionService.ConnectAsync(address, token), cancellationToken);
         var transport = new AgpGattTransport(_connectionService, address);
-        try { await transport.StartAsync(cancellationToken); }
+        try
+        {
+            await RunSessionStepAsync(address, DeviceRuntimeStep.ResponseChannel,
+                token => transport.StartAsync(token, subscribeState: !_runtimeStarted), cancellationToken);
+        }
         catch
         {
             await transport.DisposeAsync();
@@ -1133,25 +1302,34 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     tokenTiming.SetResult(token is null ? "missing" : "present");
                 }
                 if (token is null)
-                    throw new AgpAuthenticationRequiredException(address);
-
-                await MeasureAsync("AGP.Authenticate", address, async () =>
                 {
-                    var authentication = await client.AuthenticateAsync(token, cancellationToken);
+                    if (_runtimeEntries.TryGetValue(address, out var entry))
+                        MarkRuntimeStep(entry, entry.Epoch, DeviceRuntimeStep.Authentication, DeviceRuntimeStepStatus.Failed,
+                            Localization.Format(nameof(AppResources.Agp_DeviceNotAuthenticated), address));
+                    throw new AgpAuthenticationRequiredException(address);
+                }
+
+                await RunSessionStepAsync(address, DeviceRuntimeStep.Authentication,
+                    sessionToken => MeasureAsync("AGP.Authenticate", address, async () =>
+                {
+                    var authentication = await client.AuthenticateAsync(token, sessionToken);
                     BleTimingScope.Current?.Mark($"protocolResult={authentication.Result}");
                     EnsureSuccess(authentication.Result);
-                });
+                }), cancellationToken);
             }
 
-            var cachedState = useCachedLightState
+            var cachedState = !_runtimeStarted && (useCachedLightState || skipInitialLightStateRead)
                 ? GetCachedDeviceStatus(address) : null;
+            var hasLightState = cachedState is { IsOnline: true, LightState: not null } || !skipInitialLightStateRead;
             var state = cachedState is { IsOnline: true, LightState: { } knownState }
-                ? knownState : await MeasureAsync("AGP.ReadLightState.Initial", address,
-                    () => client.ReadLightStateAsync(cancellationToken));
+                ? knownState : skipInitialLightStateRead
+                    ? new AgpLightState(0, false, 0, 0, 100, 0, AgpLightMode.Steady, 0)
+                    : await MeasureAsync("AGP.ReadLightState.Initial", address,
+                        () => client.ReadLightStateAsync(cancellationToken));
             timing.Mark($"lightStateCacheUsed={cachedState is { IsOnline: true, LightState: not null }} isOn={state.IsOn}");
             if (cachedState is { IsOnline: true, LightState: not null })
                 _diagnostics.Debug("BLE/Status", $"控制页复用已查询灯状态：{address}。");
-            if (capabilities.HasFlag(AgpCapabilities.RtcTime))
+            if (!_runtimeStarted && capabilities.HasFlag(AgpCapabilities.RtcTime))
             {
                 var time = await MeasureAsync("AGP.SetTime", address,
                     () => client.SetTimeAsync(DateTimeOffset.UtcNow, cancellationToken));
@@ -1160,14 +1338,17 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
 
             var handle = new AgpClientHandle(
                 address, client, capabilities, state, isAuthorized,
-                _connectionService.GetConnectionGeneration(address));
+                _connectionService.GetConnectionGeneration(address), hasLightState, transport);
             client.LightStateChanged += (_, value) =>
             {
+                if (!IsCurrentHandle(handle)) return;
+                if (handle.HasLightState && unchecked((int)(value.Revision - handle.LastState.Revision)) < 0) return;
                 handle.LastState = value;
                 CacheControlState(handle);
             };
             client.ColorStateChanged += (_, value) =>
             {
+                if (!IsCurrentHandle(handle)) return;
                 handle.LastColorState = value;
                 CacheControlState(handle);
             };
@@ -1238,16 +1419,17 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
 
     private void CacheControlState(AgpClientHandle handle, ushort? effectPeriod = null)
     {
+        if (effectPeriod is { } period) handle.EffectPeriod = period;
         var previous = GetCachedDeviceStatus(handle.Address)?.Profile;
         var profile = new AgpDeviceControlProfile(
             handle.Capabilities, handle.LastColorState ?? previous?.ColorState,
             handle.CtlRange ?? previous?.CtlRange ?? DefaultCtlRange,
-            handle.LastState.Mode,
-            effectPeriod ?? (previous?.EffectMode == handle.LastState.Mode
+            handle.SelectedEffectMode ?? handle.LastState.Mode,
+            effectPeriod ?? handle.EffectPeriod ?? (previous?.EffectMode == (handle.SelectedEffectMode ?? handle.LastState.Mode)
                 ? previous.EffectPeriodMilliseconds : null),
-            handle.LastState);
+            handle.HasLightState ? handle.LastState : null);
         PublishDeviceStatus(handle.Address, new DeviceStatusSnapshot(
-            true, handle.LastState, profile, DateTimeOffset.UtcNow));
+            true, handle.HasLightState ? handle.LastState : null, profile, DateTimeOffset.UtcNow));
     }
 
     private static void RequireCapability(
@@ -1267,7 +1449,11 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     private static void EnsureSuccess(AgpResultCode result)
     {
         if (result != AgpResultCode.Success)
-            throw new InvalidOperationException(Localization.Format(nameof(AppResources.Agp_CommandFailed), result));
+        {
+            var exception = new InvalidOperationException(Localization.Format(nameof(AppResources.Agp_CommandFailed), result));
+            exception.Data["AgpResult"] = result;
+            throw exception;
+        }
     }
 
     private static ushort RatioToUInt16(double ratio) =>
@@ -1283,15 +1469,89 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         AgpCapabilities capabilities,
         AgpLightState lastState,
         bool isAuthorized,
-        long connectionGeneration)
+        long connectionGeneration,
+        bool hasLightState = true,
+        AgpGattTransport? transport = null)
     {
         public string Address { get; } = address;
         public long ConnectionGeneration { get; } = connectionGeneration;
         public AgpClient Client { get; } = client;
+        public AgpGattTransport? Transport { get; } = transport;
         public AgpCapabilities Capabilities { get; } = capabilities;
-        public AgpLightState LastState { get; set; } = lastState;
+        private readonly object _stateSync = new();
+        private AgpLightState _lastState = lastState;
+        private bool _hasLightState = hasLightState;
+        private bool _hasKnownLightRevision = hasLightState;
+        private uint? _lightRevisionAfter;
+        private uint? _lightRevisionAtLeast;
+        public bool HasLightState
+        {
+            get { lock (_stateSync) return _hasLightState; }
+            set { lock (_stateSync) _hasLightState = value; }
+        }
+        public AgpLightState LastState
+        {
+            get { lock (_stateSync) return _lastState; }
+            set => TryAcceptLightState(value);
+        }
+        public bool TryAcceptLightState(AgpLightState value)
+        {
+            lock (_stateSync)
+            {
+                // Validity can be cleared for refresh or an uncertain command,
+                // but the revision history belongs to this connection generation.
+                if (_hasKnownLightRevision && unchecked((int)(value.Revision - _lastState.Revision)) < 0)
+                    return false;
+                if (_lightRevisionAfter is { } after && unchecked((int)(value.Revision - after)) <= 0)
+                    return false;
+                if (_lightRevisionAtLeast is { } atLeast && unchecked((int)(value.Revision - atLeast)) < 0)
+                    return false;
+                _lastState = value;
+                _hasKnownLightRevision = _hasLightState = true;
+                _lightRevisionAfter = _lightRevisionAtLeast = null;
+                return true;
+            }
+        }
+        public void InvalidateLightState(uint? baselineRevision, uint? acceptedRevision)
+        {
+            lock (_stateSync)
+            {
+                _hasLightState = false;
+                if (baselineRevision is { } baseline &&
+                    (_lightRevisionAfter is not { } previousAfter || unchecked((int)(baseline - previousAfter)) > 0))
+                    _lightRevisionAfter = baseline;
+                if (acceptedRevision is { } accepted &&
+                    (_lightRevisionAtLeast is not { } previousAtLeast || unchecked((int)(accepted - previousAtLeast)) > 0))
+                    _lightRevisionAtLeast = accepted;
+            }
+        }
         public bool IsAuthorized { get; } = isAuthorized;
-        public AgpColorStatus? LastColorState { get; set; }
+        private AgpColorStatus? _lastColorState;
+        public AgpColorStatus? LastColorState
+        {
+            get { lock (_stateSync) return _lastColorState; }
+            set
+            {
+                lock (_stateSync)
+                {
+                    if (value?.Opcode == _lastColorState?.Opcode && ColorRevision(value) is { } next &&
+                        ColorRevision(_lastColorState) is { } current && unchecked((int)(next - current)) < 0) return;
+                    _lastColorState = value;
+                }
+            }
+        }
+        private static uint? ColorRevision(AgpColorStatus? value) => value switch
+        {
+            AgpLightness16State state => state.Revision,
+            AgpHslState state => state.Revision,
+            AgpHslTarget state => state.Revision,
+            AgpCtlState state => state.Revision,
+            AgpCtlTarget state => state.Revision,
+            _ => null
+        };
         public AgpCtlRange? CtlRange { get; set; }
+        public AgpModeConfig? LocalMode { get; set; }
+        public ushort? EffectPeriod { get; set; }
+        public AgpLightMode? SelectedEffectMode { get; set; }
     }
 }

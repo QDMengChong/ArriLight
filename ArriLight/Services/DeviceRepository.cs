@@ -10,6 +10,20 @@ public sealed class DeviceRepository
 
     public event EventHandler? DevicesChanged;
 
+    public DeviceSortOrder GetSortOrder() =>
+        Enum.TryParse<DeviceSortOrder>(Preferences.Default.Get("device_sort_order", string.Empty), out var order) &&
+        Enum.IsDefined(order) ? order : DeviceSortOrder.LastOperation;
+
+    public void SetSortOrder(DeviceSortOrder order)
+    {
+        if (!Enum.IsDefined(order))
+            throw new ArgumentOutOfRangeException(nameof(order));
+        Preferences.Default.Set("device_sort_order", order.ToString());
+    }
+
+    public bool RecordOperation(string address, DateTimeOffset? at = null) =>
+        Update(address, device => device with { LastOperatedAt = at ?? DateTimeOffset.UtcNow });
+
     public IReadOnlyList<SavedDevice> GetAll()
     {
         lock (_syncRoot)
@@ -139,6 +153,10 @@ public sealed class DeviceRepository
         // a foreground operation is using that item.
         Update(address, device => device with { Capabilities = capabilities },
             notifyDevicesChanged: false);
+
+    /// <summary>Explicitly invalidate firmware-dependent metadata after an OTA attempt.</summary>
+    public bool InvalidateCapabilities(string address) =>
+        Update(address, device => device with { Capabilities = null }, notifyDevicesChanged: false);
 
     public bool SetTokenAndCapabilities(
         string address,

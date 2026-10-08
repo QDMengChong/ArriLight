@@ -39,8 +39,19 @@ ViewModel 不引用 MAUI 控件、Shell、MainThread、MAUI Color 或 Android/iO
 
 ## 关键生命周期和并发行为
 
+- 全局运行集合由单例 `AgpLightControlService` 管理，按地址发布有序步骤和离线、在线、就绪快照。
+  Window.Created 即开始准备，默认并发五台，可在设置中选择一至五台；同设备请求串行。
+  页面加入共享准备并提升缺失资料优先级，取消自己的等待不取消共享任务或已提交命令。
+  后台和关闭先失效所有目标，再清理；恢复重新认证，旧命令不重放。见 [实施结果](DeviceRuntime-Implementation-Results.md)。
+- 主页和控制页开关直接发送 `ONOFF_SET=2`，设备决定翻转目标；没有灯状态时也可连接并操作。
+  成功响应仅表示接受，最终状态取设备 Notify，缺失时读取一次；读取失败不重发翻转。
+  控制页一次性延时只在确认翻转后为开灯时设置。特效设置仍显式开灯，保持“选择并运行”语义。
+- 主页排序 Picker 替换操作提示，绑定三种排序方式并持久化；置顶始终优先。
+  成功控制记录 `SavedDevice.LastOperatedAt`，重排复用已有行及其忙碌状态。
+- 主页不启动广播扫描或广播驱动的公开状态轮询。添加页令牌直接控制原生扫描，离开后停止，
+  返回时先等待旧任务收尾；APP 后台也停止扫描。缓存未命中的连接通过保存的 MAC/UUID 直接建连。
 - 首页在显示期间订阅设备事件，离开时解除订阅。开关命令允许不同设备并发进入，
-  同一设备通过 `IsPowerChanging` 防止重复点击；认证时读到的旧灯状态不覆盖待完成的用户选择。
+  同一设备通过 `IsPowerChanging` 防止重复点击；操作完成后使用设备确认的最新状态更新开关。
   设备卡片命令通过 `x:Reference HomePage` 绑定主页的 `ViewModel`（在 `InitializeComponent` 前赋值），
   设备行属性和命令参数仍绑定当前行。列表刷新移除卡片时，命令源不依赖会暂时消失的祖先关系，
   避免编译绑定访问空祖先而触发调试器的 `NullReferenceException` 中断。
@@ -48,7 +59,7 @@ ViewModel 不引用 MAUI 控件、Shell、MainThread、MAUI Color 或 Android/iO
   View 把本次显示的取消令牌传给 ViewModel，连接与刷新判断使用同一份状态。
 - 控制页延时卡片在自定义配置后合并一次性自动关灯与触摸模式，两行共用 `TurnOnDelaySecondsText`。
   `DeviceControlPageViewModel.LocalMode` 管理模式读取、Switch 草稿、设置命令和离开取消；
-  模式读取不延迟控制 Profile 初始化和 LazyView 创建，迟到响应不覆盖共用秒数的新编辑。
+  模式资料复用共享 MODE_GET，其他资料失败时仍可使用已读模式；迟到响应不覆盖模式及秒数草稿。
   信息页只展示设备资料。两项操作各自保留原有能力要求、秒数范围和发送语义。
 - 控制资料先更新 ViewModel 的亮度、色彩、能力和特效状态，再由 View 绘制已加载的原生控件。
   应用状态时 View 抑制控件回调，避免状态回写产生新的 BLE 指令。
@@ -67,6 +78,7 @@ ViewModel 不引用 MAUI 控件、Shell、MainThread、MAUI Color 或 Android/iO
 ```powershell
 dotnet restore ArriLight/ArriLight.csproj
 dotnet test tests/ArriLight.Tests/ArriLight.Tests.csproj
+dotnet test tests/ArriLight.Discovery.Tests/ArriLight.Discovery.Tests.csproj
 dotnet build ArriLight/ArriLight.csproj -f net10.0-android
 ```
 

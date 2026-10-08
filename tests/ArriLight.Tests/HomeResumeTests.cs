@@ -52,7 +52,7 @@ public sealed class HomeResumeTests
                 fixture.Service.GetCachedDeviceStatus(fixture.Address)!.LightState!.IsOn);
             var command = Assert.Single(fixture.Ble.RequestMessages,
                 request => request.Opcode == AgpOpcode.OnOffSet);
-            Assert.Equal(!initiallyOn ? (byte)1 : (byte)0, command.Payload.Span[0]);
+            Assert.Equal((byte)2, command.Payload.Span[0]);
             Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.AuthToken);
             Assert.Empty(ToastService.Messages);
         }
@@ -64,7 +64,7 @@ public sealed class HomeResumeTests
     }
 
     [Fact]
-    public async Task PendingPowerClickKeepsItsIntentThroughQueryCleanupAndIgnoresDuplicateClicks()
+    public async Task PendingPowerClickUsesHardwareStateAfterCleanupAndIgnoresDuplicateClicks()
     {
         await using var fixture = new PairingFixture();
         fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
@@ -95,8 +95,8 @@ public sealed class HomeResumeTests
             Assert.False(powerOperation.IsCompleted);
             await page.TogglePowerForTestAsync(device);
 
-            // The query finishing during cancellation must not reverse the
-            // captured click intent. Other devices still receive their updates.
+            // Hardware changed during cleanup. Toggle must act on that state,
+            // while duplicate clicks remain blocked and other rows update.
             fixture.Ble.LightStatePacket = LightStatePacket(true);
             await fixture.Service.QueryDeviceStatusAsync(fixture.Address);
             other.LightStatePacket = LightStatePacket(false);
@@ -109,12 +109,13 @@ public sealed class HomeResumeTests
             cleanup.TrySetResult();
             await powerOperation.WaitAsync(TimeSpan.FromSeconds(5));
 
-            Assert.Equal(new[] { false, true }, displayedStates);
+            Assert.Equal(new[] { false }, displayedStates);
+            Assert.False(device.IsOn);
             Assert.False(device.IsPowerChanging);
             Assert.True(device.IsEnabled);
             var command = Assert.Single(fixture.Ble.RequestMessages,
                 request => request.Opcode == AgpOpcode.OnOffSet);
-            Assert.Equal((byte)1, command.Payload.Span[0]);
+            Assert.Equal((byte)2, command.Payload.Span[0]);
             Assert.Empty(ToastService.Messages);
         }
         finally
@@ -148,7 +149,10 @@ public sealed class HomeResumeTests
             fixture.Ble.BeforeControlResponse = request =>
             {
                 if (request.Opcode == AgpOpcode.OnOffSet)
+                {
+                    fixture.Ble.NotifyLightState(LightStatePacket(true));
                     throw new IOException("write failed");
+                }
             };
 
             await page.TogglePowerForTestAsync(device);
@@ -209,7 +213,11 @@ public sealed class HomeResumeTests
 
             await page.TogglePowerForTestAsync(device);
             await page.TogglePowerForTestAsync(device);
-            fixture.Ble.NotifyLightState(LightStatePacket(true));
+            var current = AgpModelCodec.DecodeLightState(AgpCodec.Decode(fixture.Ble.LightStatePacket));
+            var notification = LightStatePacket(true);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(
+                notification.AsSpan(AgpProfile.HeaderSize), current.Revision + 1);
+            fixture.Ble.NotifyLightState(notification);
 
             Assert.Equal(new[] { false, true, false, true }, displayedStates);
             Assert.True(device.IsOn);
@@ -237,7 +245,7 @@ public sealed class HomeResumeTests
             Assert.True(fixture.Connection.IsLongLived(fixture.Address));
             await fixture.Service.SuspendForBackgroundAsync();
             Assert.False(device.IsOnline);
-            Assert.False(device.IsEnabled);
+            Assert.True(device.IsEnabled);
 
             // The page can be reloaded before the window's resume task finishes.
             page.DisappearForTest();
@@ -288,7 +296,7 @@ public sealed class HomeResumeTests
     }
 
     [Fact]
-    public async Task FailedRestoreLeavesOnlyTheFailedDeviceOfflineAndDisabled()
+    public async Task FailedRestoreLeavesOnlyTheFailedDeviceOfflineAndAbleToRetry()
     {
         await using var fixture = new PairingFixture();
         var other = fixture.AddDevice();
@@ -304,7 +312,7 @@ public sealed class HomeResumeTests
             var failed = page.Devices.Single(device => device.Address == fixture.Address);
             var restored = page.Devices.Single(device => device.Address == other.Address);
             Assert.False(failed.IsOnline);
-            Assert.False(failed.IsEnabled);
+            Assert.True(failed.IsEnabled);
             Assert.True(restored.IsOnline);
             Assert.True(restored.IsEnabled);
         }

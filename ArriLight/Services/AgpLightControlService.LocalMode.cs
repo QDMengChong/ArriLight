@@ -6,11 +6,12 @@ public sealed partial class AgpLightControlService
 {
     public Task<AgpModeConfig> GetLocalModeAsync(
         string address, CancellationToken cancellationToken = default) =>
-        WithClientAsync(address, async handle =>
+        WithClientAsync(address, async (handle, operationToken) =>
         {
             RequireCapability(handle.Capabilities, AgpCapabilities.LocalMode);
-            var response = await handle.Client.GetModeAsync(cancellationToken);
+            var response = await handle.Client.GetModeAsync(operationToken);
             EnsureSuccess(response.Result);
+            handle.LocalMode = response.Config;
             return response.Config!;
         }, cancellationToken);
 
@@ -19,11 +20,12 @@ public sealed partial class AgpLightControlService
     {
         // Validate before preparing a BLE session. MODE changes only hardware input behavior.
         _ = AgpModelCodec.EncodeModeSet(configuration);
-        return WithClientAsync(address, async handle =>
+        return WithClientAsync(address, async (handle, operationToken) =>
         {
             RequireCapability(handle.Capabilities, AgpCapabilities.LocalMode);
-            var response = await handle.Client.SetModeAsync(configuration, cancellationToken);
+            var response = await handle.Client.SetModeAsync(configuration, operationToken);
             EnsureSuccess(response.Result);
+            handle.LocalMode = response.Config;
             return response.Config!;
         }, cancellationToken);
     }

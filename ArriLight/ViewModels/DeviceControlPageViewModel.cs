@@ -40,6 +40,14 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     [ObservableProperty]
     private bool _canConnect = true;
     private bool _isReady;
+    private bool _isControlPageVisible;
+    private int _lightingEditVersion;
+    private int _appearanceLightingEditVersion;
+    private int _appearanceDelayEditVersion;
+    private bool _hasAppliedRuntimeEffect;
+    private AgpLightMode _lastAppliedRuntimeEffectMode;
+    private ushort? _lastAppliedRuntimeEffectPeriod;
+    private Guid? _lastUnknownToastOperation;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanRefreshStatus)), NotifyPropertyChangedFor(nameof(SupportsLocalMode)),
         NotifyPropertyChangedFor(nameof(CanSetLocalMode)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private bool _isDemo;
@@ -48,6 +56,11 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     private bool _isDeviceOnline;
     [ObservableProperty]
     private bool _isMasterPowerOn = true;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanTogglePower))]
+    private bool _isPowerChanging;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanTogglePower))]
+    private bool _hasPendingUserOperation;
+    public bool CanTogglePower => !IsPowerChanging && !HasPendingUserOperation;
     private CancellationTokenSource? _lightSettingsCancellation;
     private Task? _lightSettingsTask;
     [ObservableProperty]
@@ -137,6 +150,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     public void UpdateLightingInput(double hue, double saturation, double temperature, double brightness,
         AgpColorModel? colorModel = null)
     {
+        _lightingEditVersion++;
         Hue = hue; Saturation = saturation; Temperature = temperature; Brightness = brightness;
         if (colorModel is { } model) _activeColorModel = model;
         QueueLightSettingsCommand();
@@ -149,7 +163,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     }
     partial void OnTurnOnDelaySecondsTextChanged(string value)
     {
-        _delaySecondsEditVersion++;
+        if (!_isApplyingLocalMode) _delaySecondsEditVersion++;
         SaveTurnOnDelaySeconds(value);
     }
     partial void OnTimerSecondsTextChanged(string value) => SaveTimerSeconds(value);
@@ -180,11 +194,18 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     public override Task OnAppearingAsync()
     {
+        _isControlPageVisible = true;
+        _appearanceLightingEditVersion = _lightingEditVersion;
+        _hasAppliedRuntimeEffect = false;
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Control.Appearing", DeviceAddress);
 
+        _connectionService.StateChanged -= OnConnectionStateChanged;
         _connectionService.StateChanged += OnConnectionStateChanged;
+        _agpLight.DeviceStatusChanged -= OnControlDeviceStatusChanged;
         _agpLight.DeviceStatusChanged += OnControlDeviceStatusChanged;
+        _agpLight.RuntimeStateChanged -= OnControlRuntimeStateChanged;
+        _agpLight.RuntimeStateChanged += OnControlRuntimeStateChanged;
         ResetLocalModeState();
 
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
@@ -193,6 +214,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
             _pendingTimerSeconds = device.TimerSeconds is >= 1 and <= 86400
                 ? device.TimerSeconds : 60;
             LoadTurnOnDelaySettings();
+            _appearanceDelayEditVersion = _delaySecondsEditVersion;
             IsDemo = device.IsDemo;
             timing.Mark($"载入控制页; isDemo={IsDemo}");
             OnPropertyChanged(nameof(CanRefreshStatus));
@@ -228,8 +250,16 @@ public partial class DeviceControlPageViewModel : ViewModelBase
                 ApplyConnectionSnapshot(_connectionService.GetSnapshot(DeviceAddress));
                 // OnNavigatedTo schedules scan teardown and AGP preparation
                 // after the page transition. Appearing only applies local state.
-                ConnectionStatusText = AppResources.Ble_PreparingDeviceConnection;
-                CanConnect = false;
+                if (_agpLight.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
+                {
+                    ApplyRuntimeSnapshot(runtime);
+                    _agpLight.RequestRuntimePreparation(DeviceAddress);
+                }
+                else
+                {
+                    ConnectionStatusText = AppResources.Ble_PreparingDeviceConnection;
+                    CanConnect = false;
+                }
             }
             timing.SetResult(device.IsDemo ? "demo" : "page-prepared");
         }
@@ -244,11 +274,13 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     public override void OnDisappearing()
     {
+        _isControlPageVisible = false;
         CancelLocalModeOperations();
         _connectionInitializationCancellation?.Cancel();
 
         _connectionService.StateChanged -= OnConnectionStateChanged;
         _agpLight.DeviceStatusChanged -= OnControlDeviceStatusChanged;
+        _agpLight.RuntimeStateChanged -= OnControlRuntimeStateChanged;
 
         _lightSettingsCancellation?.Cancel();
         _lightSettingsCancellation?.Dispose();

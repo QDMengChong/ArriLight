@@ -26,30 +26,20 @@ public sealed class BluetoothDiscoveryService(
 
     public bool IsScanning => adapter.IsScanning;
 
-    /// <summary>
-    /// 启动或重置服务级后台扫描窗口。扫描任务不属于某个页面，
-    /// 因此页面离开后仍可继续运行，直到窗口到期或被显式停止。
-    /// </summary>
-    public async Task StartOrResetBackgroundScanAsync(
-        TimeSpan? duration = null)
-    {
-        await EnsureReadyAsync();
-
-        var scanDuration = duration ?? DefaultBackgroundScanDuration;
-        if (scanDuration <= TimeSpan.Zero)
-            throw new ArgumentOutOfRangeException(nameof(duration));
-
-        await EnsureScanTaskAsync(scanDuration, resetActiveWindow: true);
-    }
-
+    /// <summary>仅添加设备页调用；页面取消令牌同时终止原生扫描。</summary>
     public async Task ScanAsync(
         CancellationToken cancellationToken = default,
         TimeSpan? duration = null)
     {
         var scanDuration = duration ?? DefaultBackgroundScanDuration;
-        await StartOrResetBackgroundScanAsync(scanDuration);
-        // 页面离开只结束该页面的等待，不影响服务级后台扫描。
-        await Task.Delay(scanDuration, cancellationToken);
+        if (scanDuration <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(duration));
+        cancellationToken.ThrowIfCancellationRequested();
+        await EnsureReadyAsync();
+        // Permission dialogs can finish after the user leaves the page.
+        cancellationToken.ThrowIfCancellationRequested();
+        var scanTask = await EnsureScanTaskAsync(scanDuration, cancellationToken);
+        await scanTask;
+        cancellationToken.ThrowIfCancellationRequested();
     }
 
     public IDevice? GetCachedDevice(string address) =>
@@ -68,102 +58,19 @@ public sealed class BluetoothDiscoveryService(
         TimeSpan? timeout = null,
         CancellationToken cancellationToken = default)
     {
-        using var timing = diagnostics.BeginBleTiming(
-            "BLE.Scan.FindDevice", address,
-            $"timeoutMs={(timeout ?? TimeSpan.FromSeconds(15)).TotalMilliseconds:0}; isScanning={adapter.IsScanning}");
-        if (GetCachedDevice(address) is { } cached)
-        {
-            timing.Mark($"扫描缓存命中; state={cached.State}; rssi={cached.Rssi}");
-            timing.SetResult("cache-hit");
-            diagnostics.Debug(
-                "BLE/Scan",
-                $"使用扫描缓存中的设备：{address}，state={cached.State}。");
-            return cached;
-        }
-
-        try
-        {
-            using var ready = diagnostics.BeginBleTiming("BLE.Scan.EnsureReady", address);
-            await EnsureReadyAsync();
-            ready.SetResult("success");
-        }
-        catch (Exception exception)
-        {
-            timing.SetResult($"ready-failed:{exception.GetType().Name}");
-            throw;
-        }
-        timing.Mark("扫描缓存未命中，蓝牙/权限检查完成");
-        var completion = new TaskCompletionSource<IDevice>(
-            TaskCreationOptions.RunContinuationsAsynchronously);
-
-        void OnDiscovered(object? sender, DiscoveredBluetoothDevice discovered)
-        {
-            if (!string.Equals(
-                    discovered.Address,
-                    address,
-                    StringComparison.OrdinalIgnoreCase))
-                return;
-
-            if (GetCachedDevice(address) is { } device)
-                completion.TrySetResult(device);
-        }
-
-        DeviceFound += OnDiscovered;
-        try
-        {
-            // 已有后台扫描时只等待它的广播，不重启或停止扫描；
-            // 没有扫描时才按需启动一个短扫描窗口。
-            using (var ensureScan = diagnostics.BeginBleTiming(
-                       "BLE.Scan.EnsureTask", address, $"isScanning={adapter.IsScanning}"))
-            {
-                await EnsureScanTaskAsync(
-                    timeout ?? TimeSpan.FromSeconds(15),
-                    resetActiveWindow: false);
-                ensureScan.SetResult("success");
-            }
-            using var scanCancellation =
-                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            scanCancellation.CancelAfter(timeout ?? TimeSpan.FromSeconds(15));
-
-            using var waitBroadcast = diagnostics.BeginBleTiming(
-                "BLE.Scan.WaitBroadcast", address);
-            try
-            {
-                var device = await completion.Task.WaitAsync(scanCancellation.Token);
-                waitBroadcast.SetResult("found");
-                timing.SetResult("found");
-                diagnostics.Information(
-                    "BLE/Scan",
-                    $"已找到目标设备 {address}，name={device.Name ?? "未命名"}，RSSI={device.Rssi}。");
-                return device;
-            }
-            catch (OperationCanceledException)
-                when (!cancellationToken.IsCancellationRequested)
-            {
-                waitBroadcast.SetResult("timeout");
-                timing.SetResult("timeout");
-                throw new BluetoothDiscoveryException(
-                    Localization.Format(nameof(AppResources.Ble_ScanTimedOut), address));
-            }
-            catch (OperationCanceledException)
-            {
-                waitBroadcast.SetResult("canceled");
-                timing.SetResult("canceled");
-                throw;
-            }
-        }
-        catch (Exception exception) when (exception is not BluetoothDiscoveryException &&
-                                         exception is not OperationCanceledException)
-        {
-            timing.SetResult($"failed:{exception.GetType().Name}");
-            throw;
-        }
-        finally
-        {
-            DeviceFound -= OnDiscovered;
-        }
+        cancellationToken.ThrowIfCancellationRequested();
+        if (GetCachedDevice(address) is { } cached) return cached;
+        await EnsureReadyAsync();
+        cancellationToken.ThrowIfCancellationRequested();
+        using var connectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        connectionCancellation.CancelAfter(timeout ?? TimeSpan.FromSeconds(15));
+        // Reconnect by saved MAC/UUID; discovering nearby devices is owned only
+        // by the add-device page, including after a cold start or QR import.
+        var device = await adapter.ConnectToKnownDeviceAsync(
+            BluetoothAddressParser.ToDeviceId(address), default, connectionCancellation.Token);
+        _knownDevices[address] = device;
+        return device;
     }
-
     public async Task StopAsync()
     {
         using var timing = diagnostics.BeginBleTiming(
@@ -206,7 +113,7 @@ public sealed class BluetoothDiscoveryService(
             }
         }
 
-        if (adapter.IsScanning)
+        if (adapter.IsScanning && ReferenceEquals(scanTask, _backgroundScanTask))
         {
             using var nativeStop = diagnostics.BeginBleTiming("BLE.Scan.Stop.Native");
             try
@@ -228,27 +135,21 @@ public sealed class BluetoothDiscoveryService(
         timing.SetResult("success");
     }
 
-    private async Task EnsureScanTaskAsync(
+    private async Task<Task> EnsureScanTaskAsync(
         TimeSpan duration,
-        bool resetActiveWindow)
+        CancellationToken cancellationToken)
     {
         while (true)
         {
             Task? canceledScanTask = null;
-            await _scanLock.WaitAsync();
+            await _scanLock.WaitAsync(cancellationToken);
             try
             {
                 if (_backgroundScanTask is { IsCompleted: false } activeTask)
                 {
                     if (_backgroundScanCancellation?.IsCancellationRequested != true)
                     {
-                        if (resetActiveWindow)
-                        {
-                            _backgroundScanDeadline =
-                                DateTimeOffset.UtcNow + duration;
-                        }
-
-                        return;
+                        _backgroundScanCancellation?.Cancel();
                     }
 
                     canceledScanTask = activeTask;
@@ -257,10 +158,11 @@ public sealed class BluetoothDiscoveryService(
                 {
                     _backgroundScanDeadline = DateTimeOffset.UtcNow + duration;
                     _backgroundScanCancellation?.Dispose();
-                    _backgroundScanCancellation = new CancellationTokenSource();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    _backgroundScanCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                     _backgroundScanTask = RunBackgroundScanAsync(
                         _backgroundScanCancellation.Token);
-                    return;
+                    return _backgroundScanTask;
                 }
             }
             finally
@@ -286,7 +188,7 @@ public sealed class BluetoothDiscoveryService(
     {
         diagnostics.Information(
             "BLE/Scan",
-            "开始低延迟搜索附近的全部 BLE 广播，后台扫描窗口 60 秒。");
+            "添加设备页开始搜索附近 BLE 广播。");
 
         try
         {
@@ -333,6 +235,7 @@ public sealed class BluetoothDiscoveryService(
             diagnostics.Warning(
                 "BLE/Scan",
                 $"后台 BLE 扫描结束：{exception.Message}");
+            throw;
         }
         finally
         {

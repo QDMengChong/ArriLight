@@ -1761,4 +1761,16 @@ This is sample text for interface design. The final version should be profession
   <data name="DeviceMode_OtherMode" xml:space="preserve">
     <value>The device uses another switch mode. Tap Set to apply the selected mode.</value>
   </data>
+  <data name="Home_Sort" xml:space="preserve"><value>Sort devices</value></data>
+  <data name="Home_SortLastOperation" xml:space="preserve"><value>Last operated</value></data>
+  <data name="Home_SortAddedAt" xml:space="preserve"><value>Date added</value></data>
+  <data name="Home_SortName" xml:space="preserve"><value>Name</value></data>
+  <data name="Control_StateUnavailable" xml:space="preserve"><value>The power operation is not confirmed. Refresh device state before setting a delay.</value></data>
+  <data name="Device_Ready" xml:space="preserve"><value>Ready</value></data>
+  <data name="Settings_DevicePreparation" xml:space="preserve"><value>Device preparation</value></data>
+  <data name="Settings_DeviceConcurrency" xml:space="preserve"><value>Concurrent devices</value></data>
+  <data name="Settings_DeviceConcurrencyDescription" xml:space="preserve"><value>Default: 5. Choose 1–5 devices. Reduce the number if connections are unstable.</value></data>
+  <data name="Device_RuntimeResponseChannel" xml:space="preserve"><value>Preparing response channel</value></data>
+  <data name="Device_RuntimeAuthenticating" xml:space="preserve"><value>Authenticating</value></data>
+  <data name="Device_RuntimeRetrying" xml:space="preserve"><value>Waiting to retry</value></data>
 </root>

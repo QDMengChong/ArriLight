@@ -128,8 +128,7 @@
 
         <Border
             Grid.Row="1"
-            IsEnabled="{Binding IsDeviceOnline}"
-            Opacity="{Binding ControlOpacity}"
+            IsEnabled="{Binding CanTogglePower}"
             Padding="20,12"
             BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
             Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"

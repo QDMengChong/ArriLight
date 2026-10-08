@@ -14,6 +14,26 @@
         <Label
             Margin="4,0,0,4"
             FontSize="13"
+            Text="{x:Static strings:AppResources.Settings_DevicePreparation}"
+            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+        <Border Style="{StaticResource MenuCardStyle}">
+            <Grid ColumnDefinitions="*,80" ColumnSpacing="12">
+                <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                    <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Settings_DeviceConcurrency}" />
+                    <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Settings_DeviceConcurrencyDescription}" />
+                </VerticalStackLayout>
+                <Picker
+                    Grid.Column="1"
+                    ItemsSource="{Binding ConcurrencyOptions}"
+                    SelectedIndex="{Binding SelectedConcurrencyIndex, Mode=TwoWay}"
+                    Title="{x:Static strings:AppResources.Settings_DeviceConcurrency}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                    VerticalOptions="Center" />
+            </Grid>
+        </Border>
+        <Label
+            Margin="4,0,0,4"
+            FontSize="13"
             Text="{x:Static strings:AppResources.Settings_Appearance}"
             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
 

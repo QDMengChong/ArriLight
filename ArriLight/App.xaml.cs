@@ -3,11 +3,16 @@ namespace ArriLight
     public partial class App : Application
     {
         private readonly AgpLightControlService _agpLight;
+        private readonly BluetoothDiscoveryService? _discoveryService;
         private Window? _currentWindow;
+        internal Task CurrentStartupTask { get; private set; } = Task.CompletedTask;
+        internal Task CurrentStopTask { get; private set; } = Task.CompletedTask;
+        internal Task CurrentResumeTask { get; private set; } = Task.CompletedTask;
 
-        public App(AgpLightControlService agpLight)
+        public App(AgpLightControlService agpLight, BluetoothDiscoveryService? discoveryService = null)
         {
             _agpLight = agpLight;
+            _discoveryService = discoveryService;
             InitializeComponent();
             UserAppTheme = ThemePreference.Load();
         }
@@ -28,11 +33,18 @@ namespace ArriLight
         {
             if (!ReferenceEquals(sender, _currentWindow))
                 return;
+            CurrentStartupTask = StartWindowAsync();
+            await CurrentStartupTask;
+        }
+
+        private async Task StartWindowAsync()
+        {
             try
             {
                 // Finish() destroys the Android Activity, not the DI singletons.
                 // Created also covers a reused MAUI Window with a new native window.
                 await _agpLight.StartForNewWindowAsync();
+                await _agpLight.StartRuntimeAsync();
             }
             catch (Exception exception)
             {
@@ -45,9 +57,22 @@ namespace ArriLight
         {
             if (!ReferenceEquals(sender, _currentWindow))
                 return;
+            CurrentStopTask = StopWindowAsync();
+            await CurrentStopTask;
+        }
+
+        private async Task StopWindowAsync()
+        {
             try
             {
-                await _agpLight.SuspendForBackgroundAsync();
+                // Invalidate every queued/connecting/online runtime immediately,
+                // before waiting for native scan cleanup.
+                var suspension = _agpLight.SuspendForBackgroundAsync();
+                try
+                {
+                    if (_discoveryService is not null) await _discoveryService.StopAsync();
+                }
+                finally { await suspension; }
             }
             catch (Exception exception)
             {
@@ -60,6 +85,12 @@ namespace ArriLight
         {
             if (!ReferenceEquals(sender, _currentWindow))
                 return;
+            CurrentResumeTask = ResumeWindowAsync();
+            await CurrentResumeTask;
+        }
+
+        private async Task ResumeWindowAsync()
+        {
             try
             {
                 await _agpLight.ResumeAfterBackgroundAsync();
@@ -75,9 +106,20 @@ namespace ArriLight
         {
             if (!ReferenceEquals(sender, _currentWindow))
                 return;
+            CurrentStopTask = CloseWindowAsync();
+            await CurrentStopTask;
+        }
+
+        private async Task CloseWindowAsync()
+        {
             try
             {
-                await _agpLight.DisconnectForApplicationCloseAsync();
+                var closing = _agpLight.DisconnectForApplicationCloseAsync();
+                try
+                {
+                    if (_discoveryService is not null) await _discoveryService.StopAsync();
+                }
+                finally { await closing; }
             }
             catch (Exception exception)
             {

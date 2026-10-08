@@ -339,7 +339,8 @@ public sealed class MultiDeviceConnectionTests
         await fixture.Service.QueryDeviceStatusAsync(other.Address);
         fixture.Ble.FailDisconnect = true;
         await Assert.ThrowsAsync<AggregateException>(() => fixture.Service.SuspendForBackgroundAsync());
-        Assert.True(fixture.Connection.IsConnected(fixture.Address));
+        Assert.False(fixture.Connection.IsConnected(fixture.Address));
+        Assert.Contains(fixture.Address, fixture.Connection.GetConnectedAddresses());
         Assert.False(fixture.Connection.IsConnected(other.Address));
         Assert.Equal(1, other.DisconnectAttempts);
         fixture.Ble.FailDisconnect = false;

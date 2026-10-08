@@ -27,7 +27,15 @@ public sealed class BluetoothDiscoveryService(IDevice device)
     }
 
     public void InvalidateCachedDevice(string address) => InvalidatedAddresses.Add(address);
-    public Task ScanAsync(CancellationToken token) => Task.Delay(Timeout.InfiniteTimeSpan, token);
+    public int ScanCalls { get; private set; }
+    public int BackgroundScanCalls { get; private set; }
+    public CancellationToken ScanToken { get; private set; }
+    public Task ScanAsync(CancellationToken token)
+    {
+        ScanCalls++;
+        ScanToken = token;
+        return Task.Delay(Timeout.InfiniteTimeSpan, token);
+    }
     public int StopCalls { get; private set; }
     public TaskCompletionSource StopStartedForTest { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
     public Func<Task>? OnStop { get; set; }
@@ -37,7 +45,8 @@ public sealed class BluetoothDiscoveryService(IDevice device)
         StopStartedForTest.TrySetResult();
         return OnStop?.Invoke() ?? Task.CompletedTask;
     }
-    public Task StartOrResetBackgroundScanAsync(TimeSpan duration) => Task.CompletedTask;
+    public Task StartOrResetBackgroundScanAsync(TimeSpan duration)
+    { BackgroundScanCalls++; return Task.CompletedTask; }
     public void Advertise(DiscoveredBluetoothDevice value) => DeviceFound?.Invoke(this, value);
 }
 

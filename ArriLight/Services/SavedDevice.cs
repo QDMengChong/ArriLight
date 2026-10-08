@@ -2,6 +2,13 @@ using ArriOpto.BLE.Agp;
 
 namespace ArriLight;
 
+public enum DeviceSortOrder
+{
+    LastOperation,
+    AddedAt,
+    Name
+}
+
 public sealed record SavedControlPreset(
     int Slot,
     string DisplayName,
@@ -29,7 +36,8 @@ public sealed record SavedDevice(
     string? HardwareRevision = null,
     // Keep persisted property names so existing checkbox/seconds settings survive the semantic change.
     bool TurnOnDelayEnabled = false,
-    int TurnOnDelaySeconds = 60)
+    int TurnOnDelaySeconds = 60,
+    DateTimeOffset? LastOperatedAt = null)
 {
     public const string UnknownFirmwareVersion = "unknown";
 

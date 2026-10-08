@@ -5,6 +5,15 @@ namespace ArriLight.Resources.Localization;
 // Typed accessors for AppResources.resx. All lookups use the application language service.
 public static class AppResources
 {
+    public static string Device_Ready => global::ArriLight.Localization.GetString(nameof(Device_Ready));
+    public static string Settings_DevicePreparation => global::ArriLight.Localization.GetString(nameof(Settings_DevicePreparation));
+    public static string Settings_DeviceConcurrency => global::ArriLight.Localization.GetString(nameof(Settings_DeviceConcurrency));
+    public static string Settings_DeviceConcurrencyDescription => global::ArriLight.Localization.GetString(nameof(Settings_DeviceConcurrencyDescription));
+    public static string Home_Sort => global::ArriLight.Localization.GetString(nameof(Home_Sort));
+    public static string Home_SortLastOperation => global::ArriLight.Localization.GetString(nameof(Home_SortLastOperation));
+    public static string Home_SortAddedAt => global::ArriLight.Localization.GetString(nameof(Home_SortAddedAt));
+    public static string Home_SortName => global::ArriLight.Localization.GetString(nameof(Home_SortName));
+    public static string Control_StateUnavailable => global::ArriLight.Localization.GetString(nameof(Control_StateUnavailable));
     public static string Control_Delay => global::ArriLight.Localization.GetString(nameof(Control_Delay));
     internal static ResourceManager ResourceManager { get; } =
         new("ArriLight.Resources.Localization.AppResources", typeof(AppResources).Assembly);
@@ -445,4 +454,7 @@ public static class AppResources
     public static string Licenses_LinkFailed => global::ArriLight.Localization.GetString(nameof(Licenses_LinkFailed));
     public static string Licenses_Version => global::ArriLight.Localization.GetString(nameof(Licenses_Version));
     public static string Licenses_Authors => global::ArriLight.Localization.GetString(nameof(Licenses_Authors));
+    public static string Device_RuntimeResponseChannel => global::ArriLight.Localization.GetString(nameof(Device_RuntimeResponseChannel));
+    public static string Device_RuntimeAuthenticating => global::ArriLight.Localization.GetString(nameof(Device_RuntimeAuthenticating));
+    public static string Device_RuntimeRetrying => global::ArriLight.Localization.GetString(nameof(Device_RuntimeRetrying));
 }

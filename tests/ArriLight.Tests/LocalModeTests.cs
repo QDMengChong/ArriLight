@@ -259,6 +259,8 @@ public sealed class LocalModeTests
             Assert.Equal(135, fixture.Repository.GetTurnOnDelaySeconds(fixture.Address));
 
             model.IsMasterPowerOn = false;
+            // The power button now toggles the device, independent of its display.
+            fixture.Ble.LightStatePacket[13] = 0;
             await model.MasterPowerCommand.ExecuteAsync(null);
             Assert.Equal([AgpOpcode.ModeSet, AgpOpcode.OnOffSet, AgpOpcode.DelayOffSet], fixture.Ble.Requests);
             Assert.Equal(Convert.FromHexString("87000000"), fixture.Ble.RequestMessages.Last().Payload.ToArray());
@@ -344,7 +346,7 @@ public sealed class LocalModeTests
     }
 
     [Fact]
-    public async Task LeavingWhileSettingCancelsWaitingAndDoesNotShowStaleSuccess()
+    public async Task LeavingWhileSettingPreservesSubmittedMutationAndDoesNotShowStaleSuccess()
     {
         await using var fixture = CreateFixture();
         var model = CreatePage(fixture);
@@ -361,10 +363,15 @@ public sealed class LocalModeTests
         Assert.True(model.IsLocalModeBusy);
         Assert.False(model.CanEditDelaySeconds);
         model.OnDisappearing();
+        var request = fixture.Ble.RequestMessages.Last(item => item.Opcode == AgpOpcode.ModeSet);
+        Assert.False(setting.IsCompleted);
+        fixture.Ble.IndicateControlResponse(AgpCodec.Encode(AgpMessageType.Response,
+            AgpOpcode.ModeSet, request.TransactionId, [0, .. request.Payload.ToArray()]));
         await setting.WaitAsync(TimeSpan.FromSeconds(3));
         Assert.False(model.IsLocalModeBusy);
         Assert.False(model.CanSetLocalMode);
         Assert.Empty(ToastService.Messages);
+        Assert.Equal(0, fixture.Ble.DisconnectAttempts);
     }
 
     [Fact]

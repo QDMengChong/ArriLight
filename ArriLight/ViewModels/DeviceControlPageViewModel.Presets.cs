@@ -123,6 +123,7 @@ public partial class DeviceControlPageViewModel
             return;
         }
 
+        _lightingEditVersion++;
         _isApplyingControlState = true;
         try
         {

@@ -29,6 +29,7 @@ public partial class DeviceControlPageViewModel
             $"refreshStatus={refreshStatus}; useCachedLightState={!refreshStatus}");
         IsInitializingConnection = true;
         var delaySecondsVersion = _delaySecondsEditVersion;
+        var lightingVersion = _lightingEditVersion;
         OnPropertyChanged(nameof(CanRefreshStatus));
         using var initializationCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         _connectionInitializationCancellation = initializationCancellation;
@@ -39,21 +40,56 @@ public partial class DeviceControlPageViewModel
             if (!scanAlreadyStopped)
                 await Task.Run(_discoveryService.StopAsync, initializationCancellation.Token);
             initializationCancellation.Token.ThrowIfCancellationRequested();
-            var profile = await Task.Run(() => _agpLight.GetControlProfileAsync(
-                DeviceAddress, initializationCancellation.Token,
-                useCachedLightState: !refreshStatus,
-                refreshLightState: refreshStatus), initializationCancellation.Token);
+            AgpDeviceControlProfile profile;
+            if (_agpLight.GetRuntimeSnapshot(DeviceAddress) is not null)
+            {
+                // A page owns its wait, while preparation and accepted commands
+                // remain owned by the application's device runtime.
+                await _agpLight.EnsureRuntimeReadyAsync(
+                    DeviceAddress, initializationCancellation.Token, refreshStatus);
+                initializationCancellation.Token.ThrowIfCancellationRequested();
+                profile = await _agpLight.GetControlProfileAsync(
+                    DeviceAddress, initializationCancellation.Token, useCachedLightState: true);
+            }
+            else
+            {
+                profile = await Task.Run(() => _agpLight.GetControlProfileAsync(
+                    DeviceAddress, initializationCancellation.Token,
+                    useCachedLightState: !refreshStatus,
+                    refreshLightState: refreshStatus), initializationCancellation.Token);
+            }
             timing.Mark("完整控制资料已取得");
             initializationCancellation.Token.ThrowIfCancellationRequested();
+            var applyLighting = _agpLight.GetRuntimeSnapshot(DeviceAddress) is not null
+                ? _appearanceLightingEditVersion == _lightingEditVersion : lightingVersion == _lightingEditVersion;
             if (profile.LightState is { } state)
-                ApplyLightState(state);
-            ApplyControlProfile(profile);
+                ApplyLightState(state, applyLighting);
+            ApplyControlProfile(profile, applyLighting);
             // A legacy record may have failed before its capabilities were
             // obtained. A later successful manual retry must still fill the UI.
             CapabilityViewsRetryRequested?.Invoke();
-            // MODE_GET runs after the profile, without delaying capability views
-            // or the main controls. It owns cancellation for this appearance.
-            _localModeLoadTask = LoadLocalModeAsync(initializationCancellation.Token, delaySecondsVersion);
+            if (_agpLight.GetCachedLocalMode(DeviceAddress) is { } localMode)
+            {
+                if (_lastAppliedRuntimeLocalMode != localMode)
+                    ApplyLocalModeConfiguration(localMode,
+                        _agpLight.GetRuntimeSnapshot(DeviceAddress) is not null
+                            ? _appearanceDelayEditVersion == _delaySecondsEditVersion : delaySecondsVersion == _delaySecondsEditVersion,
+                        updateMode: !_localModeInputEdited);
+                IsLocalModeSupported = true;
+                // Local cancellation controls only callbacks for this appearance.
+                // Completing unrelated initialization must not cancel a mode
+                // command already submitted on this visible page.
+                if (_localModeCancellation is null || _localModeCancellation.IsCancellationRequested)
+                {
+                    CancelLocalModeOperations();
+                    _localModeCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                }
+                _localModeLoadTask = Task.CompletedTask;
+            }
+            else
+            {
+                _localModeLoadTask = LoadLocalModeAsync(initializationCancellation.Token, delaySecondsVersion);
+            }
             timing.Mark("控制资料已应用到页面，控制初始化完成");
             timing.SetResult("ready");
             if (refreshStatus)
@@ -66,6 +102,10 @@ public partial class DeviceControlPageViewModel
         }
         catch (Exception exception)
         {
+            if (_isControlPageVisible && _agpLight.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
+            {
+                ApplyRuntimeSnapshot(runtime);
+            }
             ErrorMessage = exception.Message;
             timing.SetResult($"failed:{exception.GetType().Name}");
             _diagnostics.Error(
@@ -80,14 +120,8 @@ public partial class DeviceControlPageViewModel
                     AppResources.Common_Ok);
             }
 
-            try
-            {
-                await _connectionService.DisconnectAsync(DeviceAddress);
-            }
-            catch
-            {
-                // 原始 AGP 连接异常更有诊断价值，断开清理失败不覆盖它。
-            }
+            // A missing optional/required detail does not invalidate another
+            // page's authenticated session. Runtime owns session recovery.
         }
         finally
         {
@@ -97,11 +131,12 @@ public partial class DeviceControlPageViewModel
         }
     }
 
-    public void ApplyLightState(AgpLightState state)
+    public void ApplyLightState(AgpLightState state, bool applyBrightness = true)
     {
         _pendingLightState = state; IsMasterPowerOn = state.IsOn;
-        Brightness = Math.Clamp(state.IsOn && state.PresentBrightness > 0 ?
-            (int)state.PresentBrightness : state.LastNonzeroBrightness, 1, 100);
+        if (applyBrightness)
+            Brightness = Math.Clamp(state.IsOn && state.PresentBrightness > 0 ?
+                (int)state.PresentBrightness : state.LastNonzeroBrightness, 1, 100);
         RenderRequested?.Invoke();
     }
 
@@ -109,7 +144,9 @@ public partial class DeviceControlPageViewModel
         object? sender,
         BluetoothSessionSnapshot snapshot) =>
         _dispatcher.Post(() =>
-            ApplyConnectionSnapshot(snapshot));
+        {
+            if (_isControlPageVisible) ApplyConnectionSnapshot(snapshot);
+        });
 
     private void ApplyConnectionSnapshot(BluetoothSessionSnapshot snapshot)
     {
@@ -119,6 +156,12 @@ public partial class DeviceControlPageViewModel
                 DeviceAddress,
                 StringComparison.OrdinalIgnoreCase))
         {
+            return;
+        }
+
+        if (_agpLight.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
+        {
+            ApplyRuntimeSnapshot(runtime);
             return;
         }
 
@@ -147,6 +190,116 @@ public partial class DeviceControlPageViewModel
         UpdateEffectAvailability();
     }
 
+    private void OnControlRuntimeStateChanged(object? sender, DeviceRuntimeChange change)
+    {
+        if (!string.Equals(change.Address, DeviceAddress, StringComparison.OrdinalIgnoreCase)) return;
+        _dispatcher.Post(() =>
+        {
+            if (!_isControlPageVisible) return;
+            if (_agpLight.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
+                ApplyRuntimeSnapshot(runtime);
+        });
+    }
+
+    private void ApplyRuntimeSnapshot(DeviceRuntimeSnapshot snapshot)
+    {
+        var availabilityText = snapshot.Availability switch
+        {
+            DeviceRuntimeAvailability.Ready => AppResources.Device_Ready,
+            DeviceRuntimeAvailability.Online => AppResources.Device_Online,
+            _ => AppResources.Device_Offline
+        };
+        IsDeviceOnline = snapshot.Availability is DeviceRuntimeAvailability.Online or DeviceRuntimeAvailability.Ready;
+        HasPendingUserOperation = snapshot.HasPendingUserOperation;
+        var detail = GetRuntimeStatusDetail(snapshot);
+        ConnectionStatusText = string.IsNullOrWhiteSpace(detail)
+            ? availabilityText : $"{availabilityText} · {detail}";
+        ConnectionButtonText = IsDeviceOnline ? availabilityText : snapshot.IsBusy
+            ? AppResources.Ble_Connecting : AppResources.Common_Retry;
+        CanConnect = !IsDeviceOnline && !snapshot.IsBusy && !_agpLight.IsApplicationSuspended;
+        ConnectionStatusColor = PresentationColor.FromArgb(IsDeviceOnline ? "#35C987" : "#E65B65");
+        ApplyAvailableRuntimeData(snapshot);
+        UpdateEffectAvailability();
+    }
+
+    private void ApplyAvailableRuntimeData(DeviceRuntimeSnapshot snapshot)
+    {
+        if (!_isControlPageVisible) return;
+        if (!IsDeviceOnline)
+        {
+            IsLocalModeSupported = false;
+            return;
+        }
+        bool Succeeded(DeviceRuntimeStep step) => snapshot.Steps.GetValueOrDefault(step)?.Status == DeviceRuntimeStepStatus.Succeeded;
+        var status = _agpLight.GetCachedDeviceStatus(DeviceAddress);
+        var applyLighting = _lightingEditVersion == _appearanceLightingEditVersion;
+        if (status?.LightState is { } state && state != _pendingLightState)
+            ApplyLightState(state, applyLighting);
+        if (status?.Profile is { } profile)
+        {
+            var previous = _pendingControlProfile;
+            HasKnownCapabilities = true;
+            SupportedCapabilities = profile.Capabilities;
+            ControlPageKind = profile.PageKind;
+            if (Succeeded(DeviceRuntimeStep.CtlRange)) _ctlRange = profile.CtlRange;
+            // A partial profile may retain historical color values. Use only
+            // color data that has succeeded for this connection.
+            _pendingControlProfile = profile with
+            {
+                ColorState = Succeeded(DeviceRuntimeStep.ColorState) ? profile.ColorState : null,
+                CtlRange = _ctlRange
+            };
+            if (Succeeded(DeviceRuntimeStep.Effects) &&
+                (!_hasAppliedRuntimeEffect || _lastAppliedRuntimeEffectMode != profile.EffectMode ||
+                    _lastAppliedRuntimeEffectPeriod != profile.EffectPeriodMilliseconds))
+            {
+                ApplyEffectProfile(profile);
+                _hasAppliedRuntimeEffect = true;
+                _lastAppliedRuntimeEffectMode = profile.EffectMode;
+                _lastAppliedRuntimeEffectPeriod = profile.EffectPeriodMilliseconds;
+            }
+            if (_pendingControlProfile != previous)
+            {
+                ConfigureControlPage();
+                if (Succeeded(DeviceRuntimeStep.ColorState)) ApplyProfileValues(applyLighting, applyLighting);
+            }
+        }
+        if (Succeeded(DeviceRuntimeStep.LocalMode) && _agpLight.GetCachedLocalMode(DeviceAddress) is { } localMode)
+        {
+            if (_lastAppliedRuntimeLocalMode != localMode)
+            {
+                ApplyLocalModeConfiguration(localMode, _appearanceDelayEditVersion == _delaySecondsEditVersion,
+                    updateMode: !_localModeInputEdited);
+                _lastAppliedRuntimeLocalMode = localMode;
+            }
+            IsLocalModeSupported = true;
+            _localModeCancellation ??= new CancellationTokenSource();
+        }
+        else IsLocalModeSupported = false;
+        RenderRequested?.Invoke();
+    }
+
+    private static string GetRuntimeStatusDetail(DeviceRuntimeSnapshot snapshot)
+    {
+        var detail = snapshot.StageText ?? snapshot.Error ?? string.Empty;
+        if (snapshot.LastOperation?.Stage != DeviceRuntimeOperationStage.Unknown) return detail;
+        var unknown = AppResources.Control_StateUnavailable;
+        return string.IsNullOrWhiteSpace(detail) || detail == unknown ? unknown : $"{detail} · {unknown}";
+    }
+
+    private bool NotifyUnknownOutcomeIfNeeded(Guid? previousOperationId)
+    {
+        if (_agpLight.GetRuntimeSnapshot(DeviceAddress)?.LastOperation is not { Stage: DeviceRuntimeOperationStage.Unknown } operation)
+            return false;
+        if (operation.Id == previousOperationId) return false;
+        if (_isControlPageVisible && !_agpLight.IsApplicationSuspended && _lastUnknownToastOperation != operation.Id)
+        {
+            _lastUnknownToastOperation = operation.Id;
+            _interaction.ShowToast(AppResources.Control_StateUnavailable);
+        }
+        return true;
+    }
+
     private void ApplyCachedCapabilities(AgpCapabilities capabilities)
     {
         HasKnownCapabilities = true;
@@ -159,7 +312,7 @@ public partial class DeviceControlPageViewModel
             : AgpColorModel.Hsl;
     }
 
-    private void ApplyControlProfile(AgpDeviceControlProfile profile)
+    private void ApplyControlProfile(AgpDeviceControlProfile profile, bool applyLighting = true)
     {
         HasKnownCapabilities = true;
         _pendingControlProfile = profile;
@@ -169,7 +322,7 @@ public partial class DeviceControlPageViewModel
         _ctlRange = profile.CtlRange;
         ConfigureControlPage();
 
-        ApplyProfileValues();
+        ApplyProfileValues(applyLighting, applyLighting);
         RenderRequested?.Invoke();
     }
 
@@ -177,7 +330,7 @@ public partial class DeviceControlPageViewModel
     {
         if (_pendingControlProfile is not { } profile) return;
 
-        if (profile.ColorState is null)
+        if (applyColor && profile.ColorState is null)
         {
             _activeColorModel = ControlPageKind == AgpControlPageKind.Ctl
                 ? AgpColorModel.Ctl
@@ -190,9 +343,8 @@ public partial class DeviceControlPageViewModel
             switch (profile.ColorState)
             {
                 case AgpHslState hsl:
-                    _activeColorModel = hsl.ActiveModel == AgpColorModel.None
-                        ? AgpColorModel.Hsl
-                        : hsl.ActiveModel;
+                    if (applyColor) _activeColorModel = hsl.ActiveModel == AgpColorModel.None
+                        ? AgpColorModel.Hsl : hsl.ActiveModel;
                     if (applyBrightness)
                         Brightness =
                             AgpColorModelCodec.Lightness16ToBrightnessPercent(
@@ -206,9 +358,8 @@ public partial class DeviceControlPageViewModel
                     break;
 
                 case AgpCtlState ctl:
-                    _activeColorModel = ctl.ActiveModel == AgpColorModel.None
-                        ? AgpColorModel.Ctl
-                        : ctl.ActiveModel;
+                    if (applyColor) _activeColorModel = ctl.ActiveModel == AgpColorModel.None
+                        ? AgpColorModel.Ctl : ctl.ActiveModel;
                     if (applyBrightness)
                         Brightness =
                             AgpColorModelCodec.Lightness16ToBrightnessPercent(
@@ -234,15 +385,21 @@ public partial class DeviceControlPageViewModel
 
     private void OnControlDeviceStatusChanged(object? sender, DeviceStatusChange change)
     {
-        if (!string.Equals(change.Address, DeviceAddress, StringComparison.OrdinalIgnoreCase) ||
-            !change.Status.IsOnline || change.Status.LightState is not { } state)
+        if (!string.Equals(change.Address, DeviceAddress, StringComparison.OrdinalIgnoreCase))
             return;
 
         _dispatcher.Post(() =>
         {
-            ApplyLightState(state);
-            if (change.Status.Profile is { } profile)
-                ApplyEffectProfile(profile);
+            if (!_isControlPageVisible) return;
+            // Dispatcher callbacks use the newest cached values, so older queued
+            // notifications cannot overwrite a completed operation's result.
+            var status = _agpLight.GetCachedDeviceStatus(DeviceAddress);
+            if (_agpLight.GetRuntimeSnapshot(DeviceAddress) is { } runtime) ApplyRuntimeSnapshot(runtime);
+            else
+            {
+                if (status?.LightState is { } state) ApplyLightState(state);
+                if (status?.Profile is { } profile) ApplyEffectProfile(profile);
+            }
         });
     }
 }

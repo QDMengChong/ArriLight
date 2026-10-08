@@ -60,6 +60,7 @@ public partial class DeviceControlPageViewModel
             }
             timing.Mark("灯光设置防抖等待结束");
         }
+        cancellationToken.ThrowIfCancellationRequested();
 
         var brightnessPercent = (byte)Math.Clamp(
             Math.Round(Brightness),
@@ -77,7 +78,7 @@ public partial class DeviceControlPageViewModel
                     brightnessPercent,
                     Hue,
                     Saturation,
-                    cancellationToken);
+                    CancellationToken.None);
             }
             else if (ControlPageKind == AgpControlPageKind.Ctl ||
                      ControlPageKind == AgpControlPageKind.HslAndCtl)
@@ -86,14 +87,14 @@ public partial class DeviceControlPageViewModel
                     DeviceAddress,
                     brightnessPercent,
                     TemperatureRatioToKelvin(Temperature),
-                    cancellationToken: cancellationToken);
+                    cancellationToken: CancellationToken.None);
             }
             else
             {
                 await _agpLight.SetLightnessAsync(
                     DeviceAddress,
                     brightnessPercent,
-                    cancellationToken);
+                    CancellationToken.None);
             }
             timing.SetResult("success");
         }

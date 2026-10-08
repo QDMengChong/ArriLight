@@ -12,6 +12,8 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
     private readonly DeviceRepository _repository;
     private readonly AgpLightControlService _agpLight;
     private CancellationTokenSource? _scanCancellation;
+    private Task? _scanTask;
+    private bool _isVisible;
     private CancellationTokenSource? _bindingCancellation;
     private DateTimeOffset _bindingDeadline;
     private Task? _bindingCountdownTask;
@@ -43,27 +45,38 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
 
     public override Task OnAppearingAsync()
     {
+        _isVisible = true;
+        _discoveryService.DeviceFound -= OnDeviceFound;
         _discoveryService.DeviceFound += OnDeviceFound;
-        _ = StartScanAsync();
+        _ = ResumeScanAsync();
         return Task.CompletedTask;
+    }
+
+    private async Task ResumeScanAsync()
+    {
+        if (_scanTask is { IsCompleted: false } previous) await previous;
+        if (_isVisible) await StartScanAsync();
     }
 
     public override void OnDisappearing()
     {
+        _isVisible = false;
         _discoveryService.DeviceFound -= OnDeviceFound;
         _scanCancellation?.Cancel();
         CancelBinding();
-        // 扫描由 BluetoothDiscoveryService 按服务级窗口管理；离开添加页
-        // 只取消本页的等待，不停止可能仍被主页使用的后台扫描。
-
     }
 
     [RelayCommand]
     private async Task StartScanAsync()
     {
-        if (IsScanning)
+        if (IsScanning || !_isVisible)
             return;
+        _scanTask = RunScanAsync();
+        await _scanTask;
+    }
 
+    private async Task RunScanAsync()
+    {
         Devices.Clear();
         _firstRssiByAddress.Clear();
         EmptyText = AppResources.Scan_WaitingForAdvertisement;
@@ -116,6 +129,7 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
 
         _dispatcher.Post(() =>
         {
+            if (!_isVisible || !IsScanning) return;
             // 已发现过的设备：保持首次发现时的名称、信号强度和排序完全不变，
             // 防止信号反复跳动导致列表闪烁。
             if (Devices.Any(existing =>
@@ -163,11 +177,10 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
             return;
 
         _isAdding = true;
-        _scanCancellation?.Cancel();
-        await _discoveryService.StopAsync();
-
         try
         {
+            _scanCancellation?.Cancel();
+            await _discoveryService.StopAsync();
             await AddDeviceCoreAsync(suggestedName, address);
         }
         finally

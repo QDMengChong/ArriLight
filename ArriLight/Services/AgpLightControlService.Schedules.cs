@@ -18,6 +18,7 @@ public sealed partial class AgpLightControlService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(address);
         cancellationToken.ThrowIfCancellationRequested();
+        if (_runtimeStarted) return GetRuntimeSchedulesAsync(address, cancellationToken);
         if (_repository.GetCapabilities(address) is { } capabilities &&
             !capabilities.HasFlag(AgpCapabilities.Scheduler))
         {
@@ -26,12 +27,12 @@ public sealed partial class AgpLightControlService
 
         return WithClientAsync<IReadOnlyList<AgpSchedule>>(
             address,
-            async handle =>
+            async (handle, operationToken) =>
             {
                 if (!handle.Capabilities.HasFlag(AgpCapabilities.Scheduler))
                     return [];
 
-                var list = await handle.Client.GetScheduleListAsync(cancellationToken);
+                var list = await handle.Client.GetScheduleListAsync(operationToken);
                 EnsureSuccess(list.Result);
                 if (list.MaximumSlots is 0 or > AgpModelCodec.MaximumScheduleSlots)
                     throw new InvalidOperationException(AppResources.Schedule_InvalidSlotCount);
@@ -41,7 +42,7 @@ public sealed partial class AgpLightControlService
                 // configured schedules that are disabled remain visible.
                 for (byte slot = 0; slot < list.MaximumSlots; slot++)
                 {
-                    var response = await handle.Client.GetScheduleAsync(slot, cancellationToken);
+                    var response = await handle.Client.GetScheduleAsync(slot, operationToken);
                     EnsureSuccess(response.Result);
                     var schedule = response.Schedule ??
                         throw new InvalidOperationException(AppResources.Schedule_ContentMissing);
@@ -64,7 +65,7 @@ public sealed partial class AgpLightControlService
                     schedules.Add(schedule);
                 }
 
-                cancellationToken.ThrowIfCancellationRequested();
+                operationToken.ThrowIfCancellationRequested();
                 _scheduleSlotCounts[address] = list.MaximumSlots;
                 return schedules;
             },

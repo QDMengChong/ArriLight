@@ -28,6 +28,7 @@ public partial class MainPageViewModel : ViewModelBase
         _dispatcher = dispatcher;
         _navigator = navigator;
         _interaction = interaction;
+        _selectedSortIndex = (int)_repository.GetSortOrder();
         Devices.CollectionChanged += (_, _) => OnPropertyChanged(nameof(DeviceCountText));
         ReloadDevices();
     }
@@ -59,8 +60,23 @@ public partial class MainPageViewModel : ViewModelBase
     private CancellationTokenSource? _statusRefreshCancellation;
     private Task _statusCancellationCallbacks = Task.CompletedTask;
     private Task? _statusRefreshTask;
+    private Guid? _lastUnknownToastOperation;
 
     public ObservableCollection<LightDeviceItem> Devices { get; } = [];
+
+    public IReadOnlyList<string> SortOptions { get; } =
+        [AppResources.Home_SortLastOperation, AppResources.Home_SortAddedAt, AppResources.Home_SortName];
+
+    [ObservableProperty]
+    private int _selectedSortIndex;
+
+    partial void OnSelectedSortIndexChanged(int value)
+    {
+        if (value is < 0 or > 2)
+            return;
+        _repository.SetSortOrder((DeviceSortOrder)value);
+        ReloadDevices();
+    }
 
     public string DeviceCountText => Localization.Format(nameof(AppResources.Home_DeviceCount), Devices.Count);
 
@@ -72,6 +88,8 @@ public partial class MainPageViewModel : ViewModelBase
         _controlNavigationStarted = false;
         _agpLight.DeviceStatusChanged -= OnDeviceStatusChanged;
         _agpLight.DeviceStatusChanged += OnDeviceStatusChanged;
+        _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
+        _agpLight.RuntimeStateChanged += OnRuntimeStateChanged;
         ReloadDevices();
         _statusQuerySuppressed = false;
         lock (_statusQueueSync)
@@ -80,9 +98,6 @@ public partial class MainPageViewModel : ViewModelBase
             _statusQueryAttempted.Clear();
         }
 
-        _discoveryService.DeviceFound -= OnDeviceFound;
-        _discoveryService.DeviceFound += OnDeviceFound;
-        _ = StartHomeScanAsync();
         return Task.CompletedTask;
     }
 
@@ -91,41 +106,9 @@ public partial class MainPageViewModel : ViewModelBase
         _isVisible = false;
         _repository.DevicesChanged -= OnDevicesChanged;
         _agpLight.DeviceStatusChanged -= OnDeviceStatusChanged;
-        _discoveryService.DeviceFound -= OnDeviceFound;
+        _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
         _statusQuerySuppressed = true;
         RequestStopStatusRefresh();
-        // Control-page navigation owns scan teardown after the page transition.
-        // Other destinations still release the home scan here.
-        if (!_controlNavigationStarted)
-            _ = StopHomeScanAsync();
-
-    }
-
-    private async Task StartHomeScanAsync()
-    {
-        try
-        {
-            // 主页每次进入都将服务级扫描窗口重置为 60 秒。
-            await _discoveryService.StartOrResetBackgroundScanAsync(
-                TimeSpan.FromSeconds(60));
-        }
-        catch (Exception exception)
-        {
-            ErrorMessage = exception.Message;
-            _diagnostics.Warning(
-                "BLE/Scan",
-                $"主页启动后台扫描失败：{exception.Message}");
-        }
-    }
-
-    private async Task StopHomeScanAsync()
-    {
-        try { await _discoveryService.StopAsync(); }
-        catch (Exception exception)
-        {
-            ErrorMessage = exception.Message;
-            _diagnostics.Warning("BLE/Scan", $"主页停止扫描失败：{exception.Message}");
-        }
     }
 
     private void OnDeviceFound(
@@ -194,33 +177,67 @@ public partial class MainPageViewModel : ViewModelBase
     {
         // Read the latest snapshot: a queued offline update must not overwrite
         // a newer successful foreground reconnect.
-        if (_agpLight.GetCachedDeviceStatus(device.Address) is not { } status)
+        if (device.IsDemo)
             return;
-        device.IsOnline = status.IsOnline;
-        device.Status = status.IsOnline ? AppResources.Device_Online : AppResources.Device_Offline;
-        device.StatusColor = PresentationColor.FromArgb(status.IsOnline ? "#35C987" : "#E65B65");
-        // Session preparation publishes the pre-command state. Keep the user's
-        // pending power choice visible until the command completes or fails.
-        if (!device.IsPowerChanging && status.LightState is { } lightState)
+        var runtime = _agpLight.GetRuntimeSnapshot(device.Address);
+        var cachedStatus = _agpLight.GetCachedDeviceStatus(device.Address);
+        var availability = runtime?.Availability ?? (cachedStatus?.IsOnline == true
+            ? DeviceRuntimeAvailability.Online : DeviceRuntimeAvailability.Offline);
+        device.IsOnline = availability is DeviceRuntimeAvailability.Online or DeviceRuntimeAvailability.Ready;
+        device.Status = availability switch
+        {
+            DeviceRuntimeAvailability.Ready => AppResources.Device_Ready,
+            DeviceRuntimeAvailability.Online => AppResources.Device_Online,
+            _ => AppResources.Device_Offline
+        };
+        device.StatusDetail = runtime is null ? string.Empty : GetRuntimeStatusDetail(runtime);
+        device.HasPendingUserOperation = runtime?.HasPendingUserOperation == true;
+        device.StatusColor = PresentationColor.FromArgb(device.IsOnline ? "#35C987" : "#E65B65");
+        // Apply the latest confirmed state after the pending toggle finishes.
+        if (!device.IsPowerChanging &&
+            _agpLight.GetCachedDeviceStatus(device.Address)?.LightState is { } lightState)
             device.IsOn = lightState.IsOn;
     }
+
+    private void OnRuntimeStateChanged(object? sender, DeviceRuntimeChange change) =>
+        _dispatcher.Post(() =>
+        {
+            if (!_isVisible) return;
+            var device = Devices.FirstOrDefault(item => !item.IsDemo &&
+                string.Equals(item.Address, change.Address, StringComparison.OrdinalIgnoreCase));
+            if (device is not null) ApplyCachedDeviceStatus(device);
+        });
 
     private void ReloadDevices()
     {
         var savedDevices = _repository.GetAll();
-        Devices.Clear();
-
-        foreach (var savedDevice in savedDevices
-                     .OrderByDescending(device => device.IsPinned)
-                     .ThenBy(device => device.AddedAt))
+        var previousItems = Devices.ToDictionary(item => item.Address, StringComparer.OrdinalIgnoreCase);
+        var pinned = savedDevices.OrderByDescending(device => device.IsPinned);
+        var sorted = (DeviceSortOrder)SelectedSortIndex switch
         {
+            DeviceSortOrder.AddedAt => pinned.ThenByDescending(device => device.AddedAt),
+            DeviceSortOrder.Name => pinned.ThenBy(device => device.DisplayName, StringComparer.CurrentCultureIgnoreCase),
+            _ => pinned.ThenByDescending(device => device.LastOperatedAt ?? DateTimeOffset.MinValue)
+                .ThenByDescending(device => device.AddedAt)
+        };
+        var items = new List<LightDeviceItem>();
+
+        foreach (var savedDevice in sorted.ThenBy(device => device.Address, StringComparer.OrdinalIgnoreCase))
+        {
+            if (previousItems.TryGetValue(savedDevice.Address, out var existing) &&
+                existing.Name == savedDevice.DisplayName)
+            {
+                ApplyCachedDeviceStatus(existing);
+                items.Add(existing);
+                continue;
+            }
             var isOnlineDemo = savedDevice.IsDemo &&
                 savedDevice.Address.EndsWith("01", StringComparison.Ordinal);
             var cachedStatus = savedDevice.IsDemo ? null :
                 _agpLight.GetCachedDeviceStatus(savedDevice.Address);
             var isOnline = cachedStatus?.IsOnline ?? isOnlineDemo;
 
-            Devices.Add(new LightDeviceItem(
+            var item = new LightDeviceItem(
                 savedDevice.DisplayName,
                 savedDevice.Address,
                 isOnline ? AppResources.Device_Online : savedDevice.IsDemo || cachedStatus is not null
@@ -231,25 +248,36 @@ public partial class MainPageViewModel : ViewModelBase
                     : PresentationColor.FromArgb(cachedStatus is null ? "#A9B2C3" : "#E65B65"),
                 isOn: cachedStatus?.LightState?.IsOn ?? isOnlineDemo,
                 isDemo: savedDevice.IsDemo,
-                isOnline: isOnline));
+                isOnline: isOnline);
+            ApplyCachedDeviceStatus(item);
+            items.Add(item);
         }
 
+        // Reorder live rows without replacing their pending-operation guards.
+        for (var index = Devices.Count - 1; index >= 0; index--)
+            if (!items.Contains(Devices[index])) Devices.RemoveAt(index);
+        for (var index = 0; index < items.Count; index++)
+        {
+            var current = Devices.IndexOf(items[index]);
+            if (current < 0) Devices.Insert(index, items[index]);
+            else if (current != index) Devices.Move(current, index);
+        }
         OnPropertyChanged(nameof(DeviceCountText));
     }
 
     [RelayCommand(AllowConcurrentExecutions = true)]
     private async Task TogglePowerAsync(LightDeviceItem device)
     {
-        if (device.IsPowerChanging)
+        if (!device.IsEnabled)
             return;
 
         var previousIsOn = device.IsOn;
+        var previousOperationId = _agpLight.GetRuntimeSnapshot(device.Address)?.LastOperation?.Id;
         var desiredOn = !previousIsOn;
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Home.Power", device.Address,
-            $"desiredOn={desiredOn}; isDemo={device.IsDemo}; isChecking={device.IsChecking}");
-        // Guard before awaiting query cleanup: duplicate clicks and its final
-        // status update must not change the intent of this click.
+            $"operation=Toggle; displayedIsOn={previousIsOn}; isDemo={device.IsDemo}; isChecking={device.IsChecking}");
+        // Guard before awaiting cleanup so repeated clicks cannot send two toggles.
         device.IsPowerChanging = true;
         // 状态轮询不应抢占用户针对某台设备发起的授权控制操作。
         _statusQuerySuppressed = true;
@@ -258,17 +286,19 @@ public partial class MainPageViewModel : ViewModelBase
             if (!device.IsDemo)
                 _agpLight.BeginHomeControlOperation(device.Address);
             await StopStatusRefreshAsync();
-            timing.Mark($"后台状态查询已收尾; desiredOn={desiredOn}");
+            timing.Mark("后台状态查询已收尾");
 
-            device.IsOn = desiredOn;
             if (device.IsDemo)
             {
+                device.IsOn = desiredOn;
+                _repository.RecordOperation(device.Address);
                 timing.SetResult("demo");
                 return;
             }
 
-            timing.Mark($"提交开关操作; desiredOn={desiredOn}");
-            await _agpLight.SetOnOffAsync(device.Address, desiredOn);
+            timing.Mark("提交 Toggle 开关操作");
+            await _agpLight.ToggleOnOffAsync(device.Address);
+            NotifyUnknownOutcomeIfNeeded(device.Address, previousOperationId);
             timing.SetResult("success");
         }
         catch (Exception exception)
@@ -283,7 +313,8 @@ public partial class MainPageViewModel : ViewModelBase
                 "Light/Power",
                 $"列表页发送开关指令失败：{device.Address}。",
                 exception);
-            _interaction.ShowToast(AppResources.Control_SendFailed);
+            if (!NotifyUnknownOutcomeIfNeeded(device.Address, previousOperationId) && _isVisible && !_agpLight.IsApplicationSuspended)
+                _interaction.ShowToast(AppResources.Control_SendFailed);
         }
         finally
         {
@@ -291,6 +322,27 @@ public partial class MainPageViewModel : ViewModelBase
             ApplyCachedDeviceStatus(device);
             _statusQuerySuppressed = false;
         }
+    }
+
+    private static string GetRuntimeStatusDetail(DeviceRuntimeSnapshot snapshot)
+    {
+        var detail = snapshot.StageText ?? snapshot.Error ?? string.Empty;
+        if (snapshot.LastOperation?.Stage != DeviceRuntimeOperationStage.Unknown) return detail;
+        var unknown = AppResources.Control_StateUnavailable;
+        return string.IsNullOrWhiteSpace(detail) || detail == unknown ? unknown : $"{detail} · {unknown}";
+    }
+
+    private bool NotifyUnknownOutcomeIfNeeded(string address, Guid? previousOperationId)
+    {
+        if (_agpLight.GetRuntimeSnapshot(address)?.LastOperation is not { Stage: DeviceRuntimeOperationStage.Unknown } operation)
+            return false;
+        if (operation.Id == previousOperationId) return false;
+        if (_isVisible && !_agpLight.IsApplicationSuspended && _lastUnknownToastOperation != operation.Id)
+        {
+            _lastUnknownToastOperation = operation.Id;
+            _interaction.ShowToast(AppResources.Control_StateUnavailable);
+        }
+        return true;
     }
 
     [RelayCommand]

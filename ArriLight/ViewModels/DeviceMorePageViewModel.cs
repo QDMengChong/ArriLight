@@ -7,6 +7,10 @@ public partial class DeviceMorePageViewModel : ViewModelBase
 {
     private readonly DeviceRepository _repository;
     private readonly AgpLightControlService _agpLight;
+    private readonly IUiDispatcher? _dispatcher;
+    private bool _isVisible;
+    private CancellationTokenSource? _runtimeWait;
+    internal Task RuntimePreparationTask { get; private set; } = Task.CompletedTask;
     [ObservableProperty]
     private string _deviceId = string.Empty;
     [ObservableProperty]
@@ -34,8 +38,9 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     private readonly IAppNavigator _navigator;
     private readonly IUserInteraction _interaction;
     public DeviceMorePageViewModel(DeviceRepository repository, AgpLightControlService agpLight,
-        IAppNavigator navigator, IUserInteraction interaction)
-    { _repository = repository; _agpLight = agpLight; _navigator = navigator; _interaction = interaction; }
+        IAppNavigator navigator, IUserInteraction interaction, IUiDispatcher? dispatcher = null)
+    { _repository = repository; _agpLight = agpLight; _navigator = navigator; _interaction = interaction;
+        _dispatcher = dispatcher; }
 
     public override void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -45,8 +50,57 @@ public partial class DeviceMorePageViewModel : ViewModelBase
 
     public override Task OnAppearingAsync()
     {
+        _isVisible = true;
+        _repository.DevicesChanged -= OnDeviceRecordsChanged;
+        _repository.DevicesChanged += OnDeviceRecordsChanged;
+        _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
+        _agpLight.RuntimeStateChanged += OnRuntimeStateChanged;
         ReloadDevice();
+        if (_agpLight.GetRuntimeSnapshot(DeviceId) is not null)
+        {
+            CancelRuntimeWait();
+            _runtimeWait = new CancellationTokenSource();
+            RuntimePreparationTask = JoinRuntimePreparationAsync(_runtimeWait.Token);
+        }
         return Task.CompletedTask;
+    }
+
+    public override void OnDisappearing()
+    {
+        _isVisible = false;
+        CancelRuntimeWait();
+        _repository.DevicesChanged -= OnDeviceRecordsChanged;
+        _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
+    }
+
+    private async Task JoinRuntimePreparationAsync(CancellationToken token)
+    {
+        try { await _agpLight.EnsureRuntimeReadyAsync(DeviceId, token); }
+        catch (OperationCanceledException) { }
+        catch (Exception exception)
+        {
+            if (_isVisible && !token.IsCancellationRequested && !_agpLight.IsApplicationSuspended)
+                ErrorMessage = exception.Message;
+        }
+    }
+    private void CancelRuntimeWait()
+    {
+        var previous = _runtimeWait;
+        _runtimeWait = null;
+        if (previous is not null)
+            _ = previous.CancelAsync().ContinueWith(_ => previous.Dispose(), TaskScheduler.Default);
+    }
+
+    private void OnDeviceRecordsChanged(object? sender, EventArgs e) => DispatchReload();
+    private void OnRuntimeStateChanged(object? sender, DeviceRuntimeChange change)
+    {
+        if (string.Equals(change.Address, DeviceId, StringComparison.OrdinalIgnoreCase)) DispatchReload();
+    }
+    private void DispatchReload()
+    {
+        void Apply() { if (_isVisible) ReloadDevice(); }
+        if (_dispatcher is not null) _dispatcher.Post(Apply);
+        else Apply();
     }
 
     private void ReloadDevice()

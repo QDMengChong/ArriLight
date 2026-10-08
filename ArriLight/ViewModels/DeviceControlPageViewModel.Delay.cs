@@ -52,41 +52,40 @@ public partial class DeviceControlPageViewModel
     {
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Control.Power", DeviceAddress,
-            $"desiredOn={!IsMasterPowerOn}; initializing={IsInitializingConnection}; isOnline={IsDeviceOnline}; isDemo={IsDemo}");
-        if (!IsDeviceOnline)
+            $"operation=Toggle; displayedIsOn={IsMasterPowerOn}; initializing={IsInitializingConnection}; isOnline={IsDeviceOnline}; isDemo={IsDemo}");
+        if (!_isReady || !CanTogglePower)
         {
-            timing.SetResult("ignored-not-online");
+            timing.SetResult("ignored-busy-or-not-ready");
             return;
         }
         var desiredOn = !IsMasterPowerOn;
         var delaySeconds = 0;
-        if (desiredOn && !TryGetTurnOnDelaySeconds(out delaySeconds))
+        if (!TryGetTurnOnDelaySeconds(out delaySeconds))
             return;
         var commandVersion = ++_powerCommandVersion;
         var previousPower = IsMasterPowerOn;
         var previousMode = EffectMode;
-        IsMasterPowerOn = desiredOn;
-        UpdateMasterPowerVisual();
-
-        if (!_isReady)
-        {
-            timing.SetResult("ignored-ui-not-ready");
-            return;
-        }
-
+        var previousOperationId = _agpLight.GetRuntimeSnapshot(DeviceAddress)?.LastOperation?.Id;
         if (IsDemo || string.IsNullOrWhiteSpace(DeviceAddress))
         {
+            IsMasterPowerOn = desiredOn;
+            UpdateMasterPowerVisual();
+            if (IsDemo) _repository.RecordOperation(DeviceAddress);
             timing.SetResult("skipped");
             return;
         }
 
         try
         {
-            timing.Mark($"提交开关操作; desiredOn={IsMasterPowerOn}; initializing={IsInitializingConnection}");
-            await _agpLight.SetControlPageOnOffAsync(DeviceAddress, desiredOn, delaySeconds);
+            IsPowerChanging = true;
+            timing.Mark($"提交 Toggle 开关操作; initializing={IsInitializingConnection}");
+            await _agpLight.ToggleControlPagePowerAsync(DeviceAddress, delaySeconds);
+            NotifyUnknownOutcomeIfNeeded(previousOperationId);
             if (commandVersion == _powerCommandVersion &&
                 _agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState is { } state)
             {
+                IsMasterPowerOn = state.IsOn;
+                UpdateMasterPowerVisual();
                 EffectMode = state.Mode;
                 UpdateEffectVisual();
             }
@@ -104,8 +103,10 @@ public partial class DeviceControlPageViewModel
                 "Light/Power",
                 $"发送总开关指令失败：{DeviceName} = {IsMasterPowerOn}。",
                 exception);
-            _interaction.ShowToast(AppResources.Control_SendFailed);
+            if (!NotifyUnknownOutcomeIfNeeded(previousOperationId) && _isControlPageVisible && !_agpLight.IsApplicationSuspended)
+                _interaction.ShowToast(AppResources.Control_SendFailed);
         }
+        finally { IsPowerChanging = false; }
     }
 
     private void LoadTurnOnDelaySettings()
