@@ -190,9 +190,9 @@ public partial class MainPageViewModel : ViewModelBase
             DeviceRuntimeAvailability.Online => AppResources.Device_Online,
             _ => AppResources.Device_Offline
         };
-        device.StatusDetail = runtime is null ? string.Empty : GetRuntimeStatusDetail(runtime);
+        device.IsReady = availability == DeviceRuntimeAvailability.Ready;
+        device.IsRuntimeBusy = runtime?.IsBusy == true;
         device.HasPendingUserOperation = runtime?.HasPendingUserOperation == true;
-        device.StatusColor = PresentationColor.FromArgb(device.IsOnline ? "#35C987" : "#E65B65");
         // Apply the latest confirmed state after the pending toggle finishes.
         if (!device.IsPowerChanging &&
             _agpLight.GetCachedDeviceStatus(device.Address)?.LightState is { } lightState)
@@ -243,9 +243,6 @@ public partial class MainPageViewModel : ViewModelBase
                 isOnline ? AppResources.Device_Online : savedDevice.IsDemo || cachedStatus is not null
                     ? AppResources.Device_Offline
                     : AppResources.Device_SavedWaiting,
-                isOnline
-                    ? PresentationColor.FromArgb("#35C987")
-                    : PresentationColor.FromArgb(cachedStatus is null ? "#A9B2C3" : "#E65B65"),
                 isOn: cachedStatus?.LightState?.IsOn ?? isOnlineDemo,
                 isDemo: savedDevice.IsDemo,
                 isOnline: isOnline);
@@ -322,14 +319,6 @@ public partial class MainPageViewModel : ViewModelBase
             ApplyCachedDeviceStatus(device);
             _statusQuerySuppressed = false;
         }
-    }
-
-    private static string GetRuntimeStatusDetail(DeviceRuntimeSnapshot snapshot)
-    {
-        var detail = snapshot.StageText ?? snapshot.Error ?? string.Empty;
-        if (snapshot.LastOperation?.Stage != DeviceRuntimeOperationStage.Unknown) return detail;
-        var unknown = AppResources.Control_StateUnavailable;
-        return string.IsNullOrWhiteSpace(detail) || detail == unknown ? unknown : $"{detail} · {unknown}";
     }
 
     private bool NotifyUnknownOutcomeIfNeeded(string address, Guid? previousOperationId)

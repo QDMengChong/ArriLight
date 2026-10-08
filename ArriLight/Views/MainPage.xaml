@@ -6,6 +6,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
+    xmlns:controls="clr-namespace:ArriLight.Controls"
     xmlns:vm="clr-namespace:ArriLight.ViewModels"
     x:DataType="vm:MainPageViewModel"
     Shell.NavBarIsVisible="False"
@@ -198,9 +199,11 @@
                                         Text="{Binding Name}"
                                         TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                                     <HorizontalStackLayout Spacing="7">
-                                        <Ellipse
+                                        <controls:StatusIndicator
                                             HeightRequest="7"
                                             WidthRequest="7"
+                                            IsBlinking="{Binding IsStatusBlinking}"
+                                            IsAnimationEnabled="{Binding AreStatusAnimationsEnabled, Source={x:Reference HomePage}, x:DataType=local:MainPage}"
                                             Fill="{Binding StatusColor, Converter={StaticResource PresentationColorConverter}}" />
                                         <Label
                                             FontSize="13"
@@ -208,13 +211,6 @@
                                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                                             VerticalTextAlignment="Center" />
                                     </HorizontalStackLayout>
-                                    <Label
-                                        FontSize="11"
-                                        Text="{Binding StatusDetail}"
-                                        IsVisible="{Binding HasStatusDetail}"
-                                        LineBreakMode="TailTruncation"
-                                        MaxLines="1"
-                                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                                 </VerticalStackLayout>
                                 </Grid>
 

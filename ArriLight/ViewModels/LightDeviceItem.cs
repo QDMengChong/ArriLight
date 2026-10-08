@@ -9,26 +9,28 @@ public sealed partial class LightDeviceItem : ObservableObject
     private bool _isOn;
     [ObservableProperty] private string _status;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasStatusDetail))]
-    private string _statusDetail = string.Empty;
-    [ObservableProperty] private PresentationColor _statusColor;
-    [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(PowerOpacity))]
+    [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(PowerOpacity), nameof(StatusColor))]
     private bool _isOnline;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(PowerOpacity))]
+    [NotifyPropertyChangedFor(nameof(StatusColor))]
+    private bool _isReady;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsStatusBlinking), nameof(StatusColor))]
+    private bool _isRuntimeBusy;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(PowerOpacity), nameof(IsStatusBlinking), nameof(StatusColor))]
     private bool _isChecking;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(IsStatusBlinking), nameof(StatusColor))]
     private bool _isPowerChanging;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEnabled))]
+    [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(IsStatusBlinking), nameof(StatusColor))]
     private bool _hasPendingUserOperation;
-    public LightDeviceItem(string name, string address, string status, PresentationColor statusColor,
+    public LightDeviceItem(string name, string address, string status,
         bool isOn = false, bool isDemo = false, bool isOnline = false)
     {
         Name = name; Address = address; IsDemo = isDemo;
-        _status = status; _statusColor = statusColor; _isOnline = isOnline; _isOn = isOn;
+        _status = status; _isOnline = isOnline; _isOn = isOn;
     }
 
     public string Name { get; }
@@ -37,7 +39,13 @@ public sealed partial class LightDeviceItem : ObservableObject
 
     public bool IsDemo { get; }
 
-    public bool HasStatusDetail => !string.IsNullOrWhiteSpace(StatusDetail);
+    private static readonly PresentationColor OfflineColor = PresentationColor.FromArgb("#E65B65");
+    private static readonly PresentationColor OnlineColor = PresentationColor.FromArgb("#E9B949");
+    private static readonly PresentationColor ReadyColor = PresentationColor.FromArgb("#35C987");
+
+    public bool IsStatusBlinking => IsRuntimeBusy || IsChecking || IsPowerChanging || HasPendingUserOperation;
+    public PresentationColor StatusColor => !IsOnline ? OfflineColor
+        : IsReady && !IsStatusBlinking ? ReadyColor : OnlineColor;
 
     public bool IsEnabled => !IsPowerChanging && !HasPendingUserOperation;
     public double PowerOpacity => 1;

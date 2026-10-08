@@ -5,6 +5,7 @@ public partial class MainPage : ContentPage
     private readonly AppDiagnosticService _diagnostics;
     private CancellationTokenSource? _controlPagePreloadCancellation;
     public MainPageViewModel ViewModel { get; }
+    public bool AreStatusAnimationsEnabled { get; private set; }
     public ObservableCollection<LightDeviceItem> Devices => ViewModel.Devices;
     public MainPage() : this(ServiceHelper.GetRequiredService<MainPageViewModel>()) { }
     public MainPage(MainPageViewModel viewModel)
@@ -21,12 +22,16 @@ public partial class MainPage : ContentPage
     {
         base.OnAppearing();
         _ = ViewModel.OnAppearingAsync();
+        AreStatusAnimationsEnabled = true;
+        OnPropertyChanged(nameof(AreStatusAnimationsEnabled));
         CancelControlPagePreload();
         _controlPagePreloadCancellation = new CancellationTokenSource();
         _ = PreloadControlPageAsync(_controlPagePreloadCancellation.Token);
     }
     protected override void OnDisappearing()
     {
+        AreStatusAnimationsEnabled = false;
+        OnPropertyChanged(nameof(AreStatusAnimationsEnabled));
         CancelControlPagePreload();
         ViewModel.OnDisappearing();
         base.OnDisappearing();
