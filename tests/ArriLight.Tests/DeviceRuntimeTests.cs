@@ -381,7 +381,7 @@ public sealed class DeviceRuntimeTests
         fixture.Ble.BeforeReadAsync = id => id == AgpProfile.LightStateCharacteristicId
             ? gate.WaitAsync() : Task.CompletedTask;
         var home = new MainPageViewModel(fixture.Repository, fixture.Discovery, fixture.Service, fixture.Connection,
-            new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction());
+            new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction(), new StubMeshDeviceControlService());
         await home.OnAppearingAsync();
         var row = Assert.Single(home.Devices, device => device.Address == fixture.Address);
         Assert.Equal(AppResources.Device_Offline, row.Status);
@@ -419,7 +419,7 @@ public sealed class DeviceRuntimeTests
         Assert.Equal(4, settings.SelectedConcurrencyIndex);
         settings.SelectedConcurrencyIndex = 0;
         Assert.Equal(1, fixture.Service.RuntimeConcurrency);
-        await using var restarted = new AgpLightControlService(fixture.Connection, new AppDiagnosticService(), fixture.Repository);
+        await using var restarted = new AgpLightControlService(fixture.Connection, new AppDiagnosticService(), fixture.Repository, new DeviceWorkScheduler());
         Assert.Equal(1, restarted.RuntimeConcurrency);
         settings.SelectedConcurrencyIndex = 4;
         Assert.Equal(5, fixture.Service.RuntimeConcurrency);

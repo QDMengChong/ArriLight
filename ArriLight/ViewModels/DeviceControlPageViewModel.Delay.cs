@@ -75,6 +75,13 @@ public partial class DeviceControlPageViewModel
             return;
         }
 
+        // Mesh 没有 Toggle 语义，且没有延时开关/Delay 能力：直接走绝对 Set。
+        if (IsMeshDevice)
+        {
+            await SetMeshMasterPowerAsync(desiredOn, previousPower, commandVersion, timing);
+            return;
+        }
+
         try
         {
             IsPowerChanging = true;
@@ -104,6 +111,47 @@ public partial class DeviceControlPageViewModel
                 $"发送总开关指令失败：{DeviceName} = {IsMasterPowerOn}。",
                 exception);
             if (!NotifyUnknownOutcomeIfNeeded(previousOperationId) && _isControlPageVisible && !_agpLight.IsApplicationSuspended)
+                _interaction.ShowToast(AppResources.Control_SendFailed);
+        }
+        finally { IsPowerChanging = false; }
+    }
+
+    /// <summary>
+    /// Mesh 设备的总开关：Mesh 只有绝对 Set，且不支持 AGP 的延时开关。
+    /// 失败时回滚到按下之前的值。
+    /// </summary>
+    private async Task SetMeshMasterPowerAsync(
+        bool desiredOn,
+        bool previousPower,
+        int commandVersion,
+        BleTimingScope timing)
+    {
+        try
+        {
+            IsPowerChanging = true;
+            var result = await _meshControl.SetOnOffAsync(DeviceAddress, desiredOn);
+            if (commandVersion == _powerCommandVersion)
+            {
+                IsMasterPowerOn = result;
+                UpdateMasterPowerVisual();
+            }
+            _repository.RecordOperation(DeviceAddress);
+            timing.SetResult("success");
+        }
+        catch (Exception exception)
+        {
+            ErrorMessage = exception.Message;
+            if (commandVersion == _powerCommandVersion)
+            {
+                IsMasterPowerOn = previousPower;
+                UpdateMasterPowerVisual();
+            }
+            timing.SetResult($"failed:{exception.GetType().Name}");
+            _diagnostics.Error(
+                "Light/Power",
+                $"Mesh 总开关指令失败：{DeviceAddress}。",
+                exception);
+            if (_isControlPageVisible && !_agpLight.IsApplicationSuspended)
                 _interaction.ShowToast(AppResources.Control_SendFailed);
         }
         finally { IsPowerChanging = false; }

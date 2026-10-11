@@ -252,7 +252,7 @@ internal sealed class PairingFixture : IAsyncDisposable
         var diagnostics = new AppDiagnosticService();
         Discovery = new BluetoothDiscoveryService(Ble.Device);
         Connection = new BluetoothConnectionService(Ble.Adapter, Discovery, diagnostics, timeProvider);
-        Service = new AgpLightControlService(Connection, diagnostics, Repository);
+        Service = new AgpLightControlService(Connection, diagnostics, Repository, new DeviceWorkScheduler());
     }
 
     public Task ReportProgress(AgpBindingStage stage, CancellationToken token)

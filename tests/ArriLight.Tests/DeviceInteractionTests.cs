@@ -138,7 +138,7 @@ public sealed class DeviceInteractionTests
         fixture.Ble.OnLightStateRead = () => throw new IOException("no initial state");
         var model = new DeviceControlPageViewModel(fixture.Repository, fixture.Discovery,
             fixture.Connection, fixture.Service, new AppDiagnosticService(), new TestUiDispatcher(),
-            new TestAppNavigator(), new TestUserInteraction());
+            new TestAppNavigator(), new TestUserInteraction(), new StubMeshDeviceControlService());
         model.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = fixture.Address, ["name"] = "PW01" });
         await model.OnAppearingAsync();
         try
@@ -175,5 +175,5 @@ public sealed class DeviceInteractionTests
 
     private static MainPageViewModel Home(PairingFixture fixture) => new(
         fixture.Repository, fixture.Discovery, fixture.Service, fixture.Connection, new AppDiagnosticService(),
-        new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction());
+        new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction(), new StubMeshDeviceControlService());
 }

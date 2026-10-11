@@ -343,11 +343,14 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     public AgpLightControlService(
         BluetoothConnectionService connectionService,
         AppDiagnosticService diagnostics,
-        DeviceRepository repository)
+        DeviceRepository repository,
+        DeviceWorkScheduler runtimeWork)
     {
         _connectionService = connectionService;
         _diagnostics = diagnostics;
         _repository = repository;
+        // AGP Runtime 与 Mesh 控制共享同一份设备预算，避免两条链路叠加超出 BLE 能力。
+        _runtimeWork = runtimeWork;
         _connectionService.StateChanged += OnRuntimeConnectionChanged;
         _repository.DevicesChanged += OnRuntimeDevicesChanged;
     }

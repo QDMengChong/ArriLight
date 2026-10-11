@@ -100,3 +100,12 @@ public sealed class MemoryPreferences
     public void Set(string key, string value) => _values[key] = value;
     public void Clear() => _values.Clear();
 }
+
+/// <summary>
+/// AGP 测试用的空 Mesh 控制服务：这些用例从不触达 Mesh 链路，
+/// 只是需要 DI 构造签名上的占位。
+/// </summary>
+public sealed class StubMeshDeviceControlService : MeshDeviceControlService
+{
+    public StubMeshDeviceControlService() : base(null!, null!, new AppDiagnosticService()) { }
+}

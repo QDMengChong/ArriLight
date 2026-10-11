@@ -423,7 +423,7 @@ public sealed class LocalModeTests
     {
         ToastService.Messages.Clear();
         var page = new DeviceControlPageViewModel(fixture.Repository, fixture.Discovery, fixture.Connection,
-            fixture.Service, new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction());
+            fixture.Service, new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction(), new StubMeshDeviceControlService());
         page.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = fixture.Address });
         page.OnAppearingAsync().GetAwaiter().GetResult();
         return page;

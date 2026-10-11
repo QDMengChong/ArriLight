@@ -1,7 +1,13 @@
 namespace ArriLight;
 
 /// <summary>Runs one operation per address and enforces an application-wide device budget.</summary>
-internal sealed class DeviceWorkScheduler
+/// <remarks>
+/// 协议无关（只以 <c>string address</c> 分组），是 AGP Runtime 与 Mesh 控制的
+/// **共享**串行器：以 DI 单例注册，使两条链路竞争同一份 BLE 适配器预算。
+/// PW01-MESH 每次命令都要真实建立 GATT 连接，若不与 AGP 共用上限，两条链路
+/// 叠加会超出 Android BLE 的连接能力。
+/// </remarks>
+public sealed class DeviceWorkScheduler
 {
     private readonly object _sync = new();
     private readonly List<Work> _pending = [];
@@ -10,17 +16,17 @@ internal sealed class DeviceWorkScheduler
     private long _sequence;
     private int _limit = 5;
     private int _batches;
-    internal int Limit
+    public int Limit
     {
         get { lock (_sync) return _limit; }
         set { lock (_sync) { _limit = value; Pump(); } }
     }
-    internal IDisposable BeginBatch()
+    public IDisposable BeginBatch()
     {
         lock (_sync) _batches++;
         return new Batch(this);
     }
-    internal Task<T> Enqueue<T>(string address, int priority,
+    public Task<T> Enqueue<T>(string address, int priority,
         Func<CancellationToken, Task<T>> execute, CancellationToken token)
     {
         var completion = new TaskCompletionSource<T>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -48,8 +54,8 @@ internal sealed class DeviceWorkScheduler
         }
         return completion.Task;
     }
-    internal Task DrainAsync() { lock (_sync) { Pump(); return _idle.Task; } }
-    internal void SetAttention(string address, bool active)
+    public Task DrainAsync() { lock (_sync) { Pump(); return _idle.Task; } }
+    public void SetAttention(string address, bool active)
     {
         lock (_sync)
         {

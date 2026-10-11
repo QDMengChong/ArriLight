@@ -13,6 +13,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly BluetoothConnectionService _connectionService;
     private readonly AgpLightControlService _agpLight;
+    private readonly MeshDeviceControlService _meshControl;
     private readonly AppDiagnosticService _diagnostics;
     private AgpLightState? _pendingLightState;
     private int _pendingTimerSeconds = 60;
@@ -127,11 +128,13 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     public DeviceControlPageViewModel(DeviceRepository repository, BluetoothDiscoveryService discoveryService,
         BluetoothConnectionService connectionService, AgpLightControlService agpLight,
-        AppDiagnosticService diagnostics, IUiDispatcher dispatcher, IAppNavigator navigator, IUserInteraction interaction)
+        AppDiagnosticService diagnostics, IUiDispatcher dispatcher, IAppNavigator navigator,
+        IUserInteraction interaction, MeshDeviceControlService meshControl)
     {
         _repository = repository; _discoveryService = discoveryService; _connectionService = connectionService;
         _agpLight = agpLight; _diagnostics = diagnostics; _dispatcher = dispatcher;
         _navigator = navigator; _interaction = interaction; _isReady = true;
+        _meshControl = meshControl;
     }
 
     public void ConfigureInitialKind(AgpControlPageKind kind)

@@ -103,7 +103,7 @@ public sealed class Slider
 
 internal sealed class TestControlViewModel(DeviceRepository repository, DeviceControlPage page) :
     DeviceControlPageViewModel(repository, null!, null!, null!, new AppDiagnosticService(),
-        new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction())
+        new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction(), new StubMeshDeviceControlService())
 {
     public override Task SetEffectAsync(AgpLightMode mode, ushort period) => page.SetEffectAsync(mode, period);
 }

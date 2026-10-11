@@ -180,7 +180,7 @@ public sealed class ViewModelTests
     private static DeviceControlPageViewModel ControlModel(PairingFixture fixture)
     {
         var model = new DeviceControlPageViewModel(fixture.Repository, fixture.Discovery, fixture.Connection,
-            fixture.Service, new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new RecordingInteraction());
+            fixture.Service, new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new RecordingInteraction(), new StubMeshDeviceControlService());
         model.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = fixture.Address });
         return model;
     }

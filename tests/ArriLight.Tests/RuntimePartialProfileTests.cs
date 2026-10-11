@@ -92,7 +92,7 @@ public sealed class RuntimePartialProfileTests
     private static DeviceControlPageViewModel CreatePage(PairingFixture fixture)
     {
         var model = new DeviceControlPageViewModel(fixture.Repository, fixture.Discovery, fixture.Connection,
-            fixture.Service, new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction());
+            fixture.Service, new AppDiagnosticService(), new TestUiDispatcher(), new TestAppNavigator(), new TestUserInteraction(), new StubMeshDeviceControlService());
         model.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = fixture.Address });
         model.OnAppearingAsync().GetAwaiter().GetResult();
         return model;

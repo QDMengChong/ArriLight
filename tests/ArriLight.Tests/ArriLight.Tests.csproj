@@ -44,6 +44,8 @@
     <Compile Include="..\..\ArriLight\Services\BluetoothAddressParser.cs" Link="Services\BluetoothAddressParser.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceProtocols.cs" Link="Services\DeviceProtocols.cs" />
     <Compile Include="..\..\ArriLight\Services\MeshNetworkManager.cs" Link="Services\MeshNetworkManager.cs" />
+    <Compile Include="..\..\ArriLight\Services\MeshDeviceControlService.cs" Link="Services\MeshDeviceControlService.cs" />
+    <Compile Include="..\..\ArriLight\Services\MeshGattTransport.cs" Link="Services\MeshGattTransport.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceRepository.cs" Link="Services\DeviceRepository.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceShareCode.cs" Link="Services\DeviceShareCode.cs" />
     <Compile Include="..\..\ArriLight\Services\EffectParameters.cs" Link="Services\EffectParameters.cs" />

@@ -69,7 +69,17 @@ public partial class DeviceControlPageViewModel
         timing.Mark($"提交灯光设置; brightnessPercent={brightnessPercent}");
         try
         {
-            if (ControlPageKind == AgpControlPageKind.Hsl ||
+            if (IsMeshDevice)
+            {
+                // Mesh 侧经由 Light HSL Set 只改写 Lightness 分量。
+                // Light Lightness Server 虽然被 HSL Server 内部注册，但固件
+                // 没有给它绑定 AppKey，直接下发会被静默丢弃。
+                await _meshControl.SetLightnessAsync(
+                    DeviceAddress,
+                    brightnessPercent,
+                    cancellationToken);
+            }
+            else if (ControlPageKind == AgpControlPageKind.Hsl ||
                 (ControlPageKind == AgpControlPageKind.HslAndCtl &&
                  _activeColorModel != AgpColorModel.Ctl))
             {

@@ -15,6 +15,72 @@ public partial class DeviceControlPageViewModel
         await EnsureConnectedAsync(showError: false, cancellationToken: cancellationToken, scanAlreadyStopped: true);
     }
 
+    /// <summary>
+    /// 该设备是否为 SIG Mesh：由持久化协议字段判定，避免靠连接结果猜。
+    /// </summary>
+    private bool IsMeshDevice =>
+        _repository.GetByAddress(DeviceAddress)?.EffectiveProtocol ==
+        BluetoothDeviceProtocol.Mesh;
+
+    /// <summary>
+    /// Mesh 设备的控制页初始化：用一次短连接把开关与亮度读回来，之后所有命令
+    /// 都走 <see cref="MeshDeviceControlService"/> 的按需短连接，不维持常连。
+    /// </summary>
+    private async Task InitializeMeshControlSessionAsync(
+        BleTimingScope timing,
+        bool refreshStatus,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var initializationCancellation =
+                CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            _connectionInitializationCancellation = initializationCancellation;
+
+            var isOn = await _meshControl.GetOnOffStateAsync(
+                DeviceAddress,
+                initializationCancellation.Token);
+            timing.Mark($"Mesh 开关状态已取得: {(isOn is { } on ? (on ? "On" : "Off") : "未知")}");
+
+            var lightness = await _meshControl.GetLightnessPercentAsync(
+                DeviceAddress,
+                initializationCancellation.Token);
+            if (lightness is { } percent)
+                Brightness = Math.Clamp((double)percent, 1, 100);
+
+            IsMasterPowerOn = isOn ?? false;
+            UpdateMasterPowerVisual();
+
+            // Mesh 页面只支持开关与亮度：颜色/效果/定时/场景都不可用。
+            SupportedCapabilities = AgpCapabilities.Lightness;
+            IsLocalModeSupported = false;
+            IsDeviceOnline = isOn is not null;
+            _connectionInitializationCancellation = null;
+            timing.SetResult("mesh-ready");
+            if (refreshStatus)
+                _interaction.ShowToast(AppResources.Device_StatusRefreshed);
+        }
+        catch (OperationCanceledException)
+        {
+            timing.SetResult("canceled");
+        }
+        catch (Exception exception)
+        {
+            ErrorMessage = exception.Message;
+            IsDeviceOnline = false;
+            timing.SetResult($"failed:{exception.GetType().Name}");
+            _diagnostics.Error(
+                "BLE/Connection",
+                $"Mesh 控制页初始化失败：{DeviceAddress}。",
+                exception);
+        }
+        finally
+        {
+            IsInitializingConnection = false;
+            OnPropertyChanged(nameof(CanRefreshStatus));
+        }
+    }
+
     [RelayCommand]
     private Task ConnectAsync() => EnsureConnectedAsync(showError: true);
     [RelayCommand]
@@ -26,8 +92,16 @@ public partial class DeviceControlPageViewModel
     {
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Control.Initialize", DeviceAddress,
-            $"refreshStatus={refreshStatus}; useCachedLightState={!refreshStatus}");
+            $"refreshStatus={refreshStatus}; useCachedLightState={!refreshStatus}; isMesh={IsMeshDevice}");
         IsInitializingConnection = true;
+        // Mesh 设备不能用 AGP 的 GetControlProfileAsync 初始化：那会真实连上设备、
+        // 在找不到 AGP 服务时失败，并且失败路径不断开连接。固件每盏灯只允许一个
+        // BLE 连接，泄漏后真正的 Mesh 控制再也连不上。走自己的短连接查询路径。
+        if (IsMeshDevice)
+        {
+            await InitializeMeshControlSessionAsync(timing, refreshStatus, cancellationToken);
+            return;
+        }
         var delaySecondsVersion = _delaySecondsEditVersion;
         var lightingVersion = _lightingEditVersion;
         OnPropertyChanged(nameof(CanRefreshStatus));

@@ -18,13 +18,14 @@ public partial class MainPageViewModel : ViewModelBase
     public MainPageViewModel(DeviceRepository repository, BluetoothDiscoveryService discoveryService,
         AgpLightControlService agpLight, BluetoothConnectionService connectionService,
         AppDiagnosticService diagnostics, IUiDispatcher dispatcher, IAppNavigator navigator,
-        IUserInteraction interaction)
+        IUserInteraction interaction, MeshDeviceControlService meshControl)
     {
         _repository = repository;
         _discoveryService = discoveryService;
         _agpLight = agpLight;
         _connectionService = connectionService;
         _diagnostics = diagnostics;
+        _meshControl = meshControl;
         _dispatcher = dispatcher;
         _navigator = navigator;
         _interaction = interaction;
@@ -46,6 +47,7 @@ public partial class MainPageViewModel : ViewModelBase
     private readonly DeviceRepository _repository;
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly AgpLightControlService _agpLight;
+    private readonly MeshDeviceControlService _meshControl;
     private readonly BluetoothConnectionService _connectionService;
     private readonly AppDiagnosticService _diagnostics;
     private readonly object _statusQueueSync = new();
@@ -270,18 +272,12 @@ public partial class MainPageViewModel : ViewModelBase
         if (!device.IsEnabled)
             return;
 
-        if (device.IsMesh)
-        {
-            _interaction.ShowToast(AppResources.Mesh_ControlNotAvailable);
-            return;
-        }
-
         var previousIsOn = device.IsOn;
         var previousOperationId = _agpLight.GetRuntimeSnapshot(device.Address)?.LastOperation?.Id;
         var desiredOn = !previousIsOn;
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Home.Power", device.Address,
-            $"operation=Toggle; displayedIsOn={previousIsOn}; isDemo={device.IsDemo}; isChecking={device.IsChecking}");
+            $"operation={(device.IsMesh ? "MeshSet" : "Toggle")}; displayedIsOn={previousIsOn}; isDemo={device.IsDemo}; isChecking={device.IsChecking}");
         // Guard before awaiting cleanup so repeated clicks cannot send two toggles.
         device.IsPowerChanging = true;
         // 状态轮询不应抢占用户针对某台设备发起的授权控制操作。
@@ -301,9 +297,19 @@ public partial class MainPageViewModel : ViewModelBase
                 return;
             }
 
-            timing.Mark("提交 Toggle 开关操作");
-            await _agpLight.ToggleOnOffAsync(device.Address);
-            NotifyUnknownOutcomeIfNeeded(device.Address, previousOperationId);
+            timing.Mark("提交开关操作");
+            if (device.IsMesh)
+            {
+                // Mesh 的 Generic OnOff Set 只有绝对目标值，没有 Toggle 语义：
+                // 先查询设备状态取其反转，查询不到时默认发送开。
+                device.IsOn = await _meshControl.ToggleOrTurnOnAsync(device.Address);
+            }
+            else
+            {
+                await _agpLight.ToggleOnOffAsync(device.Address);
+                NotifyUnknownOutcomeIfNeeded(device.Address, previousOperationId);
+            }
+            _repository.RecordOperation(device.Address);
             timing.SetResult("success");
         }
         catch (Exception exception)
@@ -312,13 +318,17 @@ public partial class MainPageViewModel : ViewModelBase
             timing.SetResult($"failed:{exception.GetType().Name}");
             // Restore the latest reported state directly, avoiding a temporary
             // rollback to an older display value when preparation read new state.
-            device.IsOn = _agpLight.GetCachedDeviceStatus(device.Address)?.LightState?.IsOn
-                ?? previousIsOn;
+            device.IsOn = device.IsMesh
+                ? previousIsOn
+                : _agpLight.GetCachedDeviceStatus(device.Address)?.LightState?.IsOn
+                  ?? previousIsOn;
             _diagnostics.Error(
                 "Light/Power",
                 $"列表页发送开关指令失败：{device.Address}。",
                 exception);
-            if (!NotifyUnknownOutcomeIfNeeded(device.Address, previousOperationId) && _isVisible && !_agpLight.IsApplicationSuspended)
+            var meshFailed = device.IsMesh ||
+                !NotifyUnknownOutcomeIfNeeded(device.Address, previousOperationId);
+            if (meshFailed && _isVisible && !_agpLight.IsApplicationSuspended)
                 _interaction.ShowToast(AppResources.Control_SendFailed);
         }
         finally
@@ -347,12 +357,6 @@ public partial class MainPageViewModel : ViewModelBase
     {
         if (!_isVisible || _controlNavigationInFlight || _controlNavigationStarted)
             return;
-
-        if (device.IsMesh)
-        {
-            _interaction.ShowToast(AppResources.Mesh_ControlNotAvailable);
-            return;
-        }
         // Hold the guard before any await. It stays closed while the home page
         // is hidden and is reset only when the user returns to the home page.
         _controlNavigationInFlight = true;

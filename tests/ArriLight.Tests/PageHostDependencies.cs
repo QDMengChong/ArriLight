@@ -94,6 +94,8 @@ public static class ServiceHelper
         if (typeof(T) == typeof(IAppNavigator)) return (T)(object)new TestAppNavigator();
         if (typeof(T) == typeof(IUserInteraction)) return (T)(object)new TestUserInteraction();
         if (typeof(T) == typeof(IApplicationPresentation)) return (T)(object)new TestApplicationPresentation();
+        // 这些用例走的是 AGP 链路；Mesh 服务只作为 DI 签名上的占位。
+        if (typeof(T) == typeof(MeshDeviceControlService)) return (T)(object)new StubMeshDeviceControlService();
         if (typeof(T) == typeof(IFirmwareFilePicker)) return (T)(object)new TestFirmwareFilePicker();
         if (typeof(T).Namespace == "ArriLight.ViewModels")
         {

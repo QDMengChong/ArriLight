@@ -7,7 +7,7 @@ namespace ArriLight;
 
 public sealed partial class AgpLightControlService
 {
-    private readonly DeviceWorkScheduler _runtimeWork = new();
+    private readonly DeviceWorkScheduler _runtimeWork;
     private readonly ConcurrentDictionary<string, DeviceRuntimeEntry> _runtimeEntries = new(StringComparer.OrdinalIgnoreCase);
     private volatile bool _runtimeStarted;
     private volatile bool _runtimeStopped;
@@ -111,7 +111,11 @@ public sealed partial class AgpLightControlService
         _runtimeWork.Limit = RuntimeConcurrency;
         using (_runtimeWork.BeginBatch())
         {
-            foreach (var device in _repository.GetAll().Where(device => !device.IsDemo)
+            // Mesh 设备走独立的短连接链路（MeshDeviceControlService），
+            // 不能被 AGP Runtime 收编：每次冷启动都会白白连接一次并撞上
+            // "找不到 AGP 服务"，而 PW01-MESH 只允许一个 BLE 连接。
+            foreach (var device in _repository.GetAll()
+                .Where(device => !device.IsDemo && device.EffectiveProtocol != BluetoothDeviceProtocol.Mesh)
                 .OrderByDescending(device => device.IsPinned)
                 .ThenByDescending(device => device.LastOperatedAt)
                 .ThenByDescending(device => device.AddedAt).ThenBy(device => device.Address, StringComparer.OrdinalIgnoreCase))
@@ -123,12 +127,21 @@ public sealed partial class AgpLightControlService
     public void RequestRuntimePreparation(string address)
     {
         if (!_runtimeStarted || _runtimeStopped || _applicationSuspended || !_repository.Contains(address) || _runtimeBindingAddresses.ContainsKey(address)) return;
+        if (IsMeshAddress(address)) return;
         var entry = _runtimeEntries.GetOrAdd(address, key => new(key));
         lock (entry.Sync)
         {
             if (entry.Exclusive || _runtimeStopped) return;
             _ = EnsureRuntimePreparation(entry, refresh: false);
         }
+    }
+
+    /// <summary>Mesh 设备的控制经由 MeshDeviceControlService 的短连接，不入 AGP Runtime。</summary>
+    private bool IsMeshAddress(string address)
+    {
+        var saved = _repository.GetAll().FirstOrDefault(device =>
+            string.Equals(device.Address, address, StringComparison.OrdinalIgnoreCase));
+        return saved?.EffectiveProtocol == BluetoothDeviceProtocol.Mesh;
     }
 
     public async Task EnsureRuntimeReadyAsync(string address, CancellationToken waitToken = default, bool refresh = false)
