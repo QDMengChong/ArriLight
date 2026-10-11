@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage
+    x:Class="ArriLight.MeshProvisioningPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
+    Title="{x:Static strings:AppResources.Mesh_ProvisioningTitle}"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+
+    <Grid Padding="24" RowDefinitions="Auto,*,Auto" RowSpacing="18">
+        <VerticalStackLayout Spacing="8">
+            <Label
+                FontFamily="OpenSansSemibold"
+                FontSize="20"
+                Text="{x:Static strings:AppResources.Mesh_ProvisioningTitle}"
+                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+            <Label
+                FontSize="13"
+                Text="{Binding DeviceName}"
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+        </VerticalStackLayout>
+
+        <Border
+            Grid.Row="1"
+            Padding="20"
+            BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+            Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+            StrokeShape="RoundRectangle 20"
+            StrokeThickness="1"
+            VerticalOptions="Center">
+            <VerticalStackLayout Spacing="18">
+                <ActivityIndicator
+                    IsRunning="{Binding IsWorking}"
+                    IsVisible="{Binding IsWorking}"
+                    Color="{StaticResource Primary}" />
+                <Label
+                    FontFamily="OpenSansSemibold"
+                    FontSize="16"
+                    HorizontalTextAlignment="Center"
+                    Text="{Binding StatusText}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                <ProgressBar
+                    Progress="{Binding Progress}"
+                    ProgressColor="{StaticResource Primary}" />
+                <Label
+                    FontSize="12"
+                    HorizontalTextAlignment="Center"
+                    IsVisible="{Binding ShowHint}"
+                    Text="{Binding HintText}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            </VerticalStackLayout>
+        </Border>
+
+        <Button
+            Grid.Row="2"
+            Clicked="OnCancelClicked"
+            CornerRadius="24"
+            HeightRequest="50"
+            IsVisible="{Binding ShowCancel}"
+            Text="{x:Static strings:AppResources.Mesh_ProvisioningCancel}"
+            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+    </Grid>
+</ContentPage>

@@ -37,9 +37,15 @@ public sealed record SavedDevice(
     // Keep persisted property names so existing checkbox/seconds settings survive the semantic change.
     bool TurnOnDelayEnabled = false,
     int TurnOnDelaySeconds = 60,
-    DateTimeOffset? LastOperatedAt = null)
+    DateTimeOffset? LastOperatedAt = null,
+    BluetoothDeviceProtocol Protocol = BluetoothDeviceProtocol.Unknown)
 {
     public const string UnknownFirmwareVersion = "unknown";
+
+    public BluetoothDeviceProtocol EffectiveProtocol =>
+        Protocol == BluetoothDeviceProtocol.Unknown
+            ? BluetoothDeviceProtocol.Agp
+            : Protocol;
 
     [System.Text.Json.Serialization.JsonIgnore]
     public bool HasKnownFirmwareVersion =>

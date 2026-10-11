@@ -14,5 +14,6 @@
     <ProjectReference Include="../../../ArriOpto.BLE/ArriOpto.BLE/ArriOpto.BLE.csproj" />
     <Compile Include="../../ArriLight/Services/BluetoothDiscoveryService.cs" Link="BluetoothDiscoveryService.cs" />
     <Compile Include="../../ArriLight/Services/BluetoothAddressParser.cs" Link="BluetoothAddressParser.cs" />
+    <Compile Include="../../ArriLight/Services/DeviceProtocols.cs" Link="DeviceProtocols.cs" />
   </ItemGroup>
 </Project>

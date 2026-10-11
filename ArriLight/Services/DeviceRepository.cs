@@ -37,7 +37,17 @@ public sealed class DeviceRepository
     public bool Contains(string address) => GetByAddress(address) is not null;
 
     public bool TryAdd(string name, string address) =>
-        TryAddDevice(new SavedDevice(name, address, DateTimeOffset.Now));
+        TryAdd(name, address, BluetoothDeviceProtocol.Agp);
+
+    public bool TryAdd(
+        string name,
+        string address,
+        BluetoothDeviceProtocol protocol) =>
+        TryAddDevice(new SavedDevice(
+            name,
+            address,
+            DateTimeOffset.Now,
+            Protocol: protocol));
 
     public bool TryAddShared(DeviceShareContent content) =>
         TryAddDevice(new SavedDevice(
@@ -49,7 +59,8 @@ public sealed class DeviceRepository
             BlinkEffectParameters: new(),
             BreatheEffectParameters: new(),
             CustomPresets: [],
-            Capabilities: content.Capabilities));
+            Capabilities: content.Capabilities,
+            Protocol: BluetoothDeviceProtocol.Agp));
 
     private bool TryAddDevice(SavedDevice device)
     {
@@ -109,6 +120,9 @@ public sealed class DeviceRepository
         Update(
             address,
             device => device with { HardwareRevision = hardwareRevision });
+
+    public bool SetProtocol(string address, BluetoothDeviceProtocol protocol) =>
+        Update(address, device => device with { Protocol = protocol });
 
     public string? GetToken(string address) =>
         GetByAddress(address)?.Token;

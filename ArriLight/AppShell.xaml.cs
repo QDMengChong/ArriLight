@@ -27,6 +27,7 @@ namespace ArriLight
             Routing.RegisterRoute(nameof(DeviceManualPage), typeof(DeviceManualPage));
             Routing.RegisterRoute(nameof(FirmwareUpdatePage), typeof(FirmwareUpdatePage));
             Routing.RegisterRoute(nameof(DeviceSharePage), typeof(DeviceSharePage));
+            Routing.RegisterRoute(nameof(MeshProvisioningPage), typeof(MeshProvisioningPage));
         }
     }
 }

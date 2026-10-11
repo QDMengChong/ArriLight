@@ -5,6 +5,8 @@ public static class AppResources
     public const string Ble_AddressRequired = "Address required";
     public const string Ble_Disabled = "Bluetooth disabled";
     public const string Device_UnnamedBle = "Unnamed device";
+    public const string Mesh_Badge = "Mesh";
+    public const string Gatt_Badge = "GATT";
 }
 
 public sealed class AppDiagnosticService

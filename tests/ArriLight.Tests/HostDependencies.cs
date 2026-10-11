@@ -50,7 +50,15 @@ public sealed class BluetoothDiscoveryService(IDevice device)
     public void Advertise(DiscoveredBluetoothDevice value) => DeviceFound?.Invoke(this, value);
 }
 
-public sealed record DiscoveredBluetoothDevice(string Name, string Address, int Rssi, bool IsPairingOpen);
+public sealed record DiscoveredBluetoothDevice(
+    string Name,
+    string Address,
+    int Rssi,
+    bool IsPairingOpen,
+    BluetoothDeviceProtocol Protocol = BluetoothDeviceProtocol.Unknown)
+{
+    public bool IsMesh => Protocol == BluetoothDeviceProtocol.Mesh;
+}
 public sealed class BluetoothDiscoveryException(string message) : Exception(message);
 
 public sealed class AppDiagnosticService

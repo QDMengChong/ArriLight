@@ -129,7 +129,7 @@ public partial class MainPageViewModel : ViewModelBase
                     item.Address,
                     discovered.Address,
                     StringComparison.OrdinalIgnoreCase));
-            if (device is null)
+            if (device is null || device.IsMesh)
                 return;
 
             lock (_statusQueueSync)
@@ -225,7 +225,8 @@ public partial class MainPageViewModel : ViewModelBase
         foreach (var savedDevice in sorted.ThenBy(device => device.Address, StringComparer.OrdinalIgnoreCase))
         {
             if (previousItems.TryGetValue(savedDevice.Address, out var existing) &&
-                existing.Name == savedDevice.DisplayName)
+                existing.Name == savedDevice.DisplayName &&
+                existing.Protocol == savedDevice.EffectiveProtocol)
             {
                 ApplyCachedDeviceStatus(existing);
                 items.Add(existing);
@@ -245,7 +246,8 @@ public partial class MainPageViewModel : ViewModelBase
                     : AppResources.Device_SavedWaiting,
                 isOn: cachedStatus?.LightState?.IsOn ?? isOnlineDemo,
                 isDemo: savedDevice.IsDemo,
-                isOnline: isOnline);
+                isOnline: isOnline,
+                protocol: savedDevice.EffectiveProtocol);
             ApplyCachedDeviceStatus(item);
             items.Add(item);
         }
@@ -267,6 +269,12 @@ public partial class MainPageViewModel : ViewModelBase
     {
         if (!device.IsEnabled)
             return;
+
+        if (device.IsMesh)
+        {
+            _interaction.ShowToast(AppResources.Mesh_ControlNotAvailable);
+            return;
+        }
 
         var previousIsOn = device.IsOn;
         var previousOperationId = _agpLight.GetRuntimeSnapshot(device.Address)?.LastOperation?.Id;
@@ -339,6 +347,12 @@ public partial class MainPageViewModel : ViewModelBase
     {
         if (!_isVisible || _controlNavigationInFlight || _controlNavigationStarted)
             return;
+
+        if (device.IsMesh)
+        {
+            _interaction.ShowToast(AppResources.Mesh_ControlNotAvailable);
+            return;
+        }
         // Hold the guard before any await. It stays closed while the home page
         // is hidden and is reset only when the user returns to the home page.
         _controlNavigationInFlight = true;

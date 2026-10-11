@@ -189,7 +189,7 @@
                                     StrokeShape="RoundRectangle 18">
                                     <Image
                                         Margin="16"
-                                        Source="device_light.svg"
+                                        Source="{Binding ProtocolIconSource}"
                                         SemanticProperties.Description="{x:Static strings:AppResources.Device_DefaultName}" />
                                 </Border>
 
@@ -198,12 +198,26 @@
                                     InputTransparent="True"
                                     Spacing="6"
                                     VerticalOptions="Center">
-                                    <Label
-                                        FontFamily="OpenSansSemibold"
-                                        FontSize="17"
-                                        LineBreakMode="TailTruncation"
-                                        Text="{Binding Name}"
-                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Label
+                                            FontFamily="OpenSansSemibold"
+                                            FontSize="17"
+                                            LineBreakMode="TailTruncation"
+                                            Text="{Binding Name}"
+                                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                        <Border
+                                            Padding="6,2"
+                                            BackgroundColor="{StaticResource Primary}"
+                                            StrokeThickness="0"
+                                            StrokeShape="RoundRectangle 6"
+                                            VerticalOptions="Center">
+                                            <Label
+                                                FontFamily="OpenSansSemibold"
+                                                FontSize="10"
+                                                Text="{Binding ProtocolLabel}"
+                                                TextColor="White" />
+                                        </Border>
+                                    </HorizontalStackLayout>
                                     <HorizontalStackLayout Spacing="7">
                                         <controls:StatusIndicator
                                             HeightRequest="7"

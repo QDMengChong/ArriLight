@@ -122,9 +122,8 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
         object? sender,
         DiscoveredBluetoothDevice device)
     {
-        // AgpAdvertisement 按 AGP 128-bit Service Data UUID 解析连接前状态；
-        // 仅允许设备端明确打开配对窗口时进入“添加设备”列表。
-        if (!device.IsPairingOpen)
+        // AGP 设备必须明确打开配对窗口；Mesh 设备由 SIG Mesh 广播服务 UUID 识别。
+        if (!device.IsPairingOpen && !device.IsMesh)
             return;
 
         _dispatcher.Post(() =>
@@ -169,9 +168,9 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
     private Task ScrollToTopAsync() => ScrollToTopRequested?.Invoke() ?? Task.CompletedTask;
 
     [RelayCommand]
-    private Task AddDeviceSelectionAsync(DiscoveredBluetoothDevice device) => AddDeviceAsync(device.Name, device.Address);
+    private Task AddDeviceSelectionAsync(DiscoveredBluetoothDevice device) => AddDeviceAsync(device);
 
-    private async Task AddDeviceAsync(string suggestedName, string address)
+    private async Task AddDeviceAsync(DiscoveredBluetoothDevice device)
     {
         if (_isAdding)
             return;
@@ -181,7 +180,7 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
         {
             _scanCancellation?.Cancel();
             await _discoveryService.StopAsync();
-            await AddDeviceCoreAsync(suggestedName, address);
+            await AddDeviceCoreAsync(device);
         }
         finally
         {
@@ -189,8 +188,38 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
         }
     }
 
-    private async Task AddDeviceCoreAsync(string suggestedName, string address)
+    private async Task AddDeviceCoreAsync(DiscoveredBluetoothDevice device)
     {
+        if (device.IsMesh)
+        {
+            if (_repository.Contains(device.Address))
+            {
+                await _interaction.AlertAsync(
+                    AppResources.Device_AlreadyAdded,
+                    AppResources.Device_AlreadyInList,
+                    AppResources.Common_Ok);
+                return;
+            }
+
+            var meshName = await _interaction.PromptAsync(
+                AppResources.Device_NamePrompt,
+                Localization.Format(nameof(AppResources.Device_AddressDisplay), device.Address),
+                accept: AppResources.Common_Save,
+                cancel: AppResources.Common_Cancel,
+                placeholder: AppResources.Device_NameExample,
+                initialValue: device.Name,
+                maxLength: 24);
+            if (string.IsNullOrWhiteSpace(meshName))
+                return;
+
+            await _navigator.GoToAsync(
+                $"MeshProvisioningPage?address={Uri.EscapeDataString(device.Address)}" +
+                $"&name={Uri.EscapeDataString(meshName.Trim())}");
+            return;
+        }
+
+        var suggestedName = device.Name;
+        var address = device.Address;
         if (_repository.Contains(address))
         {
             await _interaction.AlertAsync(
@@ -212,7 +241,10 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(name))
             return;
 
-        if (!_repository.TryAdd(name, address))
+        if (!_repository.TryAdd(
+                name,
+                address,
+                BluetoothDeviceProtocol.Agp))
         {
             await _interaction.AlertAsync(
                 AppResources.Common_SaveFailed,

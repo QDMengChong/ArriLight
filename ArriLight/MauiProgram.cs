@@ -55,6 +55,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<BluetoothDiscoveryService>();
         builder.Services.AddSingleton<BluetoothConnectionService>();
         builder.Services.AddSingleton<AgpLightControlService>();
+        builder.Services.AddSingleton<MeshNetworkManager>();
+        builder.Services.AddSingleton<MeshLightControlService>();
         builder.Services.AddSingleton<DeviceRepository>();
         builder.Services.AddSingleton<AppSettingsService>();
         builder.Services.AddSingleton<FirmwareUpdateConfiguration>();

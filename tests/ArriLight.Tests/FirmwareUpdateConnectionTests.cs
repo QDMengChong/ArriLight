@@ -123,6 +123,7 @@ public sealed class FirmwareUpdateConnectionTests
         var configuration = new FirmwareUpdateConfiguration();
         ServiceHelper.Set(fixture.Repository);
         ServiceHelper.Set(fixture.Connection);
+        ServiceHelper.Set(fixture.Service);
         ServiceHelper.Set(diagnostics);
         ServiceHelper.Set(configuration);
         ServiceHelper.Set(new FirmwareUpdateService(new HttpClient(),

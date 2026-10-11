@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Text;
 using ArriOpto.BLE.Agp;
+using ArriOpto.BLE.Mesh;
 using Plugin.BLE.Abstractions;
 using Plugin.BLE.Abstractions.Contracts;
 using Plugin.BLE.Abstractions.EventArgs;
@@ -268,6 +269,18 @@ public sealed class BluetoothDiscoveryService(
         var isFirstObservation = CacheDevice(device);
         var address = GetDeviceAddress(device);
         var name = GetDeviceDisplayName(device);
+        var isPairingOpen = AgpAdvertisement.IsPairingOpen(device.AdvertisementRecords);
+        var hasAgpStatus = AgpAdvertisement.TryGetBroadcastStatus(
+            device.AdvertisementRecords,
+            out _);
+        var isMesh = MeshAdvertisement.TryGetKind(
+            device.AdvertisementRecords,
+            out var meshKind);
+        var protocol = isMesh
+            ? BluetoothDeviceProtocol.Mesh
+            : hasAgpStatus
+                ? BluetoothDeviceProtocol.Agp
+                : BluetoothDeviceProtocol.Unknown;
 
         if (isFirstObservation)
         {
@@ -276,7 +289,7 @@ public sealed class BluetoothDiscoveryService(
                 device.AdvertisementRecords.Select(record => record.Type));
             diagnostics.Information(
                 "BLE/Scan",
-                $"发现 BLE 广播：name={name}，address={address}，RSSI={device.Rssi}，records=[{recordTypes}]。");
+                $"发现 BLE 广播：name={name}，address={address}，RSSI={device.Rssi}，protocol={protocol}，meshKind={meshKind}，records=[{recordTypes}]。");
         }
 
         DeviceFound?.Invoke(
@@ -285,7 +298,9 @@ public sealed class BluetoothDiscoveryService(
                 name,
                 address,
                 device.Rssi,
-                AgpAdvertisement.IsPairingOpen(device.AdvertisementRecords)));
+                isPairingOpen,
+                protocol,
+                meshKind));
     }
 
     private bool CacheDevice(IDevice device)
@@ -368,7 +383,18 @@ public sealed record DiscoveredBluetoothDevice(
     string Name,
     string Address,
     int Rssi,
-    bool IsPairingOpen);
+    bool IsPairingOpen,
+    BluetoothDeviceProtocol Protocol = BluetoothDeviceProtocol.Unknown,
+    MeshAdvertisementKind MeshKind = MeshAdvertisementKind.None)
+{
+    public bool IsMesh => Protocol == BluetoothDeviceProtocol.Mesh;
+
+    public string ProtocolLabel => IsMesh
+        ? AppResources.Mesh_Badge
+        : AppResources.Gatt_Badge;
+
+    public string IconSource => IsMesh ? "mesh.svg" : "device_light.svg";
+}
 
 public sealed class BluetoothDiscoveryException(string message)
     : Exception(message);

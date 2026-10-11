@@ -27,9 +27,13 @@ public sealed partial class LightDeviceItem : ObservableObject
     [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(IsStatusBlinking), nameof(StatusColor))]
     private bool _hasPendingUserOperation;
     public LightDeviceItem(string name, string address, string status,
-        bool isOn = false, bool isDemo = false, bool isOnline = false)
+        bool isOn = false, bool isDemo = false, bool isOnline = false,
+        BluetoothDeviceProtocol protocol = BluetoothDeviceProtocol.Unknown)
     {
         Name = name; Address = address; IsDemo = isDemo;
+        Protocol = protocol == BluetoothDeviceProtocol.Unknown
+            ? BluetoothDeviceProtocol.Agp
+            : protocol;
         _status = status; _isOnline = isOnline; _isOn = isOn;
     }
 
@@ -38,6 +42,18 @@ public sealed partial class LightDeviceItem : ObservableObject
     public string Address { get; }
 
     public bool IsDemo { get; }
+
+    public BluetoothDeviceProtocol Protocol { get; }
+
+    public bool IsMesh => Protocol == BluetoothDeviceProtocol.Mesh;
+
+    public string ProtocolLabel => IsMesh
+        ? AppResources.Mesh_Badge
+        : AppResources.Gatt_Badge;
+
+    public string ProtocolIconSource => IsMesh
+        ? "mesh.svg"
+        : "device_light.svg";
 
     private static readonly PresentationColor OfflineColor = PresentationColor.FromArgb("#E65B65");
     private static readonly PresentationColor OnlineColor = PresentationColor.FromArgb("#E9B949");

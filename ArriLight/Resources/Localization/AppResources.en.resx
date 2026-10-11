@@ -144,6 +144,70 @@
     <value>Unnamed BLE device</value>
     <comment>BluetoothDiscoveryService.cs:415</comment>
   </data>
+  <data name="Mesh_Badge" xml:space="preserve">
+    <value>Mesh</value>
+    <comment>BluetoothScanPage.xaml</comment>
+  </data>
+  <data name="Gatt_Badge" xml:space="preserve">
+    <value>GATT</value>
+    <comment>Device list protocol marker</comment>
+  </data>
+  <data name="Mesh_ProvisioningNotAvailable" xml:space="preserve">
+    <value>Mesh device found. Mesh provisioning is not available in this version.</value>
+    <comment>BluetoothScanPageViewModel.cs</comment>
+  </data>
+  <data name="Mesh_ControlNotAvailable" xml:space="preserve">
+    <value>Mesh device saved. Mesh control is not available in this version.</value>
+    <comment>MainPageViewModel.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningTitle" xml:space="preserve">
+    <value>Mesh provisioning</value>
+    <comment>MeshProvisioningPage.xaml</comment>
+  </data>
+  <data name="Mesh_ProvisioningConnecting" xml:space="preserve">
+    <value>Connecting to Mesh device…</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningStarting" xml:space="preserve">
+    <value>Starting Mesh provisioning…</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningRestoring" xml:space="preserve">
+    <value>Device is provisioned. Restoring network configuration…</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningHint" xml:space="preserve">
+    <value>First-time provisioning takes about 30–60 seconds. Keep the light powered on.</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningSaving" xml:space="preserve">
+    <value>Saving Mesh device…</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningSucceeded" xml:space="preserve">
+    <value>Mesh provisioning complete</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningFailed" xml:space="preserve">
+    <value>Mesh provisioning failed</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningNotMesh" xml:space="preserve">
+    <value>The device did not expose the Mesh Provisioning service. Check the firmware state and try again.</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningRetry" xml:space="preserve">
+    <value>Retry</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningBack" xml:space="preserve">
+    <value>Back</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningCancel" xml:space="preserve">
+    <value>Cancel</value>
+    <comment>MeshProvisioningPage.xaml</comment>
+  </data>
   <data name="Ble_Disabled" xml:space="preserve">
     <value>Bluetooth is off. Turn on Bluetooth first.</value>
     <comment>BluetoothDiscoveryService.cs:436</comment>

@@ -93,14 +93,28 @@
                                 BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
                                 StrokeThickness="0"
                                 StrokeShape="RoundRectangle 16">
-                                <Image Margin="13" Source="device_light.svg" />
+                                <Image Margin="13" Source="{Binding IconSource}" />
                             </Border>
                             <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                <Label
-                                    FontFamily="OpenSansSemibold"
-                                    FontSize="16"
-                                    Text="{Binding Name}"
-                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                <HorizontalStackLayout Spacing="6">
+                                    <Label
+                                        FontFamily="OpenSansSemibold"
+                                        FontSize="16"
+                                        Text="{Binding Name}"
+                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                    <Border
+                                        Padding="6,2"
+                                        BackgroundColor="{StaticResource Primary}"
+                                        StrokeThickness="0"
+                                        StrokeShape="RoundRectangle 6"
+                                        VerticalOptions="Center">
+                                        <Label
+                                            FontFamily="OpenSansSemibold"
+                                            FontSize="10"
+                                            Text="{Binding ProtocolLabel}"
+                                            TextColor="White" />
+                                    </Border>
+                                </HorizontalStackLayout>
                                 <Label
                                     FontSize="12"
                                     LineBreakMode="TailTruncation"

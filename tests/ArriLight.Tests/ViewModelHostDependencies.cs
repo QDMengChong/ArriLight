@@ -69,7 +69,13 @@ namespace ArriLight.ViewModels
     {
         internal Task ScanForTest => _scanTask ?? Task.CompletedTask;
         internal Task? CountdownForTest => _bindingCountdownTask;
-        internal Task AddForTestAsync(string name, string address) => AddDeviceAsync(name, address);
+        internal Task AddForTestAsync(string name, string address) =>
+            AddDeviceAsync(new DiscoveredBluetoothDevice(
+                name,
+                address,
+                0,
+                IsPairingOpen: true,
+                Protocol: BluetoothDeviceProtocol.Agp));
         internal Task ShowProgressForTestAsync(CancellationToken token) =>
             UpdateBindingProgressAsync(AgpBindingStage.Connecting, token, _bindingCancellation!.Token);
         internal void SetPageCancellationForTest(CancellationTokenSource source)

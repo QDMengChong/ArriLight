@@ -144,6 +144,70 @@
     <value>未命名 BLE 设备</value>
     <comment>BluetoothDiscoveryService.cs:415</comment>
   </data>
+  <data name="Mesh_Badge" xml:space="preserve">
+    <value>Mesh</value>
+    <comment>BluetoothScanPage.xaml</comment>
+  </data>
+  <data name="Gatt_Badge" xml:space="preserve">
+    <value>GATT</value>
+    <comment>Device list protocol marker</comment>
+  </data>
+  <data name="Mesh_ProvisioningNotAvailable" xml:space="preserve">
+    <value>已发现 Mesh 设备，当前版本暂不支持 Mesh 配网。</value>
+    <comment>BluetoothScanPageViewModel.cs</comment>
+  </data>
+  <data name="Mesh_ControlNotAvailable" xml:space="preserve">
+    <value>Mesh 设备已保存，当前版本暂不支持 Mesh 控制。</value>
+    <comment>MainPageViewModel.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningTitle" xml:space="preserve">
+    <value>Mesh 配网</value>
+    <comment>MeshProvisioningPage.xaml</comment>
+  </data>
+  <data name="Mesh_ProvisioningConnecting" xml:space="preserve">
+    <value>正在连接 Mesh 设备…</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningStarting" xml:space="preserve">
+    <value>正在开始 Mesh 配网…</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningRestoring" xml:space="preserve">
+    <value>设备已配网，正在恢复网络配置…</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningHint" xml:space="preserve">
+    <value>首次配网大约需要 30-60 秒，请让灯具保持通电。</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningSaving" xml:space="preserve">
+    <value>正在保存 Mesh 设备…</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningSucceeded" xml:space="preserve">
+    <value>Mesh 配网完成</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningFailed" xml:space="preserve">
+    <value>Mesh 配网失败</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningNotMesh" xml:space="preserve">
+    <value>设备未暴露 Mesh Provisioning 服务，请确认固件状态后重试。</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningRetry" xml:space="preserve">
+    <value>重试</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningBack" xml:space="preserve">
+    <value>返回</value>
+    <comment>MeshProvisioningPage.xaml.cs</comment>
+  </data>
+  <data name="Mesh_ProvisioningCancel" xml:space="preserve">
+    <value>取消</value>
+    <comment>MeshProvisioningPage.xaml</comment>
+  </data>
   <data name="Ble_Disabled" xml:space="preserve">
     <value>蓝牙未开启，请先开启手机蓝牙。</value>
     <comment>BluetoothDiscoveryService.cs:436</comment>
