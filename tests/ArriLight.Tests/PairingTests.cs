@@ -297,6 +297,8 @@ internal sealed class FakeBle
     public IDevice Device { get; }
     public IAdapter Adapter { get; }
     public string Address => Device.Id.ToString("D").ToUpperInvariant();
+    public IReadOnlyList<IService>? CustomServices { get; set; }
+    public int NegotiatedMtu { get; set; } = 20;
     public List<long> ConnectAttempts { get; } = [];
     public int MaximumConcurrentAttempts { get; private set; }
     public List<AgpOpcode> Requests { get; } = [];
@@ -394,9 +396,11 @@ internal sealed class FakeBle
             "get_Id" => _deviceId,
             "get_Name" => "PW01",
             "get_State" => _state,
+            "RequestMtuAsync" => Task.FromResult(NegotiatedMtu),
             "GetServicesAsync" => Task.FromResult<IReadOnlyList<IService>>(
-                HasFirmwareRevision || HardwareRevision is not null ? [_service, _deviceInformationService] : [_service]),
-            "GetServiceAsync" => Task.FromResult((Guid)args[0]! == DeviceInformationServiceId
+                CustomServices ?? (HasFirmwareRevision || HardwareRevision is not null ? [_service, _deviceInformationService] : [_service])),
+            "GetServiceAsync" => Task.FromResult(CustomServices is { } services
+                ? services.FirstOrDefault(service => service.Id == (Guid)args[0]!)! : (Guid)args[0]! == DeviceInformationServiceId
                 ? HasFirmwareRevision || HardwareRevision is not null ? _deviceInformationService : null!
                 : _service),
             _ => throw new NotSupportedException(name)

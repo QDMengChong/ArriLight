@@ -1838,4 +1838,8 @@ This is sample text for interface design. The final version should be profession
   <data name="Device_RuntimeResponseChannel" xml:space="preserve"><value>Preparing response channel</value></data>
   <data name="Device_RuntimeAuthenticating" xml:space="preserve"><value>Authenticating</value></data>
   <data name="Device_RuntimeRetrying" xml:space="preserve"><value>Waiting to retry</value></data>
+  <data name="Mesh_CapabilitiesUnavailable" xml:space="preserve"><value>Unable to determine the Mesh device's control capabilities. Please try again.</value></data>
+  <data name="Mesh_LightStateUnavailable" xml:space="preserve"><value>The Mesh light state is unknown. Refresh and try again.</value></data>
+  <data name="Mesh_LightResultUnknown" xml:space="preserve"><value>The Mesh light setting has not been confirmed. Please refresh the device status.</value></data>
+  <data name="Mesh_ModelUnavailable" xml:space="preserve"><value>This device does not support this light control.</value></data>
 </root>
