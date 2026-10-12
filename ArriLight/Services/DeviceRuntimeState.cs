@@ -19,7 +19,9 @@ public sealed record DeviceRuntimeSnapshot(
     string Address, DeviceRuntimeAvailability Availability, string? StageText, long Version,
     IReadOnlyDictionary<DeviceRuntimeStep, DeviceRuntimeStepResult> Steps,
     bool IsBusy, bool HasPendingUserOperation, string? Error = null, DeviceRuntimeOperation? LastOperation = null,
-    AgpDelayOnResponse? RelativeDelayOn = null, AgpDelayOffResponse? RelativeDelayOff = null, AgpTimeResponse? Clock = null);
+    AgpDelayOnResponse? RelativeDelayOn = null, AgpDelayOffResponse? RelativeDelayOff = null, AgpTimeResponse? Clock = null,
+    BluetoothDeviceProtocol Protocol = BluetoothDeviceProtocol.Agp,
+    DateTimeOffset? LastSeen = null);
 public sealed record DeviceRuntimeChange(string Address, DeviceRuntimeSnapshot Snapshot);
 
 internal sealed class DeviceRuntimeEntry(string address)

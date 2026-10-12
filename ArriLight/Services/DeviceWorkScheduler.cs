@@ -3,9 +3,9 @@ namespace ArriLight;
 /// <summary>Runs one operation per address and enforces an application-wide device budget.</summary>
 /// <remarks>
 /// 协议无关（只以 <c>string address</c> 分组），是 AGP Runtime 与 Mesh 控制的
-/// **共享**串行器：以 DI 单例注册，使两条链路竞争同一份 BLE 适配器预算。
-/// PW01-MESH 每次命令都要真实建立 GATT 连接，若不与 AGP 共用上限，两条链路
-/// 叠加会超出 Android BLE 的连接能力。
+/// **共享**串行器：以 DI 单例注册，使两条链路竞争同一份 BLE 操作预算。
+/// Mesh 的 Proxy 会话和 AGP Runtime 会话可以跨越多个操作持续存在；因此这里
+/// 限制的是并行设备操作与排队顺序，真实长连接数量仍应由连接租约层单独统计。
 /// </remarks>
 public sealed class DeviceWorkScheduler
 {

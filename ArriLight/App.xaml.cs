@@ -3,16 +3,21 @@ namespace ArriLight
     public partial class App : Application
     {
         private readonly AgpLightControlService _agpLight;
+        private readonly MeshDeviceControlService? _meshControl;
         private readonly BluetoothDiscoveryService? _discoveryService;
         private Window? _currentWindow;
         internal Task CurrentStartupTask { get; private set; } = Task.CompletedTask;
         internal Task CurrentStopTask { get; private set; } = Task.CompletedTask;
         internal Task CurrentResumeTask { get; private set; } = Task.CompletedTask;
 
-        public App(AgpLightControlService agpLight, BluetoothDiscoveryService? discoveryService = null)
+        public App(
+            AgpLightControlService agpLight,
+            BluetoothDiscoveryService? discoveryService = null,
+            MeshDeviceControlService? meshControl = null)
         {
             _agpLight = agpLight;
             _discoveryService = discoveryService;
+            _meshControl = meshControl;
             InitializeComponent();
             UserAppTheme = ThemePreference.Load();
         }
@@ -68,11 +73,16 @@ namespace ArriLight
                 // Invalidate every queued/connecting/online runtime immediately,
                 // before waiting for native scan cleanup.
                 var suspension = _agpLight.SuspendForBackgroundAsync();
+                var meshSuspension = _meshControl?.SuspendForBackgroundAsync();
                 try
                 {
                     if (_discoveryService is not null) await _discoveryService.StopAsync();
                 }
-                finally { await suspension; }
+                finally
+                {
+                    await suspension;
+                    if (meshSuspension is not null) await meshSuspension;
+                }
             }
             catch (Exception exception)
             {
@@ -115,11 +125,16 @@ namespace ArriLight
             try
             {
                 var closing = _agpLight.DisconnectForApplicationCloseAsync();
+                var meshClosing = _meshControl?.DisconnectForApplicationCloseAsync();
                 try
                 {
                     if (_discoveryService is not null) await _discoveryService.StopAsync();
                 }
-                finally { await closing; }
+                finally
+                {
+                    await closing;
+                    if (meshClosing is not null) await meshClosing;
+                }
             }
             catch (Exception exception)
             {

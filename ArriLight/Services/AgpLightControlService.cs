@@ -349,7 +349,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         _connectionService = connectionService;
         _diagnostics = diagnostics;
         _repository = repository;
-        // AGP Runtime 与 Mesh 控制共享同一份设备预算，避免两条链路叠加超出 BLE 能力。
+        // AGP Runtime 与 Mesh 控制共享同一份设备操作预算，避免两条链路同时发起过多操作。
         _runtimeWork = runtimeWork;
         _connectionService.StateChanged += OnRuntimeConnectionChanged;
         _repository.DevicesChanged += OnRuntimeDevicesChanged;

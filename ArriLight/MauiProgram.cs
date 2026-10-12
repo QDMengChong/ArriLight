@@ -58,7 +58,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<MeshNetworkManager>();
         builder.Services.AddSingleton<MeshLightControlService>();
         builder.Services.AddSingleton<MeshDeviceControlService>();
-        // AGP Runtime 与 Mesh 控制共享一份设备预算/串行器。
+        // AGP Runtime 与 Mesh 控制共享一份设备操作预算/串行器。
         builder.Services.AddSingleton<DeviceWorkScheduler>();
         builder.Services.AddSingleton<DeviceRepository>();
         builder.Services.AddSingleton<AppSettingsService>();

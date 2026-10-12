@@ -92,6 +92,8 @@ public partial class MainPageViewModel : ViewModelBase
         _agpLight.DeviceStatusChanged += OnDeviceStatusChanged;
         _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
         _agpLight.RuntimeStateChanged += OnRuntimeStateChanged;
+        _meshControl.RuntimeStateChanged -= OnMeshRuntimeStateChanged;
+        _meshControl.RuntimeStateChanged += OnMeshRuntimeStateChanged;
         ReloadDevices();
         _statusQuerySuppressed = false;
         lock (_statusQueueSync)
@@ -109,6 +111,7 @@ public partial class MainPageViewModel : ViewModelBase
         _repository.DevicesChanged -= OnDevicesChanged;
         _agpLight.DeviceStatusChanged -= OnDeviceStatusChanged;
         _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
+        _meshControl.RuntimeStateChanged -= OnMeshRuntimeStateChanged;
         _statusQuerySuppressed = true;
         RequestStopStatusRefresh();
     }
@@ -131,7 +134,7 @@ public partial class MainPageViewModel : ViewModelBase
                     item.Address,
                     discovered.Address,
                     StringComparison.OrdinalIgnoreCase));
-            if (device is null || device.IsMesh)
+            if (device is null)
                 return;
 
             lock (_statusQueueSync)
@@ -181,6 +184,39 @@ public partial class MainPageViewModel : ViewModelBase
         // a newer successful foreground reconnect.
         if (device.IsDemo)
             return;
+
+        if (device.IsMesh)
+        {
+            var meshRuntime = _meshControl.GetRuntimeSnapshot(device.Address);
+            var meshState = _meshControl.GetCachedState(device.Address);
+            if (meshRuntime is null)
+            {
+                device.IsOnline = false;
+                device.Status = AppResources.Device_SavedWaiting;
+                device.IsReady = false;
+                device.IsRuntimeBusy = false;
+                device.HasPendingUserOperation = false;
+                if (!device.IsPowerChanging && meshState?.IsOn is { } initialState)
+                    device.IsOn = initialState;
+                return;
+            }
+
+            device.IsOnline = meshRuntime.Availability is DeviceRuntimeAvailability.Online or DeviceRuntimeAvailability.Ready;
+            device.Status = meshRuntime.Availability switch
+            {
+                DeviceRuntimeAvailability.Ready => AppResources.Device_Ready,
+                DeviceRuntimeAvailability.Online => AppResources.Device_Online,
+                _ when meshRuntime.IsBusy => AppResources.Ble_Connecting,
+                _ => AppResources.Device_Offline
+            };
+            device.IsReady = meshRuntime.Availability == DeviceRuntimeAvailability.Ready;
+            device.IsRuntimeBusy = meshRuntime.IsBusy;
+            device.HasPendingUserOperation = meshRuntime.HasPendingUserOperation;
+            if (!device.IsPowerChanging && meshState?.IsOn is { } knownState)
+                device.IsOn = knownState;
+            return;
+        }
+
         var runtime = _agpLight.GetRuntimeSnapshot(device.Address);
         var cachedStatus = _agpLight.GetCachedDeviceStatus(device.Address);
         var availability = runtime?.Availability ?? (cachedStatus?.IsOnline == true
@@ -206,6 +242,15 @@ public partial class MainPageViewModel : ViewModelBase
         {
             if (!_isVisible) return;
             var device = Devices.FirstOrDefault(item => !item.IsDemo &&
+                string.Equals(item.Address, change.Address, StringComparison.OrdinalIgnoreCase));
+            if (device is not null) ApplyCachedDeviceStatus(device);
+        });
+
+    private void OnMeshRuntimeStateChanged(object? sender, DeviceRuntimeChange change) =>
+        _dispatcher.Post(() =>
+        {
+            if (!_isVisible) return;
+            var device = Devices.FirstOrDefault(item => !item.IsDemo && item.IsMesh &&
                 string.Equals(item.Address, change.Address, StringComparison.OrdinalIgnoreCase));
             if (device is not null) ApplyCachedDeviceStatus(device);
         });
@@ -236,17 +281,26 @@ public partial class MainPageViewModel : ViewModelBase
             }
             var isOnlineDemo = savedDevice.IsDemo &&
                 savedDevice.Address.EndsWith("01", StringComparison.Ordinal);
-            var cachedStatus = savedDevice.IsDemo ? null :
+            var cachedStatus = savedDevice.IsDemo || savedDevice.EffectiveProtocol == BluetoothDeviceProtocol.Mesh ? null :
                 _agpLight.GetCachedDeviceStatus(savedDevice.Address);
-            var isOnline = cachedStatus?.IsOnline ?? isOnlineDemo;
+            var meshState = savedDevice.EffectiveProtocol == BluetoothDeviceProtocol.Mesh
+                ? _meshControl.GetCachedState(savedDevice.Address)
+                : null;
+            var meshRuntime = savedDevice.EffectiveProtocol == BluetoothDeviceProtocol.Mesh
+                ? _meshControl.GetRuntimeSnapshot(savedDevice.Address)
+                : null;
+            var isOnline = savedDevice.EffectiveProtocol == BluetoothDeviceProtocol.Mesh
+                ? meshRuntime?.Availability is DeviceRuntimeAvailability.Online or DeviceRuntimeAvailability.Ready
+                : cachedStatus?.IsOnline ?? isOnlineDemo;
 
             var item = new LightDeviceItem(
                 savedDevice.DisplayName,
                 savedDevice.Address,
-                isOnline ? AppResources.Device_Online : savedDevice.IsDemo || cachedStatus is not null
+                isOnline ? AppResources.Device_Online : savedDevice.EffectiveProtocol == BluetoothDeviceProtocol.Mesh
+                    ? AppResources.Device_SavedWaiting : savedDevice.IsDemo || cachedStatus is not null
                     ? AppResources.Device_Offline
                     : AppResources.Device_SavedWaiting,
-                isOn: cachedStatus?.LightState?.IsOn ?? isOnlineDemo,
+                isOn: meshState?.IsOn ?? cachedStatus?.LightState?.IsOn ?? isOnlineDemo,
                 isDemo: savedDevice.IsDemo,
                 isOnline: isOnline,
                 protocol: savedDevice.EffectiveProtocol);
@@ -284,7 +338,7 @@ public partial class MainPageViewModel : ViewModelBase
         _statusQuerySuppressed = true;
         try
         {
-            if (!device.IsDemo)
+            if (!device.IsDemo && !device.IsMesh)
                 _agpLight.BeginHomeControlOperation(device.Address);
             await StopStatusRefreshAsync();
             timing.Mark("后台状态查询已收尾");
@@ -369,7 +423,7 @@ public partial class MainPageViewModel : ViewModelBase
 #endif
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Home.OpenControl", device.Address, $"isDemo={device.IsDemo}");
-        if (!device.IsDemo)
+        if (!device.IsDemo && !device.IsMesh)
         {
 #if DEBUG
             preparation.Run("LeasePromotion", () => _agpLight.PromoteConnectionToLongLived(device.Address));
@@ -523,9 +577,18 @@ public partial class MainPageViewModel : ViewModelBase
 
         try
         {
-            await _agpLight.GetOnOffStateWithoutAuthorizationAsync(
-                device.Address,
-                timeoutCancellation.Token);
+            if (device.IsMesh)
+            {
+                await _meshControl.GetOnOffStateAsync(
+                    device.Address,
+                    timeoutCancellation.Token);
+            }
+            else
+            {
+                await _agpLight.GetOnOffStateWithoutAuthorizationAsync(
+                    device.Address,
+                    timeoutCancellation.Token);
+            }
             ApplyCachedDeviceStatus(device);
             return;
         }
@@ -568,7 +631,10 @@ public partial class MainPageViewModel : ViewModelBase
             ApplyCachedDeviceStatus(device);
             return;
         }
-        _agpLight.RecordDeviceOffline(device.Address);
+        if (device.IsMesh)
+            _meshControl.RecordDeviceOffline(device.Address);
+        else
+            _agpLight.RecordDeviceOffline(device.Address);
         ApplyCachedDeviceStatus(device);
     }
 

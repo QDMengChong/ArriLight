@@ -23,8 +23,8 @@ public partial class DeviceControlPageViewModel
         BluetoothDeviceProtocol.Mesh;
 
     /// <summary>
-    /// Mesh 设备的控制页初始化：用一次短连接把开关与亮度读回来，之后所有命令
-    /// 都走 <see cref="MeshDeviceControlService"/> 的按需短连接，不维持常连。
+    /// Mesh 设备的控制页初始化：复用 Mesh Proxy 会话把开关与亮度读回来，之后所有命令
+    /// 都走 <see cref="MeshDeviceControlService"/> 的统一状态与会话管理。
     /// </summary>
     private async Task InitializeMeshControlSessionAsync(
         BleTimingScope timing,
@@ -233,6 +233,15 @@ public partial class DeviceControlPageViewModel
             return;
         }
 
+        if (IsMeshDevice)
+        {
+            if (_meshControl.GetRuntimeSnapshot(DeviceAddress) is { } meshRuntime)
+                ApplyMeshRuntimeSnapshot(meshRuntime);
+            else
+                IsDeviceOnline = snapshot.IsConnected;
+            return;
+        }
+
         if (_agpLight.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
         {
             ApplyRuntimeSnapshot(runtime);
@@ -275,8 +284,26 @@ public partial class DeviceControlPageViewModel
         });
     }
 
+    private void OnMeshRuntimeStateChanged(object? sender, DeviceRuntimeChange change)
+    {
+        if (!IsMeshDevice || !string.Equals(change.Address, DeviceAddress, StringComparison.OrdinalIgnoreCase))
+            return;
+        _dispatcher.Post(() =>
+        {
+            if (!_isControlPageVisible) return;
+            if (_meshControl.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
+                ApplyMeshRuntimeSnapshot(runtime);
+        });
+    }
+
     private void ApplyRuntimeSnapshot(DeviceRuntimeSnapshot snapshot)
     {
+        if (snapshot.Protocol == BluetoothDeviceProtocol.Mesh)
+        {
+            ApplyMeshRuntimeSnapshot(snapshot);
+            return;
+        }
+
         var availabilityText = snapshot.Availability switch
         {
             DeviceRuntimeAvailability.Ready => AppResources.Device_Ready,
@@ -293,6 +320,37 @@ public partial class DeviceControlPageViewModel
         CanConnect = !IsDeviceOnline && !snapshot.IsBusy && !_agpLight.IsApplicationSuspended;
         ConnectionStatusColor = PresentationColor.FromArgb(IsDeviceOnline ? "#35C987" : "#E65B65");
         ApplyAvailableRuntimeData(snapshot);
+        UpdateEffectAvailability();
+    }
+
+    private void ApplyMeshRuntimeSnapshot(DeviceRuntimeSnapshot snapshot)
+    {
+        var availabilityText = snapshot.Availability switch
+        {
+            DeviceRuntimeAvailability.Ready => AppResources.Device_Ready,
+            DeviceRuntimeAvailability.Online => AppResources.Device_Online,
+            _ => AppResources.Device_Offline
+        };
+        IsDeviceOnline = snapshot.Availability is DeviceRuntimeAvailability.Online or DeviceRuntimeAvailability.Ready;
+        HasPendingUserOperation = snapshot.HasPendingUserOperation;
+        ConnectionStatusText = string.IsNullOrWhiteSpace(snapshot.StageText)
+            ? availabilityText
+            : $"{availabilityText} · {snapshot.StageText}";
+        ConnectionButtonText = IsDeviceOnline ? availabilityText : snapshot.IsBusy
+            ? AppResources.Ble_Connecting : AppResources.Common_Retry;
+        CanConnect = !IsDeviceOnline && !snapshot.IsBusy && !_agpLight.IsApplicationSuspended;
+        ConnectionStatusColor = PresentationColor.FromArgb(IsDeviceOnline ? "#35C987" : "#E65B65");
+        SupportedCapabilities = AgpCapabilities.Lightness;
+        IsLocalModeSupported = false;
+        if (_meshControl.GetCachedState(DeviceAddress) is { } state)
+        {
+            if (state.IsOn is { } isOn)
+                IsMasterPowerOn = isOn;
+            if (state.LightnessPercent is { } brightness &&
+                _lightingEditVersion == _appearanceLightingEditVersion)
+                Brightness = Math.Clamp((double)brightness, 1, 100);
+            UpdateMasterPowerVisual();
+        }
         UpdateEffectAvailability();
     }
 

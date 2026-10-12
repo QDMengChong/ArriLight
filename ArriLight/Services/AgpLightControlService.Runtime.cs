@@ -111,9 +111,9 @@ public sealed partial class AgpLightControlService
         _runtimeWork.Limit = RuntimeConcurrency;
         using (_runtimeWork.BeginBatch())
         {
-            // Mesh 设备走独立的短连接链路（MeshDeviceControlService），
-            // 不能被 AGP Runtime 收编：每次冷启动都会白白连接一次并撞上
-            // "找不到 AGP 服务"，而 PW01-MESH 只允许一个 BLE 连接。
+            // Mesh 设备由 MeshDeviceControlService 维护独立的 Proxy Runtime，
+            // 不能被 AGP Runtime 当作 AGP 服务准备；两者仍通过同一个
+            // DeviceWorkScheduler 竞争应用级操作预算；长连接的实际数量由连接会话维护。
             foreach (var device in _repository.GetAll()
                 .Where(device => !device.IsDemo && device.EffectiveProtocol != BluetoothDeviceProtocol.Mesh)
                 .OrderByDescending(device => device.IsPinned)
@@ -136,7 +136,7 @@ public sealed partial class AgpLightControlService
         }
     }
 
-    /// <summary>Mesh 设备的控制经由 MeshDeviceControlService 的短连接，不入 AGP Runtime。</summary>
+    /// <summary>Mesh 设备由 MeshDeviceControlService 维护 Proxy Runtime，不入 AGP Runtime。</summary>
     private bool IsMeshAddress(string address)
     {
         var saved = _repository.GetAll().FirstOrDefault(device =>

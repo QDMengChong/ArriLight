@@ -209,6 +209,8 @@ public partial class DeviceControlPageViewModel : ViewModelBase
         _agpLight.DeviceStatusChanged += OnControlDeviceStatusChanged;
         _agpLight.RuntimeStateChanged -= OnControlRuntimeStateChanged;
         _agpLight.RuntimeStateChanged += OnControlRuntimeStateChanged;
+        _meshControl.RuntimeStateChanged -= OnMeshRuntimeStateChanged;
+        _meshControl.RuntimeStateChanged += OnMeshRuntimeStateChanged;
         ResetLocalModeState();
 
         if (!string.IsNullOrWhiteSpace(DeviceAddress) &&
@@ -244,24 +246,37 @@ public partial class DeviceControlPageViewModel : ViewModelBase
             }
             else
             {
-                // Entering the control page takes over a successful home-query
-                // lease and keeps the authenticated session alive for controls.
-                _agpLight.PromoteConnectionToLongLived(DeviceAddress);
-                timing.Mark("控制页接管持续连接");
-                if (_agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState is { } cachedState)
-                    ApplyLightState(cachedState);
-                ApplyConnectionSnapshot(_connectionService.GetSnapshot(DeviceAddress));
-                // OnNavigatedTo schedules scan teardown and AGP preparation
-                // after the page transition. Appearing only applies local state.
-                if (_agpLight.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
+                if (IsMeshDevice)
                 {
-                    ApplyRuntimeSnapshot(runtime);
-                    _agpLight.RequestRuntimePreparation(DeviceAddress);
+                    if (_meshControl.GetRuntimeSnapshot(DeviceAddress) is { } meshRuntime)
+                        ApplyMeshRuntimeSnapshot(meshRuntime);
+                    else
+                    {
+                        ConnectionStatusText = AppResources.Ble_PreparingDeviceConnection;
+                        CanConnect = false;
+                    }
                 }
                 else
                 {
-                    ConnectionStatusText = AppResources.Ble_PreparingDeviceConnection;
-                    CanConnect = false;
+                    // Entering the control page takes over a successful home-query
+                    // lease and keeps the authenticated AGP session alive for controls.
+                    _agpLight.PromoteConnectionToLongLived(DeviceAddress);
+                    timing.Mark("控制页接管持续连接");
+                    if (_agpLight.GetCachedDeviceStatus(DeviceAddress)?.LightState is { } cachedState)
+                        ApplyLightState(cachedState);
+                    ApplyConnectionSnapshot(_connectionService.GetSnapshot(DeviceAddress));
+                    // OnNavigatedTo schedules scan teardown and AGP preparation
+                    // after the page transition. Appearing only applies local state.
+                    if (_agpLight.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
+                    {
+                        ApplyRuntimeSnapshot(runtime);
+                        _agpLight.RequestRuntimePreparation(DeviceAddress);
+                    }
+                    else
+                    {
+                        ConnectionStatusText = AppResources.Ble_PreparingDeviceConnection;
+                        CanConnect = false;
+                    }
                 }
             }
             timing.SetResult(device.IsDemo ? "demo" : "page-prepared");
@@ -284,6 +299,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
         _connectionService.StateChanged -= OnConnectionStateChanged;
         _agpLight.DeviceStatusChanged -= OnControlDeviceStatusChanged;
         _agpLight.RuntimeStateChanged -= OnControlRuntimeStateChanged;
+        _meshControl.RuntimeStateChanged -= OnMeshRuntimeStateChanged;
 
         _lightSettingsCancellation?.Cancel();
         _lightSettingsCancellation?.Dispose();

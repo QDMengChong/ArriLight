@@ -4,7 +4,7 @@ using Xunit;
 namespace ArriLight.Tests;
 
 /// <summary>
-/// Mesh 设备与 AGP Runtime 的隔离：Mesh 走 MeshDeviceControlService 的按需短连接，
+/// Mesh 设备与 AGP Runtime 的隔离：Mesh 由 MeshDeviceControlService 维护独立 Proxy Runtime，
 /// 不能被 AGP Runtime 收编（否则每次冷启动都会白白连一次并在找不到 AGP 服务时失败）。
 /// </summary>
 public sealed class MeshRuntimeIsolationTests
