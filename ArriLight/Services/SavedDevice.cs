@@ -18,7 +18,8 @@ public sealed record SavedControlPreset(
     double? Brightness,
     string? LightColorHex,
     AgpLightMode? EffectMode,
-    ushort? EffectPeriodMilliseconds);
+    ushort? EffectPeriodMilliseconds,
+    AgpColorModel? ActiveColorModel = null);
 
 public sealed record SavedDevice(
     string Name,
@@ -38,7 +39,8 @@ public sealed record SavedDevice(
     bool TurnOnDelayEnabled = false,
     int TurnOnDelaySeconds = 60,
     DateTimeOffset? LastOperatedAt = null,
-    BluetoothDeviceProtocol Protocol = BluetoothDeviceProtocol.Unknown)
+    BluetoothDeviceProtocol Protocol = BluetoothDeviceProtocol.Unknown,
+    MeshControlProfile? MeshProfile = null)
 {
     public const string UnknownFirmwareVersion = "unknown";
 

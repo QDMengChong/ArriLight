@@ -17,7 +17,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     private readonly AppDiagnosticService _diagnostics;
     private AgpLightState? _pendingLightState;
     private int _pendingTimerSeconds = 60;
-    [ObservableProperty]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(SupportsPower)), NotifyPropertyChangedFor(nameof(CanTogglePower))]
     private bool _hasKnownCapabilities;
     private AgpDeviceControlProfile? _pendingControlProfile;
     // 能力相关区域使用 LazyView；内部视图只在能力确认后加载。
@@ -25,6 +25,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     private AgpControlPageKind _controlPageKind;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(SupportsBrightness)), NotifyPropertyChangedFor(nameof(SupportsEffect)),
         NotifyPropertyChangedFor(nameof(SupportsTurnOnDelay)), NotifyPropertyChangedFor(nameof(SupportsLocalMode)),
+        NotifyPropertyChangedFor(nameof(SupportsPower)), NotifyPropertyChangedFor(nameof(CanTogglePower)),
         NotifyPropertyChangedFor(nameof(CanSetLocalMode)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private AgpCapabilities _supportedCapabilities = AgpCapabilities.Lightness;
 
@@ -61,7 +62,9 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     private bool _isPowerChanging;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanTogglePower))]
     private bool _hasPendingUserOperation;
-    public bool CanTogglePower => !IsPowerChanging && !HasPendingUserOperation;
+    public bool SupportsPower => !IsMeshDevice || !HasKnownCapabilities ||
+        SupportedCapabilities.HasFlag(AgpCapabilities.OnOff);
+    public bool CanTogglePower => SupportsPower && !IsPowerChanging && !HasPendingUserOperation;
     private CancellationTokenSource? _lightSettingsCancellation;
     private Task? _lightSettingsTask;
     [ObservableProperty]
@@ -69,6 +72,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     [ObservableProperty, NotifyPropertyChangedFor(nameof(SupportsEffect))]
     private bool _effectsSupported = true;
     private AgpColorModel _activeColorModel;
+    private bool _hasPendingColorInput;
     private AgpCtlRange _ctlRange = new(
         AgpColorModelCodec.MinimumCtlTemperatureKelvin,
         AgpColorModelCodec.MaximumCtlTemperatureKelvin);
@@ -155,7 +159,11 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     {
         _lightingEditVersion++;
         Hue = hue; Saturation = saturation; Temperature = temperature; Brightness = brightness;
-        if (colorModel is { } model) _activeColorModel = model;
+        if (colorModel is { } model)
+        {
+            _activeColorModel = model;
+            _hasPendingColorInput = true;
+        }
         QueueLightSettingsCommand();
     }
 
@@ -227,7 +235,19 @@ public partial class DeviceControlPageViewModel : ViewModelBase
             LoadEffectParameters(device);
             LoadCustomPresets(device.CustomPresets ?? []);
 
-            if (device.Capabilities is { } cachedCapabilities)
+            if (IsMeshDevice)
+            {
+                if ((_meshControl.GetCachedControlProfile(DeviceAddress) ?? device.MeshProfile) is { } meshProfile)
+                    ApplyMeshControlProfile(meshProfile);
+                else
+                {
+                    HasKnownCapabilities = false;
+                    SupportedCapabilities = AgpCapabilities.None;
+                    ControlPageKind = AgpControlPageKind.Lightness;
+                    EffectsSupported = false;
+                }
+            }
+            else if (device.Capabilities is { } cachedCapabilities)
             {
                 ApplyCachedCapabilities(cachedCapabilities);
                 // Only local state here. Native controls are created in batches
@@ -248,6 +268,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
             {
                 if (IsMeshDevice)
                 {
+                    _meshControl.RequestRuntimePreparation(DeviceAddress);
                     if (_meshControl.GetRuntimeSnapshot(DeviceAddress) is { } meshRuntime)
                         ApplyMeshRuntimeSnapshot(meshRuntime);
                     else

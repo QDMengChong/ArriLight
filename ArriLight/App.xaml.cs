@@ -50,6 +50,7 @@ namespace ArriLight
                 // Created also covers a reused MAUI Window with a new native window.
                 await _agpLight.StartForNewWindowAsync();
                 await _agpLight.StartRuntimeAsync();
+                if (_meshControl is not null) await _meshControl.StartForNewWindowAsync();
             }
             catch (Exception exception)
             {
@@ -104,6 +105,8 @@ namespace ArriLight
             try
             {
                 await _agpLight.ResumeAfterBackgroundAsync();
+                if (_meshControl is not null && !_agpLight.IsApplicationSuspended)
+                    await _meshControl.ResumeAfterBackgroundAsync();
             }
             catch (Exception exception)
             {

@@ -75,10 +75,10 @@ public partial class DeviceControlPageViewModel
             return;
         }
 
-        // Mesh 没有 Toggle 语义，且没有延时开关/Delay 能力：直接走绝对 Set。
+        // Mesh 通过确认状态计算 Toggle 目标，离线时先连接并查询。
         if (IsMeshDevice)
         {
-            await SetMeshMasterPowerAsync(desiredOn, previousPower, commandVersion, timing);
+            await SetMeshMasterPowerAsync(previousPower, commandVersion, timing);
             return;
         }
 
@@ -121,7 +121,6 @@ public partial class DeviceControlPageViewModel
     /// 失败时回滚到按下之前的值。
     /// </summary>
     private async Task SetMeshMasterPowerAsync(
-        bool desiredOn,
         bool previousPower,
         int commandVersion,
         BleTimingScope timing)
@@ -129,7 +128,7 @@ public partial class DeviceControlPageViewModel
         try
         {
             IsPowerChanging = true;
-            var result = await _meshControl.SetOnOffAsync(DeviceAddress, desiredOn);
+            var result = await _meshControl.ToggleOrTurnOnAsync(DeviceAddress);
             if (commandVersion == _powerCommandVersion)
             {
                 IsMasterPowerOn = result;

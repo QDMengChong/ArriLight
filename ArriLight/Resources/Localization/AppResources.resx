@@ -1838,4 +1838,8 @@ Product ID：{3}
   <data name="Device_RuntimeResponseChannel" xml:space="preserve"><value>正在建立响应通道</value></data>
   <data name="Device_RuntimeAuthenticating" xml:space="preserve"><value>正在认证</value></data>
   <data name="Device_RuntimeRetrying" xml:space="preserve"><value>等待重试</value></data>
+  <data name="Mesh_CapabilitiesUnavailable" xml:space="preserve"><value>无法确认 Mesh 设备的控制能力，请重试。</value></data>
+  <data name="Mesh_LightStateUnavailable" xml:space="preserve"><value>Mesh 灯光状态未知，请刷新后重试。</value></data>
+  <data name="Mesh_LightResultUnknown" xml:space="preserve"><value>Mesh 灯光设置结果未知，请刷新状态。</value></data>
+  <data name="Mesh_ModelUnavailable" xml:space="preserve"><value>设备不支持此灯光控制。</value></data>
 </root>

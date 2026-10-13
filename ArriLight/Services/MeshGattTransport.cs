@@ -18,6 +18,8 @@ public sealed class MeshGattTransport : IMeshLink, IDisposable
     private readonly AppDiagnosticService _diagnostics;
     private readonly string _address;
     private readonly MeshSarReassembler _reassembler = new();
+    private MeshSegmentedAccessReceiver _accessReceiver = new();
+    private MeshNetworkConfig? _networkConfig;
     private Guid _serviceId;
     private Guid _dataInUuid;
     private Guid _dataOutUuid;
@@ -48,6 +50,13 @@ public sealed class MeshGattTransport : IMeshLink, IDisposable
         !_disposed && _connectionService.IsConnected(_address);
 
     public event EventHandler<byte[]>? Received;
+    public event EventHandler<MeshAccessMessage>? SegmentedAccessMessageReceived;
+
+    internal void ConfigureNetwork(MeshNetworkConfig config)
+    {
+        _networkConfig = config;
+        _accessReceiver = new();
+    }
 
     public Task WriteAsync(
         ReadOnlySpan<byte> pdu,
@@ -195,7 +204,20 @@ public sealed class MeshGattTransport : IMeshLink, IDisposable
         }
 
         if (_reassembler.Append(message.Data) is { } pdu)
+        {
+            if (_networkConfig is { } config && _accessReceiver.Accept(pdu, config) is { } result)
+            {
+                if (result.Message is { } access) SegmentedAccessMessageReceived?.Invoke(this, access);
+                _ = SendSegmentAcknowledgmentAsync(result.Acknowledgment);
+            }
             Received?.Invoke(this, pdu);
+        }
+    }
+
+    private async Task SendSegmentAcknowledgmentAsync(byte[] acknowledgment)
+    {
+        try { await WriteCoreAsync(acknowledgment, CancellationToken.None); }
+        catch (Exception exception) { _diagnostics.Warning("Mesh/RX", $"分段确认发送失败：{exception.Message}"); }
     }
 
     private void OnConnectionStateChanged(
@@ -212,6 +234,7 @@ public sealed class MeshGattTransport : IMeshLink, IDisposable
         }
 
         _reassembler.Reset();
+        _accessReceiver = new();
         _receivingGeneration = -1;
         _maximumWritePayload = 20;
     }

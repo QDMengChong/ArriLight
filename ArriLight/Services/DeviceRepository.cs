@@ -168,6 +168,13 @@ public sealed class DeviceRepository
         Update(address, device => device with { Capabilities = capabilities },
             notifyDevicesChanged: false);
 
+    public bool SetMeshControlProfile(string address, MeshControlProfile profile) =>
+        Update(address, device => device with
+        {
+            MeshProfile = profile,
+            Capabilities = profile.Capabilities
+        }, notifyDevicesChanged: false);
+
     /// <summary>Explicitly invalidate firmware-dependent metadata after an OTA attempt.</summary>
     public bool InvalidateCapabilities(string address) =>
         Update(address, device => device with { Capabilities = null }, notifyDevicesChanged: false);

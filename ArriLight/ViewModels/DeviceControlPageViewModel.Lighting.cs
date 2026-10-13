@@ -61,6 +61,7 @@ public partial class DeviceControlPageViewModel
             timing.Mark("灯光设置防抖等待结束");
         }
         cancellationToken.ThrowIfCancellationRequested();
+        var lightingVersion = _lightingEditVersion;
 
         var brightnessPercent = (byte)Math.Clamp(
             Math.Round(Brightness),
@@ -71,13 +72,15 @@ public partial class DeviceControlPageViewModel
         {
             if (IsMeshDevice)
             {
-                // Mesh 侧经由 Light HSL Set 只改写 Lightness 分量。
-                // Light Lightness Server 虽然被 HSL Server 内部注册，但固件
-                // 没有给它绑定 AppKey，直接下发会被静默丢弃。
-                await _meshControl.SetLightnessAsync(
-                    DeviceAddress,
-                    brightnessPercent,
-                    cancellationToken);
+                if (!_hasPendingColorInput && SupportsBrightness)
+                    await _meshControl.SetLightnessAsync(DeviceAddress, brightnessPercent, cancellationToken);
+                else if (SupportsColor && (!SupportsTemperature || _activeColorModel != AgpColorModel.Ctl))
+                    await _meshControl.SetHslAsync(DeviceAddress, brightnessPercent, Hue, Saturation, cancellationToken);
+                else if (SupportsTemperature)
+                    await _meshControl.SetCtlAsync(DeviceAddress, brightnessPercent,
+                        TemperatureRatioToKelvin(Temperature), cancellationToken);
+                else if (SupportsBrightness)
+                    await _meshControl.SetLightnessAsync(DeviceAddress, brightnessPercent, cancellationToken);
             }
             else if (ControlPageKind == AgpControlPageKind.Hsl ||
                 (ControlPageKind == AgpControlPageKind.HslAndCtl &&
@@ -106,7 +109,12 @@ public partial class DeviceControlPageViewModel
                     brightnessPercent,
                     CancellationToken.None);
             }
+            if (lightingVersion == _lightingEditVersion) _hasPendingColorInput = false;
             timing.SetResult("success");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            timing.SetResult("canceled");
         }
         catch (Exception exception)
         {

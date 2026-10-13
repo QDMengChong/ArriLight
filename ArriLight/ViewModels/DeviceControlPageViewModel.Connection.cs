@@ -23,39 +23,51 @@ public partial class DeviceControlPageViewModel
         BluetoothDeviceProtocol.Mesh;
 
     /// <summary>
-    /// Mesh 设备的控制页初始化：复用 Mesh Proxy 会话把开关与亮度读回来，之后所有命令
+    /// Mesh 设备的控制页初始化：按节点模型读取开关、亮度、颜色与色温，之后所有命令
     /// 都走 <see cref="MeshDeviceControlService"/> 的统一状态与会话管理。
     /// </summary>
     private async Task InitializeMeshControlSessionAsync(
         BleTimingScope timing,
         bool refreshStatus,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool scanAlreadyStopped)
     {
+        var lightingVersion = _lightingEditVersion;
         try
         {
             using var initializationCancellation =
                 CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _connectionInitializationCancellation = initializationCancellation;
-
-            var isOn = await _meshControl.GetOnOffStateAsync(
-                DeviceAddress,
-                initializationCancellation.Token);
-            timing.Mark($"Mesh 开关状态已取得: {(isOn is { } on ? (on ? "On" : "Off") : "未知")}");
-
-            var lightness = await _meshControl.GetLightnessPercentAsync(
-                DeviceAddress,
-                initializationCancellation.Token);
-            if (lightness is { } percent)
-                Brightness = Math.Clamp((double)percent, 1, 100);
-
-            IsMasterPowerOn = isOn ?? false;
-            UpdateMasterPowerVisual();
-
-            // Mesh 页面只支持开关与亮度：颜色/效果/定时/场景都不可用。
-            SupportedCapabilities = AgpCapabilities.Lightness;
+            if (!scanAlreadyStopped)
+                await Task.Run(_discoveryService.StopAsync, initializationCancellation.Token);
+            var sharedPreparation = _meshControl.IsRuntimeStarted;
+            if (sharedPreparation)
+                await _meshControl.EnsureRuntimeReadyAsync(DeviceAddress, initializationCancellation.Token, refreshStatus);
+            var profile = sharedPreparation ? _meshControl.GetCachedControlProfile(DeviceAddress) :
+                await _meshControl.GetControlProfileAsync(DeviceAddress, refreshStatus, initializationCancellation.Token);
+            initializationCancellation.Token.ThrowIfCancellationRequested();
+            if (profile is null)
+                throw new InvalidOperationException(AppResources.Mesh_CapabilitiesUnavailable);
+            ApplyMeshControlProfile(profile);
+            if (profile.OnOffAddress is not null && !sharedPreparation)
+            {
+                var isOn = await _meshControl.GetOnOffStateAsync(DeviceAddress, initializationCancellation.Token);
+                if (isOn is { } on) IsMasterPowerOn = on;
+            }
+            if (SupportsBrightness)
+            {
+                var state = sharedPreparation ? _meshControl.GetCachedState(DeviceAddress) :
+                    await _meshControl.GetLightingStateAsync(DeviceAddress, initializationCancellation.Token);
+                initializationCancellation.Token.ThrowIfCancellationRequested();
+                if (_meshControl.GetCachedControlProfile(DeviceAddress) is { } updated)
+                    ApplyMeshControlProfile(updated);
+                if (state is not null)
+                    ApplyMeshLightState(state, refreshStatus ? lightingVersion == _lightingEditVersion : null);
+            }
             IsLocalModeSupported = false;
-            IsDeviceOnline = isOn is not null;
-            _connectionInitializationCancellation = null;
+            if (_meshControl.GetRuntimeSnapshot(DeviceAddress) is { } runtime)
+                ApplyMeshRuntimeSnapshot(runtime);
+            UpdateMasterPowerVisual();
             timing.SetResult("mesh-ready");
             if (refreshStatus)
                 _interaction.ShowToast(AppResources.Device_StatusRefreshed);
@@ -76,6 +88,7 @@ public partial class DeviceControlPageViewModel
         }
         finally
         {
+            _connectionInitializationCancellation = null;
             IsInitializingConnection = false;
             OnPropertyChanged(nameof(CanRefreshStatus));
         }
@@ -99,7 +112,7 @@ public partial class DeviceControlPageViewModel
         // BLE 连接，泄漏后真正的 Mesh 控制再也连不上。走自己的短连接查询路径。
         if (IsMeshDevice)
         {
-            await InitializeMeshControlSessionAsync(timing, refreshStatus, cancellationToken);
+            await InitializeMeshControlSessionAsync(timing, refreshStatus, cancellationToken, scanAlreadyStopped);
             return;
         }
         var delaySecondsVersion = _delaySecondsEditVersion;
@@ -340,18 +353,41 @@ public partial class DeviceControlPageViewModel
             ? AppResources.Ble_Connecting : AppResources.Common_Retry;
         CanConnect = !IsDeviceOnline && !snapshot.IsBusy && !_agpLight.IsApplicationSuspended;
         ConnectionStatusColor = PresentationColor.FromArgb(IsDeviceOnline ? "#35C987" : "#E65B65");
-        SupportedCapabilities = AgpCapabilities.Lightness;
+        if (_meshControl.GetCachedControlProfile(DeviceAddress) is { } profile)
+            ApplyMeshControlProfile(profile);
         IsLocalModeSupported = false;
         if (_meshControl.GetCachedState(DeviceAddress) is { } state)
-        {
-            if (state.IsOn is { } isOn)
-                IsMasterPowerOn = isOn;
-            if (state.LightnessPercent is { } brightness &&
-                _lightingEditVersion == _appearanceLightingEditVersion)
-                Brightness = Math.Clamp((double)brightness, 1, 100);
-            UpdateMasterPowerVisual();
-        }
+            ApplyMeshLightState(state);
         UpdateEffectAvailability();
+    }
+
+    private void ApplyMeshControlProfile(MeshControlProfile profile)
+    {
+        var changed = !HasKnownCapabilities || SupportedCapabilities != profile.Capabilities;
+        HasKnownCapabilities = true;
+        SupportedCapabilities = profile.Capabilities;
+        ControlPageKind = new AgpDeviceControlProfile(profile.Capabilities, null, profile.CtlRange).PageKind;
+        _ctlRange = profile.CtlRange;
+        EffectsSupported = false;
+        if (!SupportsColor) _activeColorModel = AgpColorModel.Ctl;
+        else if (!SupportsTemperature) _activeColorModel = AgpColorModel.Hsl;
+        ConfigureControlPage();
+        if (changed) CapabilityViewsRetryRequested?.Invoke();
+    }
+
+    private void ApplyMeshLightState(MeshDeviceState state, bool? applyLighting = null)
+    {
+        if (!IsPowerChanging && state.IsOn is { } isOn) IsMasterPowerOn = isOn;
+        if (applyLighting ?? _lightingEditVersion == _appearanceLightingEditVersion)
+        {
+            _hasPendingColorInput = false;
+            if (state.LightnessPercent is > 0) Brightness = state.LightnessPercent.Value;
+            if (state.Hue is { } hue) Hue = hue / (double)ushort.MaxValue;
+            if (state.Saturation is { } saturation) Saturation = saturation / (double)ushort.MaxValue;
+            if (state.TemperatureKelvin is { } temperature) Temperature = KelvinToTemperatureRatio(temperature);
+            if (state.ActiveColorModel is { } model) _activeColorModel = model;
+        }
+        RenderRequested?.Invoke();
     }
 
     private void ApplyAvailableRuntimeData(DeviceRuntimeSnapshot snapshot)

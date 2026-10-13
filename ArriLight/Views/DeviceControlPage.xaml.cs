@@ -10,6 +10,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private const int LongPressMilliseconds = 650;
     private readonly AppDiagnosticService _diagnostics;
     private Task? _capabilityViewsTask;
+    private bool _capabilityViewsReloadRequested;
     private bool _isApplyingControlState;
     private bool _longPressTriggered;
     private bool _suppressPresetClick;
@@ -94,8 +95,13 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         ViewModel.RenderRequested += RenderControlState;
         ViewModel.CapabilityViewsRetryRequested += () =>
         {
-            if (_capabilityViewsTask is null && _controlPageAppearanceCancellation is { } appearance)
+            _capabilityViewsReloadRequested = true;
+            if ((_capabilityViewsTask is null || _capabilityViewsTask.IsCompleted) &&
+                _controlPageAppearanceCancellation is { } appearance)
+            {
+                _capabilityViewsTask = null;
                 _ = ObserveCapabilityViewsRetryAsync(appearance.Token);
+            }
         };
         RenderControlState();
         timing.SetResult("created");
@@ -491,6 +497,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             BrightnessControlRow.IsVisible = supportsBrightness;
         }
         var hasPresetSupport = supportsBrightness || supportsHsl || supportsCtl || SupportsEffect;
+        LightControlCard.IsVisible = hasPresetSupport;
         if (HasSavePresetView)
             SavePresetLazyView.IsVisible = hasPresetSupport;
         if (HasPresetView)
@@ -524,7 +531,11 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             if (!_hasKnownCapabilities) await blePreparation;
             token.ThrowIfCancellationRequested();
             if (!_hasKnownCapabilities) return;
-            await LoadCapabilityViewsAsync(token);
+            do
+            {
+                _capabilityViewsReloadRequested = false;
+                await LoadCapabilityViewsAsync(token);
+            } while (_capabilityViewsReloadRequested);
             completed = true;
         }
         finally

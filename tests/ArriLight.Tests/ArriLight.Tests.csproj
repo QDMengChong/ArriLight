@@ -45,6 +45,10 @@
     <Compile Include="..\..\ArriLight\Services\DeviceProtocols.cs" Link="Services\DeviceProtocols.cs" />
     <Compile Include="..\..\ArriLight\Services\MeshNetworkManager.cs" Link="Services\MeshNetworkManager.cs" />
     <Compile Include="..\..\ArriLight\Services\MeshDeviceControlService.cs" Link="Services\MeshDeviceControlService.cs" />
+    <Compile Include="..\..\ArriLight\Services\MeshDeviceControlService.Lighting.cs" Link="Services\MeshDeviceControlService.Lighting.cs" />
+    <Compile Include="..\..\ArriLight\Services\MeshDeviceControlService.Runtime.cs" Link="Services\MeshDeviceControlService.Runtime.cs" />
+    <Compile Include="..\..\ArriLight\Services\MeshControlProfile.cs" Link="Services\MeshControlProfile.cs" />
+    <Compile Include="..\..\ArriLight\Services\MeshSegmentedAccessReceiver.cs" Link="Services\MeshSegmentedAccessReceiver.cs" />
     <Compile Include="..\..\ArriLight\Services\MeshGattTransport.cs" Link="Services\MeshGattTransport.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceRepository.cs" Link="Services\DeviceRepository.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceShareCode.cs" Link="Services\DeviceShareCode.cs" />

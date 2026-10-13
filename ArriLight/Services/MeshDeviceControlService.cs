@@ -6,19 +6,17 @@ using ArriOpto.BLE.Mesh.Models;
 namespace ArriLight;
 
 /// <summary>
-/// 已配网 Mesh 设备的日常控制（开关与亮度）。
+/// 已配网 Mesh 设备的日常控制（开关、亮度、HSL 和 CTL）。
 /// </summary>
 /// <remarks>
 /// Mesh 与 AGP 共用应用级设备调度器，但保留各自的协议适配层。
 /// Mesh Proxy 会话按地址复用：第一次操作建立 GATT、MTU、通知和 Proxy Filter，
 /// 后续命令直接复用同一会话；应用进入后台或关闭时由生命周期显式释放。
 ///
-/// 协议事实（来自 PW01-MESH 固件）：Generic OnOff Server 注册并自动绑定 AppKey；
-/// Light Lightness Server 虽被 HSL Server 内部注册，但没有被绑定 AppKey，直接下发
-/// 会被节点静默丢弃。因此亮度经由已绑定的 <c>LightHslModel</c> 只改写 Lightness
-/// 分量，色相与饱和度沿用设备当前值。
+/// 能力来自 Composition Data 和模型绑定结果；亮度优先沿用当前 HSL/CTL 模型，
+/// 保留颜色或色温。旧节点无法读取组成数据时，通过 Status 确认可用模型。
 /// </remarks>
-public class MeshDeviceControlService : IAsyncDisposable
+public partial class MeshDeviceControlService : IAsyncDisposable
 {
     private static readonly TimeSpan StatusTimeout = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan SessionTimeout = TimeSpan.FromSeconds(20);
@@ -37,11 +35,11 @@ public class MeshDeviceControlService : IAsyncDisposable
     private readonly MeshNetworkManager _networkManager;
     private readonly AppDiagnosticService _diagnostics;
     private readonly DeviceWorkScheduler _work;
+    private readonly DeviceRepository? _repository;
     private readonly ConcurrentDictionary<string, MeshProxySession> _sessions =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, MeshDeviceState> _states =
         new(StringComparer.OrdinalIgnoreCase);
-    private readonly ConcurrentDictionary<ushort, (ushort Hue, ushort Saturation)> _hslMemory = [];
     private readonly ConcurrentDictionary<string, byte> _transactionIds =
         new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, MeshRuntimeEntry> _runtimeEntries =
@@ -52,14 +50,18 @@ public class MeshDeviceControlService : IAsyncDisposable
         BluetoothConnectionService connectionService,
         MeshNetworkManager networkManager,
         AppDiagnosticService diagnostics,
-        DeviceWorkScheduler? work = null)
+        DeviceWorkScheduler? work = null,
+        DeviceRepository? repository = null)
     {
         _connectionService = connectionService;
         _networkManager = networkManager;
         _diagnostics = diagnostics;
         _work = work ?? new DeviceWorkScheduler();
+        _repository = repository;
         if (_connectionService is not null)
             _connectionService.StateChanged += OnConnectionStateChanged;
+        if (_repository is not null)
+            _repository.DevicesChanged += OnRuntimeDevicesChanged;
     }
 
     /// <summary>最近一次成功取样到的设备状态，供 UI 首帧展示。</summary>
@@ -96,7 +98,7 @@ public class MeshDeviceControlService : IAsyncDisposable
                 {
                     var response = await SendAndWaitAsync(
                         client,
-                        node,
+                        GetCachedControlProfile(address)?.OnOffAddress ?? node.UnicastAddress,
                         MeshOpcode.GenericOnOffStatus,
                         GenericOnOffModel.Get(),
                         "OnOff.Get",
@@ -138,7 +140,7 @@ public class MeshDeviceControlService : IAsyncDisposable
                 {
                     var response = await SendAndWaitAsync(
                         client,
-                        node,
+                        GetCachedControlProfile(address)?.OnOffAddress ?? node.UnicastAddress,
                         MeshOpcode.GenericOnOffStatus,
                         GenericOnOffModel.Set(isOn, NextTid(address)),
                         $"OnOff.Set({(isOn ? "On" : "Off")})",
@@ -187,7 +189,7 @@ public class MeshDeviceControlService : IAsyncDisposable
                     {
                         var response = await SendAndWaitAsync(
                             client,
-                            node,
+                            GetCachedControlProfile(address)?.OnOffAddress ?? node.UnicastAddress,
                             MeshOpcode.GenericOnOffStatus,
                             GenericOnOffModel.Get(),
                             "OnOff.Get",
@@ -207,7 +209,7 @@ public class MeshDeviceControlService : IAsyncDisposable
 
                     var setResponse = await SendAndWaitAsync(
                         client,
-                        node,
+                        GetCachedControlProfile(address)?.OnOffAddress ?? node.UnicastAddress,
                         MeshOpcode.GenericOnOffStatus,
                         GenericOnOffModel.Set(desired, NextTid(address)),
                         $"OnOff.Set({(desired ? "On" : "Off")})",
@@ -234,100 +236,22 @@ public class MeshDeviceControlService : IAsyncDisposable
         }
     }
 
-    /// <summary>读取当前亮度百分比；不可用时返回 null。</summary>
+    /// <summary>读取能力适用的灯光状态，兼容主页的百分比接口。</summary>
     public async Task<byte?> GetLightnessPercentAsync(
-        string address,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await RunProxySessionAsync<byte?>(
-                address,
-                "Mesh.Hsl.Get",
-                StatusPriority,
-                async (client, node, token) =>
-                {
-                    var response = await SendAndWaitAsync(
-                        client,
-                        node,
-                        MeshOpcode.LightHslStatus,
-                        LightHslModel.Get(),
-                        "HSL.Get",
-                        token);
-                    if (response is null ||
-                        !LightHslModel.TryParseStatus(response.AccessPdu, out var status))
-                    {
-                        MarkRuntimeUnknown(address, "HSL 状态未知");
-                        return null;
-                    }
+        string address, CancellationToken cancellationToken = default) =>
+        (await GetLightingStateAsync(address, cancellationToken))?.LightnessPercent;
 
-                    RememberHsl(node.UnicastAddress, status.Hue, status.Saturation);
-                    var percent = ToPercent(status.Lightness);
-                    PublishState(address, node, lightnessPercent: percent);
-                    return percent;
-                },
-                cancellationToken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            _diagnostics.Warning(
-                "Mesh/Control",
-                $"读取 Mesh 亮度失败：device={address}，{exception.Message}");
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// 设置亮度百分比。经由 Light HSL Set 只改写 Lightness 分量，
-    /// 色相/饱和度沿用设备当前值。
-    /// </summary>
-    public async Task<bool> SetLightnessAsync(
-        string address,
-        byte brightnessPercent,
-        CancellationToken cancellationToken = default)
-    {
-        try
-        {
-            return await RunProxySessionAsync(
-                address,
-                $"Mesh.Hsl.Set({brightnessPercent}%)",
-                UserPriority,
-                async (client, node, token) =>
-                {
-                    var (hue, saturation) = await ResolveHslAsync(client, node, token);
-                    var lightness = ToLightness(brightnessPercent);
-                    var response = await SendAndWaitAsync(
-                        client,
-                        node,
-                        MeshOpcode.LightHslStatus,
-                        LightHslModel.Set(lightness, hue, saturation, NextTid(address)),
-                        $"HSL.Set({brightnessPercent}%)",
-                        token);
-                    if (response is not null &&
-                        LightHslModel.TryParseStatus(response.AccessPdu, out var status))
-                    {
-                        RememberHsl(node.UnicastAddress, status.Hue, status.Saturation);
-                        PublishState(address, node, lightnessPercent: ToPercent(status.Lightness));
-                        return true;
-                    }
-
-                    PublishState(address, node, lightnessPercent: brightnessPercent);
-                    MarkRuntimeUnknown(address, "HSL.Set 未收到 Status");
-                    return true;
-                },
-                cancellationToken);
-        }
-        catch (Exception exception) when (exception is not OperationCanceledException)
-        {
-            _diagnostics.Warning(
-                "Mesh/Control",
-                $"设置 Mesh 亮度失败：device={address}，{exception.Message}");
-            throw;
-        }
-    }
+    /// <summary>调节亮度时保留最近确认的颜色或色温。</summary>
+    public virtual Task<bool> SetLightnessAsync(
+        string address, byte brightnessPercent, CancellationToken cancellationToken = default) =>
+        RunProxySessionAsync(address, $"Mesh.Lightness.Set({brightnessPercent}%)", UserPriority,
+            (client, node, token) => SetBrightnessCoreAsync(client, node, address, brightnessPercent, token),
+            cancellationToken);
 
     /// <summary>主动把 Mesh 设备标记为离线，并通知统一状态观察者。</summary>
-    public void RecordDeviceOffline(string address, string? error = null) =>
+    public void RecordDeviceOffline(string address, string? error = null)
+    {
+        ForgetOnOffState(address);
         MutateRuntime(address, entry =>
         {
             entry.Availability = DeviceRuntimeAvailability.Offline;
@@ -336,15 +260,22 @@ public class MeshDeviceControlService : IAsyncDisposable
             entry.HasPendingUserOperation = false;
             entry.Error = error;
         });
+    }
+
+    private void ForgetOnOffState(string address)
+    {
+        if (_states.TryGetValue(address, out var state))
+            _states.TryUpdate(address, state with { IsOn = null }, state);
+    }
 
     /// <summary>
-    /// 应用进入后台时释放 Mesh Proxy 会话；前台恢复后下一次查询或控制会自动重连。
+    /// 应用进入后台时取消准备并释放 Mesh Proxy 会话，恢复前台后主动重连。
     /// </summary>
     public Task SuspendForBackgroundAsync(CancellationToken cancellationToken = default) =>
-        DisconnectAllAsync(cancellationToken, "应用进入后台");
+        StopRuntimeAsync(closing: false, cancellationToken);
 
     public Task DisconnectForApplicationCloseAsync(CancellationToken cancellationToken = default) =>
-        DisconnectAllAsync(cancellationToken, "应用关闭");
+        StopRuntimeAsync(closing: true, cancellationToken);
 
     private async Task DisconnectAllAsync(CancellationToken cancellationToken, string reason)
     {
@@ -362,6 +293,7 @@ public class MeshDeviceControlService : IAsyncDisposable
         Func<MeshClient, MeshNode, CancellationToken, Task<T>> operation,
         CancellationToken cancellationToken)
     {
+        using var lifetime = LinkApplicationLifetime(cancellationToken);
         var operationId = BeginRuntimeOperation(
             address,
             operationName,
@@ -372,7 +304,7 @@ public class MeshDeviceControlService : IAsyncDisposable
                 address,
                 priority,
                 token => ExecuteProxyOperationAsync(address, operationId, operation, token),
-                cancellationToken);
+                lifetime.Token);
         }
         catch (OperationCanceledException exception)
         {
@@ -460,6 +392,7 @@ public class MeshDeviceControlService : IAsyncDisposable
             await session.Transport.StartReceivingAsync(cancellationToken);
             session.Generation = session.Transport.ConnectionGeneration;
             session.Client.Restore(_networkManager.RestoreConfigFor(address));
+            session.Transport.ConfigureNetwork(session.Client.Config!);
             await session.Client.ConfigureProxyFilterAsync(cancellationToken);
             // Mesh 会话由本服务持有，不能被普通短租约提前释放。
             _connectionService.PromoteConnectionToLongLived(address);
@@ -526,64 +459,45 @@ public class MeshDeviceControlService : IAsyncDisposable
     }
 
     /// <summary>向目标节点发送访问层消息并等待同名 Status；超时返回 null。</summary>
-    private async Task<MeshAccessMessage?> SendAndWaitAsync(
+    private Task<MeshAccessMessage?> SendAndWaitAsync(
         MeshClient client,
         MeshNode node,
+        ushort statusOpcode,
+        byte[] accessPdu,
+        string label,
+        CancellationToken cancellationToken) =>
+        SendAndWaitAsync(client, node.UnicastAddress, statusOpcode, accessPdu, label, cancellationToken);
+
+    private async Task<MeshAccessMessage?> SendAndWaitAsync(
+        MeshClient client,
+        ushort elementAddress,
         ushort statusOpcode,
         byte[] accessPdu,
         string label,
         CancellationToken cancellationToken)
     {
         var statusTask = client.WaitForAccessMessageFromAsync(
-            node.UnicastAddress,
+            elementAddress,
             MeshOpcode.Encode(statusOpcode),
             StatusTimeout,
             cancellationToken);
         await client.SendAccessMessageAsync(
-            node.UnicastAddress,
+            elementAddress,
             accessPdu,
             cancellationToken);
         try
         {
-            _diagnostics.Debug("Mesh/Control", $"已发送 {label}：node=0x{node.UnicastAddress:X4}。");
+            _diagnostics.Debug("Mesh/Control", $"已发送 {label}：element=0x{elementAddress:X4}。");
             return await statusTask;
         }
         catch (TimeoutException)
         {
             _diagnostics.Warning(
                 "Mesh/Control",
-                $"等待 {label} 的 Status 超时：node=0x{node.UnicastAddress:X4}。");
+                $"等待 {label} 的 Status 超时：element=0x{elementAddress:X4}。");
             return null;
         }
     }
-
-    private async Task<(ushort Hue, ushort Saturation)> ResolveHslAsync(
-        MeshClient client,
-        MeshNode node,
-        CancellationToken cancellationToken)
-    {
-        if (_hslMemory.TryGetValue(node.UnicastAddress, out var known))
-            return known;
-
-        var response = await SendAndWaitAsync(
-            client,
-            node,
-            MeshOpcode.LightHslStatus,
-            LightHslModel.Get(),
-            "HSL.Get(前置)",
-            cancellationToken);
-        if (response is not null &&
-            LightHslModel.TryParseStatus(response.AccessPdu, out var status))
-        {
-            RememberHsl(node.UnicastAddress, status.Hue, status.Saturation);
-            return (status.Hue, status.Saturation);
-        }
-
-        return (0, 0);
-    }
-
-    private void RememberHsl(ushort unicastAddress, ushort hue, ushort saturation) =>
-        _hslMemory[unicastAddress] = (hue, saturation);
 
     private byte NextTid(string address)
     {
@@ -598,18 +512,27 @@ public class MeshDeviceControlService : IAsyncDisposable
         string address,
         MeshNode node,
         bool? isOn = null,
-        byte? lightnessPercent = null)
+        byte? lightnessPercent = null,
+        ushort? hue = null,
+        ushort? saturation = null,
+        ushort? temperatureKelvin = null,
+        ArriOpto.BLE.Agp.AgpColorModel? activeColorModel = null)
     {
-        if (isOn is null && lightnessPercent is null)
+        if (isOn is null && lightnessPercent is null && hue is null && temperatureKelvin is null)
             return;
 
         var state = _states.AddOrUpdate(
             address,
-            _ => new MeshDeviceState(address, node.UnicastAddress, isOn, lightnessPercent),
+            _ => new MeshDeviceState(address, node.UnicastAddress, isOn, lightnessPercent,
+                hue, saturation, temperatureKelvin, activeColorModel),
             (_, previous) => previous with
             {
                 IsOn = isOn ?? previous.IsOn,
-                LightnessPercent = lightnessPercent ?? previous.LightnessPercent
+                LightnessPercent = lightnessPercent ?? previous.LightnessPercent,
+                Hue = hue ?? previous.Hue,
+                Saturation = saturation ?? previous.Saturation,
+                TemperatureKelvin = temperatureKelvin ?? previous.TemperatureKelvin,
+                ActiveColorModel = activeColorModel ?? previous.ActiveColorModel
             });
         MutateRuntime(address, entry =>
         {
@@ -687,6 +610,8 @@ public class MeshDeviceControlService : IAsyncDisposable
         {
             if (entry.Operation?.Id != operationId)
                 return;
+            if (entry.Operation.Stage == DeviceRuntimeOperationStage.Unknown)
+                return;
             entry.Operation = entry.Operation with { Stage = DeviceRuntimeOperationStage.Failed, Error = error };
             entry.IsBusy = false;
             entry.HasPendingUserOperation = false;
@@ -714,14 +639,21 @@ public class MeshDeviceControlService : IAsyncDisposable
             return;
         }
 
+        var recover = false;
+        var runtimeEntry = _runtimeEntries.GetOrAdd(snapshot.Address, _ => new MeshRuntimeEntry());
+        ForgetOnOffState(snapshot.Address);
         MutateRuntime(snapshot.Address, entry =>
         {
+            recover = entry.Availability is DeviceRuntimeAvailability.Online or DeviceRuntimeAvailability.Ready &&
+                !entry.RecoveryPending && snapshot.State != BluetoothSessionState.Updating;
+            if (recover) entry.RecoveryPending = true;
             entry.Availability = DeviceRuntimeAvailability.Offline;
             entry.IsBusy = false;
             entry.HasPendingUserOperation = false;
             entry.Stage = snapshot.Message;
             entry.Error = snapshot.Message;
         });
+        if (recover) _ = RecoverRuntimeSessionAsync(snapshot.Address, runtimeEntry);
     }
 
     private DeviceRuntimeSnapshot MutateRuntime(
@@ -747,9 +679,11 @@ public class MeshDeviceControlService : IAsyncDisposable
         _disposed = true;
         if (_connectionService is not null)
             _connectionService.StateChanged -= OnConnectionStateChanged;
+        if (_repository is not null)
+            _repository.DevicesChanged -= OnRuntimeDevicesChanged;
         try
         {
-            await DisconnectAllAsync(CancellationToken.None, "服务释放");
+            await StopRuntimeAsync(closing: true, CancellationToken.None);
         }
         catch (Exception exception)
         {
@@ -776,6 +710,7 @@ public class MeshDeviceControlService : IAsyncDisposable
         public DeviceRuntimeOperation? Operation { get; set; }
         public DateTimeOffset? LastSeen { get; set; }
         public long Version { get; set; }
+        public bool RecoveryPending { get; set; }
 
         public DeviceRuntimeSnapshot GetSnapshot(string address) => new(
             address,
@@ -815,4 +750,8 @@ public sealed record MeshDeviceState(
     string Address,
     ushort UnicastAddress,
     bool? IsOn = null,
-    byte? LightnessPercent = null);
+    byte? LightnessPercent = null,
+    ushort? Hue = null,
+    ushort? Saturation = null,
+    ushort? TemperatureKelvin = null,
+    ArriOpto.BLE.Agp.AgpColorModel? ActiveColorModel = null);

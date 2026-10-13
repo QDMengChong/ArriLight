@@ -21,7 +21,8 @@ public sealed partial class ControlPreset : ObservableObject
         double? brightness,
         PresentationColor? lightColor,
         AgpLightMode? effectMode,
-        ushort? effectPeriodMilliseconds)
+        ushort? effectPeriodMilliseconds,
+        AgpColorModel? activeColorModel = null)
     {
         DisplayName = displayName;
         IsSaved = isSaved;
@@ -32,6 +33,7 @@ public sealed partial class ControlPreset : ObservableObject
         LightColor = lightColor;
         EffectMode = effectMode;
         EffectPeriodMilliseconds = effectPeriodMilliseconds;
+        ActiveColorModel = activeColorModel;
     }
 
     public string DisplayName { get; }
@@ -51,6 +53,8 @@ public sealed partial class ControlPreset : ObservableObject
     public AgpLightMode? EffectMode { get; }
 
     public ushort? EffectPeriodMilliseconds { get; }
+
+    public AgpColorModel? ActiveColorModel { get; }
 
     public bool HasColor => _supportsColor && LightColor is not null;
     public bool HasTemperature => _supportsTemperature && Temperature is not null;
@@ -103,7 +107,8 @@ public sealed partial class ControlPreset : ObservableObject
         double? brightness,
         PresentationColor? lightColor,
         AgpLightMode? effectMode,
-        ushort? effectPeriodMilliseconds) =>
+        ushort? effectPeriodMilliseconds,
+        AgpColorModel? activeColorModel = null) =>
         new(
             name,
             true,
@@ -113,7 +118,8 @@ public sealed partial class ControlPreset : ObservableObject
             brightness,
             lightColor,
             effectMode,
-            effectPeriodMilliseconds);
+            effectPeriodMilliseconds,
+            activeColorModel);
 
     public static ControlPreset Empty() => new(
         AppResources.Preset_Empty, false, null, null, null, null, null, null, null);
@@ -127,7 +133,8 @@ public sealed partial class ControlPreset : ObservableObject
         Brightness,
         HasColor ? ToRgbHex(LightColor!) : null,
         EffectMode,
-        EffectPeriodMilliseconds);
+        EffectPeriodMilliseconds,
+        ActiveColorModel);
 
     internal static ControlPreset FromSaved(SavedControlPreset saved)
     {
@@ -153,7 +160,8 @@ public sealed partial class ControlPreset : ObservableObject
             saved.Brightness,
             lightColor,
             saved.EffectMode,
-            saved.EffectPeriodMilliseconds);
+            saved.EffectPeriodMilliseconds,
+            saved.ActiveColorModel);
     }
 
     internal void SetSupportedContent(

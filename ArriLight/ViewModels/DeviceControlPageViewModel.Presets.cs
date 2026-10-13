@@ -71,7 +71,8 @@ public partial class DeviceControlPageViewModel
             SupportsEffect ? EffectMode : null,
             SupportsEffect && EffectMode != AgpLightMode.Steady
                 ? GetEffectPeriod(EffectMode)
-                : (ushort?)0);
+                : (ushort?)0,
+            SupportsColor || SupportsTemperature ? _activeColorModel : null);
         PersistCustomPresets();
     }
 
@@ -124,6 +125,7 @@ public partial class DeviceControlPageViewModel
         }
 
         _lightingEditVersion++;
+        _hasPendingColorInput = (SupportsColor && preset.HasColor) || (SupportsTemperature && preset.HasTemperature);
         _isApplyingControlState = true;
         try
         {
@@ -131,10 +133,19 @@ public partial class DeviceControlPageViewModel
             {
                 Hue = preset.Hue ?? Hue;
                 Saturation = preset.Saturation ?? Saturation;
+                _activeColorModel = AgpColorModel.Hsl;
             }
 
             if (SupportsTemperature && preset.HasTemperature)
+            {
                 Temperature = preset.Temperature!.Value;
+                if (!preset.HasColor) _activeColorModel = AgpColorModel.Ctl;
+            }
+
+            if (preset.ActiveColorModel == AgpColorModel.Ctl && SupportsTemperature && preset.HasTemperature)
+                _activeColorModel = AgpColorModel.Ctl;
+            else if (preset.ActiveColorModel == AgpColorModel.Hsl && SupportsColor && preset.HasColor)
+                _activeColorModel = AgpColorModel.Hsl;
 
             if (SupportsBrightness && preset.HasBrightness)
                 Brightness = preset.Brightness!.Value;

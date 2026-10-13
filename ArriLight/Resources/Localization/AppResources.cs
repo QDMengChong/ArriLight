@@ -474,4 +474,8 @@ public static class AppResources
     public static string Device_RuntimeResponseChannel => global::ArriLight.Localization.GetString(nameof(Device_RuntimeResponseChannel));
     public static string Device_RuntimeAuthenticating => global::ArriLight.Localization.GetString(nameof(Device_RuntimeAuthenticating));
     public static string Device_RuntimeRetrying => global::ArriLight.Localization.GetString(nameof(Device_RuntimeRetrying));
+    public static string Mesh_CapabilitiesUnavailable => global::ArriLight.Localization.GetString(nameof(Mesh_CapabilitiesUnavailable));
+    public static string Mesh_LightStateUnavailable => global::ArriLight.Localization.GetString(nameof(Mesh_LightStateUnavailable));
+    public static string Mesh_LightResultUnknown => global::ArriLight.Localization.GetString(nameof(Mesh_LightResultUnknown));
+    public static string Mesh_ModelUnavailable => global::ArriLight.Localization.GetString(nameof(Mesh_ModelUnavailable));
 }

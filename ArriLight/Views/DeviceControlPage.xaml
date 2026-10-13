@@ -51,7 +51,7 @@
                 Spacing="18"
                 IsEnabled="{Binding IsDeviceOnline}"
                 Opacity="{Binding ControlOpacity}">
-                <Border Style="{StaticResource MenuCardStyle}">
+                <Border x:Name="LightControlCard" Style="{StaticResource MenuCardStyle}">
                     <VerticalStackLayout Spacing="14">
                         <Grid ColumnDefinitions="*,Auto">
                             <VerticalStackLayout Spacing="3">
@@ -128,6 +128,7 @@
 
         <Border
             Grid.Row="1"
+            IsVisible="{Binding SupportsPower}"
             IsEnabled="{Binding CanTogglePower}"
             Padding="20,12"
             BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
