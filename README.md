@@ -1,5 +1,93 @@
 # ArriLight
 
+## iOS / TestFlight 构建
+
+工作流位于 [`.github/workflows/ios.yml`](.github/workflows/ios.yml)。保留 .NET 10，
+使用 GitHub 的 `macos-26` ARM64 runner、Xcode `26.6`、.NET SDK `10.0.401`
+和 workload set `10.0.401`。SDK 固定只写入 CI checkout，不改变本地开发环境。
+两个普通 .NET 测试项目在 Ubuntu 上运行；测试通过后才执行 iOS 构建。
+
+将工作流提交并推送到默认分支后，在 GitHub **Actions → iOS build and TestFlight →
+Run workflow** 中选择模式。涉及应用、协议库或测试的 Pull Request 自动执行 `build-check`。
+
+| 模式 | 用途 | 是否需要苹果签名材料 |
+| --- | --- | --- |
+| `build-check`（默认） | 编译 iOS 模拟器 Debug 应用，保存日志和 ZIP；现在即可使用 | 否；产物不能安装到 iPhone |
+| `ipa` | 编译并保存 App Store 签名的 iPhone Release IPA | 是；这个分发签名的 IPA 需要经过 TestFlight / App Store 安装 |
+| `testflight` | 生成同样的 IPA，并验证、上传到 App Store Connect | 是，还需要 App Store Connect API Key |
+
+### 注册账号后的配置
+
+1. 注册 Apple Developer Program，确定正式 iOS Bundle ID。
+2. 在苹果开发者后台注册对应 App ID，在 App Store Connect 中创建使用同一 Bundle ID
+   的 ArriLight 应用记录。
+3. 创建 **Apple Distribution** 证书，导出包含私钥的 `.p12` 并设置密码；仅有 `.cer`
+   文件不能用于 CI 签名。创建并下载 **App Store Connect** 分发描述文件
+   `.mobileprovision`，选择该 App ID 和证书。
+4. 创建有权限上传该应用的 **App Store Connect 团队 API Key**，下载 `.p8`，记录
+   Key ID 和 Issuer ID。可先使用具有该应用管理权限的 App Manager 角色。
+5. 在仓库 **Settings → Secrets and variables → Actions** 中添加以下配置。
+
+| 类型 | 名称 | 内容 |
+| --- | --- | --- |
+| Variable | `IOS_BUNDLE_ID` | 正式 iOS Bundle ID，必须匹配应用记录和描述文件 |
+| Secret | `IOS_CERTIFICATE_BASE64` | 包含私钥的 `.p12` 文件的 Base64 |
+| Secret | `IOS_CERTIFICATE_PASSWORD` | `.p12` 导出密码 |
+| Secret | `IOS_PROFILE_BASE64` | App Store Connect `.mobileprovision` 文件的 Base64 |
+| Secret | `APP_STORE_CONNECT_API_KEY_BASE64` | `.p8` 文件的 Base64，仅 `testflight` 必需 |
+| Secret | `APP_STORE_CONNECT_KEY_ID` | API Key 的 10 位 Key ID，仅 `testflight` 必需 |
+| Secret | `APP_STORE_CONNECT_ISSUER_ID` | 团队 API Key 的 Issuer ID，仅 `testflight` 必需 |
+
+在 Windows PowerShell 中，将每个文件转换为 Base64 后复制到对应 Secret：
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\AppleSigning\distribution.p12')) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\AppleSigning\ArriLight_AppStore.mobileprovision')) | Set-Clipboard
+[Convert]::ToBase64String([IO.File]::ReadAllBytes('C:\AppleSigning\AuthKey_YOURKEYID.p8')) | Set-Clipboard
+```
+
+每条命令后分别粘贴和保存对应 Secret。Base64 是编码，证书、私钥、密码应保存在 Secrets，
+不提交到仓库。没有 Mac 时，也可以在 Windows 用 OpenSSL 生成 CSR 和私钥，向苹果申请证书后
+将证书与原私钥导出为 `.p12`；必须保存生成 CSR 时的私钥。
+
+先运行 `ipa` 核对签名和产物，再运行 `testflight`。工作流会检查必需配置、描述文件有效期、
+分发类型和 Bundle ID，并自动选择描述文件对应的签名证书；不需要额外配置证书名称或 Profile UUID。
+iOS Bundle ID 只通过构建参数覆盖，Android 包名仍使用项目配置。
+
+### 版本、产物与测试者
+
+`version` 留空时使用项目的 `ApplicationDisplayVersion`（当前 `0.1.3`）。
+`build_number` 留空时使用 `(GitHub run number + 4).run attempt`，例如第一次运行是 `5.1`，
+重新运行是 `5.2`，下一次是 `6.1`。此值只覆盖 iOS 的 `CFBundleVersion`，不修改源文件。
+如果苹果后台已经有更高的构建号，填写更高的 `build_number`，或相应调整脚本中的起始偏移。
+显式构建号需要自行保证递增；默认规则允许最多 9,995 次工作流运行、99 次单次重试。
+
+在 Actions 运行页面的 **Artifacts** 中下载 IPA、可用的 dSYM、构建日志和测试结果，
+保留 14 天。IPA 在上传苹果前保存，上传失败后仍可下载。
+
+上传成功只表示 App Store Connect 已接收文件。等待苹果处理完成后，在 **App Store Connect →
+ArriLight → TestFlight** 完成测试信息、加密合规信息和测试者分组。
+外部测试者首次测试需要 TestFlight 审核；工作流不会自动提交审核或邀请测试者。
+应用使用了 AES 等加密，请按真实用途回答苹果的出口合规问题，不要直接声明应用没有加密。
+
+### 目前的真机验证范围
+
+生成 IPA 不代表所有 iOS 功能已经验证。当前 Mesh 加解密调用 `AesCcm`，该 .NET 实现在 iOS
+上不受支持，Mesh 真机测试前需要采用兼容实现。Android 的 MAC 与 iOS 的设备 UUID 不相同，
+跨平台二维码导入与重连也需要实际验证。蓝牙、相机、权限拒绝、前后台切换、灯控和 OTA
+都需要在 iPhone 上复测。应用的 `Preferences` UserDefaults 隐私声明已补齐。
+
+本地 Windows 无法执行 macOS/Xcode 的编译与签名；首次 `build-check` 是完整 iOS 编译验证，
+首次 `testflight` 是苹果签名和上传验证。更换 SDK 时要同时检查 workload 与 runner 中的
+Xcode 版本，不要单独更新到不匹配的 workload。
+
+参考：[MAUI CLI 发布](https://learn.microsoft.com/en-us/dotnet/maui/ios/deployment/publish-cli?view=net-maui-10.0)、
+[workload / Xcode 对应版本](https://github.com/dotnet/macios/releases/tag/dotnet-10.0.1xx-xcode26.5-10318)、
+[GitHub 证书导入](https://docs.github.com/en/actions/how-tos/deploy/deploy-to-third-party-platforms/sign-xcode-applications)、
+[App Store Connect 上传](https://developer.apple.com/help/app-store-connect/manage-builds/upload-builds/)。
+
+## Android 发布
+
 dotnet publish -c Release -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="C:\Users\RLGE\AppData\Local\Xamarin\Mono for Android\Keystore\" -p:AndroidSigningKeyAlias=ArriOpto -p:AndroidSigningStorePass=12345678 -p:AndroidSigningKeyPass=12345678
 ## OTA 在线升级
 
