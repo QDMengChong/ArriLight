@@ -5,7 +5,9 @@
 工作流位于 [`.github/workflows/ios.yml`](.github/workflows/ios.yml)。保留 .NET 10，
 使用 GitHub 的 `macos-26` ARM64 runner、Xcode `26.6`、.NET SDK `10.0.401`
 和 workload set `10.0.401`。SDK 固定只写入 CI checkout，不改变本地开发环境。
-两个普通 .NET 测试项目在 Ubuntu 上运行；测试通过后才执行 iOS 构建。
+两个普通 .NET 测试项目在 Ubuntu 上运行。依赖应用 `project.assets.json` 的许可证覆盖测试
+在 macOS 安装 workload、还原 iOS 应用后执行；全部检查通过后才继续构建与上传。
+iOS 还原使用静态项目图并隔离应用的平台参数，引用的协议库仍以 `net10.0` 为目标。
 
 将工作流提交并推送到默认分支后，在 GitHub **Actions → iOS build and TestFlight →
 Run workflow** 中选择模式。涉及应用、协议库或测试的 Pull Request 自动执行 `build-check`。

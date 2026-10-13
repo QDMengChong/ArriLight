@@ -46,6 +46,7 @@ env:
   DOTNET_WORKLOAD_VERSION: '10.0.401'
   XCODE_VERSION: '26.6'
   PROJECT_PATH: ArriLight/ArriLight.csproj
+  LICENSE_ASSETS_TEST: ArriLight.Tests.OpenSourceLicenseTests.RestoredTransitiveDependenciesAreAllListed
   DOTNET_CLI_TELEMETRY_OPTOUT: '1'
   DOTNET_NOLOGO: '1'
 
@@ -71,12 +72,15 @@ jobs:
           dotnet-version: ${{ env.DOTNET_VERSION }}
       - name: Pin the SDK for this CI checkout
         run: dotnet new globaljson --sdk-version "$DOTNET_VERSION" --roll-forward disable --force
-      - name: Run tests
+      # License dependency coverage needs the mobile project's restore output;
+      # run that test on macOS after restoring the iOS app below.
+      - name: Run unit tests
         env:
           TEST_PROJECT: ${{ matrix.project }}
         run: >-
           dotnet test "tests/$TEST_PROJECT/$TEST_PROJECT.csproj"
           --configuration Release
+          --filter "FullyQualifiedName!=$LICENSE_ASSETS_TEST"
           --logger "trx;LogFileName=results.trx"
           --results-directory TestResults
       - name: Save test results
@@ -144,13 +148,34 @@ jobs:
           dotnet --info
           dotnet workload --info
 
+      - name: Restore iOS app dependencies
+        run: |
+          set -euo pipefail
+          if [[ "$MODE" == 'build-check' ]]; then
+            runtime_identifier=iossimulator-arm64
+          else
+            runtime_identifier=ios-arm64
+          fi
+          dotnet restore "$PROJECT_PATH" \
+            -p:RestoreUseStaticGraphEvaluation=true \
+            -p:TargetFrameworks=net10.0-ios \
+            -p:RuntimeIdentifier="$runtime_identifier"
+
+      - name: Verify licenses for restored iOS dependencies
+        run: >-
+          dotnet test tests/ArriLight.Tests/ArriLight.Tests.csproj
+          --configuration Release
+          --filter "FullyQualifiedName=$LICENSE_ASSETS_TEST"
+          --logger "trx;LogFileName=ios-licenses.trx"
+          --results-directory TestResults
+
       - name: Build the iOS simulator app without signing credentials
         if: env.MODE == 'build-check'
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/ios-logs" "$RUNNER_TEMP/ios-artifacts"
           dotnet build "$PROJECT_PATH" \
-            -f net10.0-ios -c Debug \
+            -f net10.0-ios -c Debug --no-restore \
             -p:TargetFrameworks=net10.0-ios \
             -p:RuntimeIdentifier=iossimulator-arm64 \
             -p:EnableCodeSigning=false \
@@ -179,7 +204,7 @@ jobs:
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/ios-logs" "$RUNNER_TEMP/ios-artifacts"
           dotnet publish "$PROJECT_PATH" \
-            -f net10.0-ios -c Release \
+            -f net10.0-ios -c Release --no-restore \
             -p:TargetFrameworks=net10.0-ios \
             -p:RuntimeIdentifier=ios-arm64 \
             -p:ArchiveOnBuild=true \
@@ -232,12 +257,14 @@ jobs:
             --output-format json
           echo "Uploaded $IOS_VERSION ($IOS_BUILD_NUMBER) to App Store Connect. Wait for Apple processing, then configure testers in TestFlight." >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Save build logs
+      - name: Save build logs and license test results
         if: always()
         uses: actions/upload-artifact@v7
         with:
           name: ArriLight-ios-logs-${{ github.run_number }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/ios-logs/*.log
+          path: |
+            ${{ runner.temp }}/ios-logs/*.log
+            TestResults/ios-licenses.trx
           if-no-files-found: ignore
           retention-days: 14
 

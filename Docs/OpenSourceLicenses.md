@@ -28,4 +28,7 @@ dotnet test tests/ArriLight.Tests/ArriLight.Tests.csproj --filter FullyQualified
 SDK 清单使用本机 .NET 10 工作负载版本；发布环境换用不同 SDK 时应重新生成并检查清单。
 
 测试检查完整原文和内容哈希、直接依赖版本、恢复出的间接依赖覆盖，以及复合许可证。
+GitHub iOS 工作流在 Ubuntu 执行普通测试，并在 macOS 还原 iOS 应用后单独执行
+`RestoredTransitiveDependenciesAreAllListed`，核对本次 iOS 还原的依赖与许可清单。
+该测试需要 `ArriLight/obj/project.assets.json`，仅还原测试项目或协议库不会生成这个文件。
 发布前还应在 Android/iOS 上检查列表滚动、搜索、详情长文本、离线打开和返回导航。

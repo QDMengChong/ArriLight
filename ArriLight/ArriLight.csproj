@@ -65,7 +65,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\ArriOpto.BLE\ArriOpto.BLE.csproj" />
+	  <!-- Keep platform-specific CLI properties from retargeting the portable library. -->
+	  <ProjectReference Include="..\ArriOpto.BLE\ArriOpto.BLE.csproj"
+	                    GlobalPropertiesToRemove="TargetFramework;TargetFrameworks;RuntimeIdentifier;RuntimeIdentifiers" />
 	</ItemGroup>
 
 </Project>
