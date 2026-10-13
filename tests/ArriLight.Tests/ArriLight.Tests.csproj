@@ -13,7 +13,7 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <PackageReference Include="Plugin.BLE" Version="3.2.1" />
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
-    <ProjectReference Include="..\..\..\ArriOpto.BLE\ArriOpto.BLE\ArriOpto.BLE.csproj" />
+    <ProjectReference Include="..\..\ArriOpto.BLE\ArriOpto.BLE.csproj" />
   </ItemGroup>
   <ItemGroup>
     <!-- Exercise the application services without starting a MAUI platform host. -->
@@ -69,8 +69,6 @@
       <Link>Resources\Localization\%(Filename)%(Extension)</Link>
       <LogicalName>ArriLight.Resources.Localization.%(Filename).resources</LogicalName>
     </EmbeddedResource>
-    <None Include="..\..\ArriLight\Resources\Raw\OpenSourceLicenses\**\*"
-          Link="AppAssets\OpenSourceLicenses\%(RecursiveDir)%(Filename)%(Extension)"
-          CopyToOutputDirectory="PreserveNewest" />
+    <None Include="..\..\ArriLight\Resources\Raw\OpenSourceLicenses\**\*" Link="AppAssets\OpenSourceLicenses\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

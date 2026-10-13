@@ -1,0 +1,73 @@
+# AI_CONTEXT
+
+## Repository facts
+
+- language: C# 14 / .NET 10
+- project: `ArriOpto.BLE/ArriOpto.BLE.csproj`
+- tests: `tests/ArriOpto.BLE.Tests/ArriOpto.BLE.Tests.csproj`
+- scope: Bluetooth Mesh、PB-GATT、SIG 模型、AGP 私有 GATT 协议、加密和 PHY OTA 协议实现
+
+## 不可破坏约束
+
+1. 库必须保持与 MAUI/UI、页面、应用 DI 根、全局连接和平台持久化无关。
+2. Mesh 序列号由调用方持有的网络/Provisioner 身份单调分配，库不得让不同网络复用同一 `(SRC, SEQ)`。
+3. 单播响应按源单播地址匹配，不能只匹配 opcode。
+4. 多字节 Mesh 参数为小端；2 字节 opcode 按 opcode 字节顺序输出，保留精确向量测试。
+5. 不记录 NetKey、AppKey、DeviceKey、认证值、签名密码或固件正文。
+6. `Agp/` 是独立新增范围，不得让 AGP 接入改变 `Mesh`/`Ota` 的公开 API；ArriLight 的 `master` 与 `gatt` 分支均直接引用同一项目。
+7. AGP v1 必须严格校验版本 1.0、flags=0、精确长度和 20 字节上限；所有 Request TID 非零，客户端同一连接只允许一个在途请求。
+8. AGP 正式语义基线来自 `D:/git/PW01/docs/AGP`，C 端互操作来自 `D:/git/PW01/src/AGP`。颜色基线为 PW01 `97bed2d`；本地 MODE 和恢复的基础灯控格式以 2026-10-07 PW01 六种模式定义为准（`agp_mode_model.c/.h`、`docs/DELAY_MODE.md`）；ONOFF_SET=2 翻转同步自 2026-10-08 PW01 `fd92673`。Effect、Lightness16、HSL、CTL 和 Color State 已进入正式 SPEC/YAML/测试向量。
+9. Color State UUID `8f092405-c433-4408-870f-fc60f806f9d7` 是可选特征。只有声明 Lightness16/HSL/CTL 能力的产品才应暴露；当前单色 PW01 不暴露且颜色请求返回 `UNSUPPORTED_FEATURE`。
+10. 成功 Color Get 使用专用 `*_STATUS` opcode、Response 类型和原 TID；失败 Get 使用原请求 opcode 的标准 Control Response。事务匹配必须允许这两条路径，不能统一假设响应回显请求 opcode。
+11. HSL/CTL 共用 Lightness16 与 state revision。HSL/CTL 转换、LED 通道混色、校准及每通道 Gamma 不属于协议库。
+12. Config AppKey Status 的两个 12 位密钥索引**打包为 3 字节**（与 `AppKeyAdd` 载荷同构），共 6 字节访问层消息；不得按两个大端 U16 读取。`MeshClient.AddAppKeyAsync` 必须校验响应来自目标节点源地址、发往本地 Provisioner 且索引匹配，不能把 opcode 首字节（`0x80`）当状态码。
+13. 序列号在构造网络 PDU 时即被消耗，`MeshClient.SequenceNumberAllocated` 是唯一的持久化时机契约；宿主不得改用"写入成功后再保存"，那会在写入失败/取消/断连时丢号并触发设备回放保护。应用发现库 API 解析错误时应当修库，不允许在应用层加补偿类或包装 `IMeshLink` 绕过。
+
+## Local hardware mode (2026-10-07)
+
+- Implemented in `Agp/AgpModels.cs`, `Agp/AgpClient.cs`, registry in `Agp/AgpProtocol.cs`; contract `D:/git/PW01/src/AGP/agp_mode_model.*`, `docs/AGP/SPEC.md` section 9.6, `docs/DELAY_MODE.md`, `docs/AGP/test-vectors.json`.
+- API: `AgpLocalMode.DelayNone/DelayOn/DelayOff/DelayBoth/OnAutoOff/OffAutoOn=0/1/2/3/4/5`; `AgpModeConfig(Mode, OnSeconds=0, OffSeconds=0)`; `SetModeAsync(config, cancellationToken)` / `GetModeAsync(cancellationToken)` return `AgpModeResponse(Result, Config)`. LocalMode capability bit 22; PW01 mask 0x402287. Independent of the existing `AgpLightMode` effect enum.
+- MODE_SET=0x0121, authenticated: exact payload sizes 1/5/5/9/5/5, mode byte followed by enabled on seconds then off seconds in u32 LE. OnAutoOff uses OffSeconds only; OffAutoOn uses OnSeconds only. IDs 4/5 are not bitmasks: codec explicitly maps to target direction. Enabled directions 1..2592000, unused directions 0. No flags/TLV tail. MODE_GET=0x0122 unauthenticated read: empty payload.
+- Both responses echo opcode/nonzero TID: success result 0 + config with lengths 2/6/6/10/6/6, max total 19; error exactly one registered result byte and Config=null. Never use 5-byte standard Control Response or 6-byte timer decoding. Reject malformed lengths, identity, mode and durations with AgpProtocolException.
+- Firmware persists configuration, affects only local hardware input (PW01 T1), and preserves Light State effect mode/revision. Set does not directly change output, renderers or APP timer; changed configuration cancels only touch timer after successful storage. Same config/duplicate transaction has no repeated side effect. Get reports configuration, not pending countdown.
+- Base library revision `f0e04e3`; obsolete OnOff/Delay flags paths removed with the discarded local commit. OnOff scalar + original TLVs and exact four-byte Delay Set use the base APIs. No obsolete flag/record migration. Keep registered result validation 0..13 via AgpResultCode, including auth 11..13; undefined codes reject.
+- Automatic modes act immediately on local touch, schedule the opposite action once, restart their duration on repeated same-direction touch and cancel on opposite touch. They do not trigger at boot, on configuration Set, or on BLE control.
+- Regression: `AgpModeTests` covers six Set modes, Set/Get response vectors including both automatic modes, empty Get, independent boundary durations, invalid configuration/response identity/length/error layout, bit 22 capability and restored basic payloads. `AgpClientTests` tests exact Set/Get writes, device config/results, matching opcode/TID, cancellation and invalid-before-write.
+
+## AGP OnOff toggle (2026-10-08)
+
+- Contract: PW01 `fd92673`, `docs/AGP/SPEC.md` section 9.2, `protocol.yaml::light_model.onoff_set_payload`, `test-vectors.json::pw01_onoff_toggle`, `src/AGP/agp_light_model.h` constants OFF/ON/TOGGLE=0/1/2. Exact toggle vector: `01 00 00 00 01 01 00 05 01 02` (TID 0x0500).
+- API in `AgpModels.cs`: `AgpOnOff : byte { Off=0, On=1, Toggle=2 }`, `EncodeOnOff(AgpOnOff, tlvs)`; rejects undefined 3..255 before GATT. Existing bool encoder/client/factory overloads delegate to Off/On and retain their signatures and wire bytes. Optional TLVs, maximum 11-byte payload/20-byte frame and 5-byte Control Response unchanged.
+- Client: `SetOnOffAsync(AgpOnOff, tlvs, cancellationToken)` and `ToggleOnOffAsync(tlvs, cancellationToken)`; factories: `AgpCommands.SetOnOff(AgpOnOff, tlvs)` and `ToggleOnOff(tlvs)`. All use opcode 0x0101, existing serialization and matching TID/opcode; no read-before-write, host-side toggle inference or fallback.
+- Firmware toggles stable logical power or active ramp target, including dark effect phases and pre-first-ON-tick. Existing manual ramp resumes from actual output; retains effects/brightness memory, cancels touch timer only, preserves APP timer, does not trigger MODE. Response is acceptance; only completed ramp publishes final Light State Notify.
+- Every API invocation/command execution uses a fresh nonzero TID. No automatic retry on timeout/transport failure/cancellation or non-Busy result; execution may already have occurred. Only batch Busy=7 (not executed) uses new TID/frozen payload. Same-request raw retransmission requires original TID/payload and firmware four-entry/6000ms cache; typed APIs do not expose same-TID retransmission. Reconnect/cache expiry invalidates deduplication guarantees; read state before choosing next action after uncertain outcome.
+- Token authentication unchanged. Protocol 1.0, OnOff bit0, firmware version and capability 0x402287 do not identify toggle support; older firmware returns InvalidValue for2, preserved in Result. Do not add unsupported capability/version gates.
+- Regression: AgpOnOffTests pins normative vector, Off/On compatibility, TLV layout/20-byte limit and all undefined scalar values. AgpClientTests covers new TIDs, typed result/revision, old-firmware/authorization/Busy errors, invalid-before-write and cancellation. Factory fixtures include enum and convenience commands; AgpBatchTests verifies frozen toggle payload, Busy retries, no replay after success and no retry after toggle timeout. No hardware verification.
+
+## AGP batches (2026-10-07)
+
+- Public entry `AgpClient.ExecuteBatchAsync(IReadOnlyList<AgpCommand>, AgpBatchOptions?, CancellationToken)` in `Agp/AgpClient.Batch.cs`. `AgpCommands.cs` has factory-only immutable `AgpCommand<TResponse>` descriptors for all existing typed Control Point requests (not characteristic reads). Factories validate and copy bytes; execution snapshots the list and validates options before acquiring the gate. No wire changes or Mesh/Ota API changes.
+- Shared `_requestLock` covers either one ordinary request or an entire batch including backoff. `SendRequestOnceAsync` owns TID response matching/cleanup without acquiring that gate; callers allocate each TID while holding the gate. Never invoke public request methods from inside a held batch gate. Scope is one AgpClient; waiting operations are not guaranteed FIFO. Normal state notifications/characteristic reads remain independent.
+- Only matched, decoded Busy=7 retries. Same opcode/payload, new nonzero TID each attempt; never rerun prior successful steps. Defaults: 3 retries after initial send, exponential delay 100/200/400 ms; configurable InitialBusyRetryDelay/MaximumBusyRetryDelay and per-attempt RequestTimeout 6s. Provision Token factory overrides with 60s default. AuthBusy and all other business failures stop and return an unsuccessful result. Timeout/disconnect/protocol failures stop without automatic retries.
+- `AgpBatchResult`: IsSuccess, CommandCount, CompletedCount, zero-based FailedStepIndex, immutable Steps. Each step stores immutable AttemptResults (TID, nullable Result/Response), Attempts, last Result/Response and typed GetResponse(command). No decoded reply means unknown execution outcome, not proof of non-execution. No rollback. Empty batch succeeds.
+- Transport/protocol errors use AgpBatchException with Progress + InnerException; caller cancellation uses AgpBatchCanceledException : OperationCanceledException with Progress and original token. Cancellation supports gate wait, response wait and backoff. Dispose cancels lifetime work then drains the gate before disposing resources. Existing standalone APIs retain caller cancellation-token identity, their result semantics and no auto retry.
+- Model codecs are reused; color-query dual-opcode decoder shared with standalone queries. Batch-only PendingRequest.RejectInvalidResponse faults a pending request for malformed frames whose response opcode/TID header matches; unrelated/short frames remain diagnostic events. Variable MODE and color dedicated-success/error layouts must not be normalized to standard control responses.
+- Effect sequence follows PW01 `01e939e`: SetEffect preserves power; subsequent successful OnOff starts/pauses retained effect. Library cannot infer IsOn from effect selection. Progress contains per-step device effects, not an atomic firmware transaction.
+- Regression: AgpBatchTests covers group exclusion against ordinary/batch requests, default real backoff/new TIDs, prior-success retention, all failure/timeout/cancellation stages, gate reuse, disposed clients and malformed/mismatched responses. AgpCommandFactoryTests checks fixed request/response fixtures across every factory and all 9 color-query error paths; no SDK/hardware changes.
+
+## Change routing
+
+- 新增 SIG 消息：修改 `Mesh/Models` 并添加字节向量测试。
+- 修改 Mesh PDU、传输或加密：修改 `Mesh/`、`Mesh/Crypto/` 并运行完整测试。
+- 修改 PB-GATT 配网：修改 `Mesh/Provisioning/`；真实连接时序仍需宿主应用硬件回归。
+- 修改 OTA 协议：修改 `Ota/` 并添加会话或帧级测试；真实升级仍需硬件回归。
+- 修改 AGP 公共帧或已登记模型：修改 `Agp/` 并对照 `D:/git/PW01/docs/AGP/test-vectors.json` 添加精确字节测试。
+- 修改 AGP Color Models：同时对照 `D:/git/PW01/src/AGP/agp_color_model.*`、颜色测试向量和可选 Color State 特征规则。
+- 修改 AGP GATT 连接：保持 `IAgpGattConnection` 可 fake，真实配对、加密权限、CCC 顺序和断连仍需宿主应用硬件回归。
+
+## Commands
+
+```powershell
+dotnet restore ArriOpto.BLE.slnx
+dotnet test tests\ArriOpto.BLE.Tests\ArriOpto.BLE.Tests.csproj --no-restore
+```

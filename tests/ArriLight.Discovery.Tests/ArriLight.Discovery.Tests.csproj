@@ -11,7 +11,7 @@
     <PackageReference Include="xunit" Version="2.9.3" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" PrivateAssets="all" />
     <PackageReference Include="Plugin.BLE" Version="3.2.1" />
-    <ProjectReference Include="../../../ArriOpto.BLE/ArriOpto.BLE/ArriOpto.BLE.csproj" />
+    <ProjectReference Include="..\..\ArriOpto.BLE\ArriOpto.BLE.csproj" />
     <Compile Include="../../ArriLight/Services/BluetoothDiscoveryService.cs" Link="BluetoothDiscoveryService.cs" />
     <Compile Include="../../ArriLight/Services/BluetoothAddressParser.cs" Link="BluetoothAddressParser.cs" />
     <Compile Include="../../ArriLight/Services/DeviceProtocols.cs" Link="DeviceProtocols.cs" />

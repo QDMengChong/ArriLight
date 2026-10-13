@@ -3,8 +3,8 @@
     <Project Path="tests/ArriLight.Discovery.Tests/ArriLight.Discovery.Tests.csproj" />
     <Project Path="tests/ArriLight.Tests/ArriLight.Tests.csproj" />
   </Folder>
-  <Project Path="../ArriOpto.BLE/ArriOpto.BLE/ArriOpto.BLE.csproj" />
   <Project Path="ArriLight/ArriLight.csproj">
     <Deploy Solution="Debug|*" />
   </Project>
+  <Project Path="ArriOpto.BLE/ArriOpto.BLE.csproj" />
 </Solution>

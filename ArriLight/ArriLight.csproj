@@ -65,7 +65,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\..\ArriOpto.BLE\ArriOpto.BLE\ArriOpto.BLE.csproj" />
+	  <ProjectReference Include="..\ArriOpto.BLE\ArriOpto.BLE.csproj" />
 	</ItemGroup>
 
 </Project>
