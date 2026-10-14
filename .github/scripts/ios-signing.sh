@@ -49,6 +49,8 @@ echo "::add-mask::$keychain_password"
 security create-keychain -p "$keychain_password" "$SIGNING_KEYCHAIN_PATH"
 security set-keychain-settings -lut 21600 "$SIGNING_KEYCHAIN_PATH"
 security unlock-keychain -p "$keychain_password" "$SIGNING_KEYCHAIN_PATH"
+openssl pkcs12 -in "$certificate_path" -noout \
+  -passin env:IOS_CERTIFICATE_PASSWORD
 security import "$certificate_path" -P "$IOS_CERTIFICATE_PASSWORD" \
   -k "$SIGNING_KEYCHAIN_PATH" -T /usr/bin/codesign
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
