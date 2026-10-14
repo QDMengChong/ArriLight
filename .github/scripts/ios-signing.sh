@@ -44,15 +44,46 @@ with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as output:
     output.write(f"IOS_PROFILE_UUID={profile_uuid}\n")
 PY
 
+if ! openssl pkcs12 -in "$certificate_path" -noout \
+  -passin env:IOS_CERTIFICATE_PASSWORD; then
+  echo "::error::OpenSSL could not verify the PKCS12 file. Check that IOS_CERTIFICATE_BASE64 and IOS_CERTIFICATE_PASSWORD belong to the same .p12 file."
+  exit 1
+fi
+echo "OpenSSL PKCS12 verification passed."
+
+# Repack OpenSSL 3's PBES2/AES defaults for the macOS PKCS12 importer.
+# Keep the intermediate private key encrypted, and use a random ASCII password
+# for the temporary bundle so the original password's encoding is irrelevant.
+certificate_pem_path="$SIGNING_DIRECTORY/certificate-encrypted.pem"
+certificate_import_path="$SIGNING_DIRECTORY/certificate-macos.p12"
+trap 'rm -f "$certificate_pem_path" "$certificate_import_path"' EXIT
+export IOS_CERTIFICATE_IMPORT_PASSWORD
+IOS_CERTIFICATE_IMPORT_PASSWORD="$(openssl rand -hex 32)"
+echo "::add-mask::$IOS_CERTIFICATE_IMPORT_PASSWORD"
+if ! openssl pkcs12 -in "$certificate_path" -out "$certificate_pem_path" \
+  -passin env:IOS_CERTIFICATE_PASSWORD -passout env:IOS_CERTIFICATE_IMPORT_PASSWORD \
+  || ! openssl pkcs12 -export -in "$certificate_pem_path" -inkey "$certificate_pem_path" \
+  -out "$certificate_import_path" -keypbe PBE-SHA1-3DES -certpbe PBE-SHA1-3DES \
+  -macalg sha1 -passin env:IOS_CERTIFICATE_IMPORT_PASSWORD \
+  -passout env:IOS_CERTIFICATE_IMPORT_PASSWORD; then
+  echo "::error::Could not prepare the macOS-compatible PKCS12 bundle. Ensure the .p12 contains the certificate and its private key."
+  exit 1
+fi
+echo "Prepared macOS-compatible PKCS12 bundle (3DES/SHA1)."
+
 keychain_password="$(openssl rand -hex 32)"
 echo "::add-mask::$keychain_password"
 security create-keychain -p "$keychain_password" "$SIGNING_KEYCHAIN_PATH"
 security set-keychain-settings -lut 21600 "$SIGNING_KEYCHAIN_PATH"
 security unlock-keychain -p "$keychain_password" "$SIGNING_KEYCHAIN_PATH"
-openssl pkcs12 -in "$certificate_path" -noout \
-  -passin env:IOS_CERTIFICATE_PASSWORD
-security import "$certificate_path" -P "$IOS_CERTIFICATE_PASSWORD" \
-  -k "$SIGNING_KEYCHAIN_PATH" -T /usr/bin/codesign
+if ! security import "$certificate_import_path" -P "$IOS_CERTIFICATE_IMPORT_PASSWORD" \
+  -k "$SIGNING_KEYCHAIN_PATH" -T /usr/bin/codesign; then
+  echo "::error::macOS could not import the compatible PKCS12 bundle after OpenSSL verification passed. Check the keychain import error above."
+  exit 1
+fi
+rm -f "$certificate_pem_path" "$certificate_import_path"
+unset IOS_CERTIFICATE_IMPORT_PASSWORD
+echo "macOS signing identity import passed."
 security set-key-partition-list -S apple-tool:,apple:,codesign: -s \
   -k "$keychain_password" "$SIGNING_KEYCHAIN_PATH"
 security list-keychains -d user -s "$SIGNING_KEYCHAIN_PATH" "$HOME/Library/Keychains/login.keychain-db"
