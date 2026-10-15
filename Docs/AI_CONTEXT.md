@@ -7,6 +7,15 @@
 - tests: `tests/ArriOpto.BLE.Tests/ArriOpto.BLE.Tests.csproj`
 - scope: Bluetooth Mesh、PB-GATT、SIG 模型、AGP 私有 GATT 协议、加密和 PHY OTA 协议实现
 
+## PW01 iOS discovery compatibility (2026-10-15)
+
+- App-local library: `ArriOpto.BLE/Agp/AgpAdvertisement.cs`; consumed by `ArriLight/Services/BluetoothDiscoveryService.cs`. `BluetoothScanPageViewModel.OnDeviceFound` excludes AGP advertisements unless `IsPairingOpen` is true.
+- Plugin.BLE 3.2.1 Android preserves AD type 0x21 as `ServiceData128Bit`; Apple `Adapter.ParseAdvertismentData` emits `ServiceData` for every service-data UUID width, reversing the CoreBluetooth UUID bytes before prefixing the payload. Source: https://github.com/dotnet-bluetooth-le/dotnet-bluetooth-le/blob/3.2.1/Source/Plugin.BLE/Apple/Adapter.cs#L344-L368
+- Accept both record types with the same BLE little-endian 16-byte AGP UUID check. PW01 pairing-open fixture: `D7F906F860FC0F87084433C40124098F0101`; bonded-only changes final byte to `02`. Never use `Guid.ToByteArray()` or infer pairing eligibility from name/service presence alone. Preserve version/status checks and the page's physical-window filter.
+- Regression: `tests/ArriLight.Discovery.Tests/AgpAdvertisementTests.cs` pins Android/iOS statuses and invalid records; `DiscoveryTests.Pw01AdvertisementIsDiscoveredWithPairingStatus` exercises production scanning, protocol classification, UUID identity and caching. Run `dotnet test tests/ArriLight.Discovery.Tests/ArriLight.Discovery.Tests.csproj` and `dotnet test tests/ArriLight.Tests/ArriLight.Tests.csproj`.
+- No firmware or permission changes. Human hardware steps: `Docs/ArriLight-BLE-Flow.md`, add-device section. Host tests do not verify physical iOS scanning or GATT binding.
+- Validation: discovery 20/20, application 495/495; Windows iOS managed target build succeeded with 0 warnings/errors (`net10.0-ios/iossimulator-x64/ArriLight.dll`). Restore with `dotnet restore ArriLight/ArriLight.csproj -p:RestoreUseStaticGraphEvaluation=true -p:TargetFrameworks=net10.0-ios`, then `dotnet build ArriLight/ArriLight.csproj -f net10.0-ios --no-restore -p:TargetFrameworks=net10.0-ios -p:EnableCodeSigning=false -p:CodesignRequireProvisioningProfile=false`. Static-graph restore preserves the portable library's net10.0 target. Native packaging/signing and real-device checks remain unverified.
+
 ## 不可破坏约束
 
 1. 库必须保持与 MAUI/UI、页面、应用 DI 根、全局连接和平台持久化无关。

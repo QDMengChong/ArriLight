@@ -34,6 +34,8 @@ public static class AgpAdvertisement
     /// 从 Plugin.BLE 的广播记录中读取 AGP 连接前广播标志。
     /// Service Data - 128-bit UUID 的数据布局为：
     /// AGP Service UUID（BLE 小端）、format version、status。
+    /// Plugin.BLE 3.2.1 在 Android 上保留 ServiceData128Bit 类型，
+    /// 在 iOS 上统一返回 ServiceData；两者均包含小端 UUID 前缀。
     /// </summary>
     public static bool TryGetBroadcastStatus(
         IEnumerable<AdvertisementRecord>? records,
@@ -45,7 +47,8 @@ public static class AgpAdvertisement
 
         foreach (var record in records)
         {
-            if (record.Type != AdvertisementRecordType.ServiceData128Bit ||
+            if (record.Type is not (AdvertisementRecordType.ServiceData128Bit or
+                AdvertisementRecordType.ServiceData) ||
                 record.Data is not { Length: >= 18 } data)
             {
                 continue;
