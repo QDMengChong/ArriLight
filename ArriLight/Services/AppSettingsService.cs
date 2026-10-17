@@ -4,8 +4,9 @@ using System.Text.Json.Serialization;
 
 namespace ArriLight;
 
-internal sealed record AppSettingsDocument(FirmwareUpdateEndpoints? FirmwareUpdate);
+internal sealed record AppSettingsDocument(FirmwareUpdateEndpoints? FirmwareUpdate, ReconnectSettings? Reconnect = null);
 internal sealed record FirmwareUpdateEndpoints(string? ListWorkerUrl, string? GetWorkerUrl);
+internal sealed record ReconnectSettings(int ConnectionTimeoutMilliseconds = 1200);
 
 [JsonSourceGenerationOptions(PropertyNameCaseInsensitive = true,
     UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow)]
@@ -77,6 +78,9 @@ public sealed class AppSettingsService
         return (document.FirmwareUpdate!.ListWorkerUrl!.Trim(), document.FirmwareUpdate.GetWorkerUrl!.Trim());
     }
 
+    public async Task<TimeSpan> LoadReconnectTimeoutAsync(CancellationToken cancellationToken = default) =>
+        TimeSpan.FromMilliseconds(Validate(await ReadTextAsync(cancellationToken)).Reconnect?.ConnectionTimeoutMilliseconds ?? 1200);
+
     private static AppSettingsDocument Validate(string text)
     {
         ArgumentNullException.ThrowIfNull(text);
@@ -96,6 +100,8 @@ public sealed class AppSettingsService
 
         ValidateUrl(document?.FirmwareUpdate?.ListWorkerUrl, "FirmwareUpdate.ListWorkerUrl");
         ValidateUrl(document?.FirmwareUpdate?.GetWorkerUrl, "FirmwareUpdate.GetWorkerUrl");
+        if (document?.Reconnect?.ConnectionTimeoutMilliseconds is < 100 or > 30000)
+            throw new InvalidDataException("Reconnect.ConnectionTimeoutMilliseconds must be between 100 and 30000.");
         return document!;
     }
 

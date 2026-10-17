@@ -316,6 +316,11 @@ public partial class MeshDeviceControlService : IAsyncDisposable
             MarkRuntimeFailed(address, operationId, exception.Message);
             throw;
         }
+        finally
+        {
+            if (!_connectionService.ReconnectQueue.IsAutomatic)
+                _connectionService.ReconnectQueue.ClearOrdinaryRequest(address);
+        }
     }
 
     private async Task<T> ExecuteProxyOperationAsync<T>(
@@ -374,6 +379,7 @@ public partial class MeshDeviceControlService : IAsyncDisposable
         MeshProxySession session,
         CancellationToken cancellationToken)
     {
+        if (!_connectionService.ReconnectQueue.IsAutomatic) _connectionService.ReconnectQueue.Prioritize(address, ordinaryConnection: true);
         session.Transport ??= new MeshGattTransport(
             _connectionService,
             _diagnostics,

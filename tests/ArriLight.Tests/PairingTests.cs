@@ -245,13 +245,13 @@ internal sealed class PairingFixture : IAsyncDisposable
     public string Address => Ble.Device.Id.ToString("D").ToUpperInvariant();
     public List<AgpBindingStage> Stages { get; } = [];
 
-    public PairingFixture(TimeProvider? timeProvider = null)
+    public PairingFixture(TimeProvider? timeProvider = null, DeviceReconnectQueue? reconnectQueue = null)
     {
         Preferences.Default.Clear();
         Assert.True(Repository.TryAdd("PW01", Address));
         var diagnostics = new AppDiagnosticService();
         Discovery = new BluetoothDiscoveryService(Ble.Device);
-        Connection = new BluetoothConnectionService(Ble.Adapter, Discovery, diagnostics, timeProvider);
+        Connection = new BluetoothConnectionService(Ble.Adapter, Discovery, diagnostics, timeProvider, reconnectQueue);
         Service = new AgpLightControlService(Connection, diagnostics, Repository, new DeviceWorkScheduler());
     }
 

@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text;
 using ArriOpto.BLE.Agp;
-using Plugin.BLE.Abstractions.Exceptions;
 
 namespace ArriLight;
 
@@ -50,6 +49,14 @@ public sealed partial class AgpLightControlService
         }
         catch (Exception exception)
         {
+            if (step == DeviceRuntimeStep.Authentication && IsAuthenticationRejection(exception))
+            {
+                lock (entry.Sync)
+                {
+                    entry.AuthorizationBlocked = true;
+                    entry.BlockedToken = _repository.GetToken(address);
+                }
+            }
             MarkRuntimeStep(entry, epoch, step, DeviceRuntimeStepStatus.Failed, exception.Message);
             throw;
         }
@@ -124,15 +131,19 @@ public sealed partial class AgpLightControlService
         return Task.CompletedTask;
     }
 
-    public void RequestRuntimePreparation(string address)
+    public void RequestRuntimePreparation(string address) => RequestRuntimePreparation(address, recovery: false);
+
+    private void RequestRuntimePreparation(string address, bool recovery)
     {
         if (!_runtimeStarted || _runtimeStopped || _applicationSuspended || !_repository.Contains(address) || _runtimeBindingAddresses.ContainsKey(address)) return;
         if (IsMeshAddress(address)) return;
         var entry = _runtimeEntries.GetOrAdd(address, key => new(key));
+        RegisterRuntimeRecovery(entry);
         lock (entry.Sync)
         {
             if (entry.Exclusive || _runtimeStopped) return;
-            _ = EnsureRuntimePreparation(entry, refresh: false);
+            if (entry.AuthorizationBlocked && string.Equals(entry.BlockedToken, _repository.GetToken(address), StringComparison.Ordinal)) return;
+            _ = EnsureRuntimePreparation(entry, refresh: false, recovery);
         }
     }
 
@@ -153,6 +164,7 @@ public sealed partial class AgpLightControlService
         var entry = _runtimeEntries.GetOrAdd(address, key => new(key));
         lock (entry.Sync) entry.Attention++;
         _runtimeWork.SetAttention(address, true);
+        _connectionService.ReconnectQueue.Prioritize(address, ordinaryConnection: true);
         try
         {
             // Cancellation only stops this caller's wait, never the shared workflow.
@@ -163,13 +175,14 @@ public sealed partial class AgpLightControlService
             bool focused;
             lock (entry.Sync) focused = --entry.Attention > 0;
             _runtimeWork.SetAttention(address, focused);
+            if (!focused) _connectionService.ReconnectQueue.ClearOrdinaryRequest(address);
         }
         var snapshot = GetRuntimeSnapshot(address)!;
         if (snapshot.Availability != DeviceRuntimeAvailability.Ready)
             throw new InvalidOperationException(snapshot.Error ?? AppResources.Control_StateUnavailable);
     }
 
-    private Task EnsureRuntimePreparation(DeviceRuntimeEntry entry, bool refresh)
+    private Task EnsureRuntimePreparation(DeviceRuntimeEntry entry, bool refresh, bool recovery = false)
     {
         lock (entry.Sync)
         {
@@ -179,6 +192,9 @@ public sealed partial class AgpLightControlService
                 entry.Epoch == _runtimeEpoch && entry.Lifetime?.IsCancellationRequested == false)
                 return running;
             if (!refresh && entry.Snapshot().Availability == DeviceRuntimeAvailability.Ready) return Task.CompletedTask;
+            if (entry.AuthorizationBlocked && string.Equals(entry.BlockedToken, _repository.GetToken(entry.Address), StringComparison.Ordinal))
+                return Task.FromException(new AgpAuthenticationRequiredException(entry.Address));
+            entry.AuthorizationBlocked = false;
             _ = CancellationDispatch.Request(entry.Lifetime, _diagnostics, "Runtime.Preparation.Replace", dispose: true, address: entry.Address);
             entry.Lifetime = CancellationTokenSource.CreateLinkedTokenSource(_applicationCancellation.Token);
             entry.Epoch = _runtimeEpoch;
@@ -189,7 +205,7 @@ public sealed partial class AgpLightControlService
                     entry.Steps[step] = new(DeviceRuntimeStepStatus.Pending, DateTimeOffset.UtcNow);
             }
             entry.Error = null;
-            entry.Preparation = PrepareRuntimeDeviceAsync(entry, entry.Epoch, entry.Lifetime.Token, refresh);
+            entry.Preparation = PrepareRuntimeDeviceAsync(entry, entry.Epoch, entry.Lifetime.Token, refresh, recovery);
             // Fire-and-forget startup failures are recorded by the workflow itself.
             _ = entry.Preparation.ContinueWith(task => _ = task.Exception,
                 TaskContinuationOptions.OnlyOnFaulted | TaskContinuationOptions.ExecuteSynchronously);
@@ -197,46 +213,31 @@ public sealed partial class AgpLightControlService
         }
     }
 
-    private async Task PrepareRuntimeDeviceAsync(DeviceRuntimeEntry entry, long epoch, CancellationToken token, bool refresh)
+    private async Task PrepareRuntimeDeviceAsync(DeviceRuntimeEntry entry, long epoch, CancellationToken token, bool refresh, bool recovery)
     {
+        using var automatic = _connectionService.ReconnectQueue.AutomaticPreparation(recovery);
         _runtimePreparationLifetime.Value = token;
         try
         {
-            for (var attempt = 0; ; attempt++)
+            await RunRuntimeWorkAsync(entry, 2, async operationToken =>
             {
-                try
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(operationToken);
+                deadline.CancelAfter(TimeSpan.FromSeconds(40));
+                var handle = await GetOrCreateClientAsync(entry.Address, deadline.Token,
+                    skipInitialLightStateRead: true);
+                RequireCapability(handle.Capabilities, AgpCapabilities.OnOff);
+                if (refresh) handle.HasLightState = false;
+                MutateRuntime(entry, epoch, () =>
                 {
-                    await RunRuntimeWorkAsync(entry, 2, async operationToken =>
-                    {
-                        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(operationToken);
-                        deadline.CancelAfter(TimeSpan.FromSeconds(40));
-                        var handle = await GetOrCreateClientAsync(entry.Address, deadline.Token,
-                            skipInitialLightStateRead: true);
-                        RequireCapability(handle.Capabilities, AgpCapabilities.OnOff);
-                        if (refresh) handle.HasLightState = false;
-                        MutateRuntime(entry, epoch, () =>
-                        {
-                            entry.Generation = handle.ConnectionGeneration;
-                            entry.Online = true;
-                            foreach (var step in new[] { DeviceRuntimeStep.Connection, DeviceRuntimeStep.ResponseChannel })
-                                entry.Steps[step] = new(DeviceRuntimeStepStatus.Succeeded, DateTimeOffset.UtcNow);
-                            entry.Steps[DeviceRuntimeStep.Authentication] = new(handle.Capabilities.HasFlag(AgpCapabilities.SecureControl)
-                                ? DeviceRuntimeStepStatus.Succeeded : DeviceRuntimeStepStatus.NotApplicable, DateTimeOffset.UtcNow);
-                        });
-                        return true;
-                    }, token);
-                    break;
-                }
-                catch (Exception exception) when (attempt == 0 && !token.IsCancellationRequested &&
-                    exception is not AgpAuthenticationRequiredException && exception.Data["AgpResult"] is null &&
-                    exception is IOException or TimeoutException or OperationCanceledException or DeviceConnectionException)
-                {
-                    // Release the budget before a bounded retry; another device can prepare now.
-                    _diagnostics.Warning("BLE/Runtime", $"准备重试：{entry.Address}，{exception.Message}");
-                    MutateRuntime(entry, epoch, () => entry.Stage = AppResources.Device_RuntimeRetrying);
-                    await Task.Delay(TimeSpan.FromMilliseconds(500), token);
-                }
-            }
+                    entry.Generation = handle.ConnectionGeneration;
+                    entry.Online = true;
+                    foreach (var step in new[] { DeviceRuntimeStep.Connection, DeviceRuntimeStep.ResponseChannel })
+                        entry.Steps[step] = new(DeviceRuntimeStepStatus.Succeeded, DateTimeOffset.UtcNow);
+                    entry.Steps[DeviceRuntimeStep.Authentication] = new(handle.Capabilities.HasFlag(AgpCapabilities.SecureControl)
+                        ? DeviceRuntimeStepStatus.Succeeded : DeviceRuntimeStepStatus.NotApplicable, DateTimeOffset.UtcNow);
+                });
+                return true;
+            }, token);
 
             // Each data operation releases this address and the global budget.
             // A queued user command can enter at every boundary, including schedule slots.
@@ -321,6 +322,13 @@ public sealed partial class AgpLightControlService
             {
                 entry.Error = exception.Message;
                 entry.Stage = null;
+                if (exception is AgpAuthenticationRequiredException ||
+                    entry.Steps.GetValueOrDefault(DeviceRuntimeStep.Authentication)?.Status == DeviceRuntimeStepStatus.Failed &&
+                    IsAuthenticationRejection(exception))
+                {
+                    entry.AuthorizationBlocked = true;
+                    entry.BlockedToken = _repository.GetToken(entry.Address);
+                }
                 if (!_connectionService.IsConnected(entry.Address) || !_handles.ContainsKey(entry.Address)) entry.Online = false;
             });
             _diagnostics.Warning("BLE/Runtime", $"设备准备未完成：{entry.Address}，{exception.Message}");
@@ -453,6 +461,7 @@ public sealed partial class AgpLightControlService
         bool skipInitialRead, bool refresh, string operationName)
     {
         callerToken.ThrowIfCancellationRequested(); EnsureApplicationForeground();
+        _connectionService.ReconnectQueue.Prioritize(address, ordinaryConnection: true);
         var user = operationName.StartsWith("Set", StringComparison.Ordinal) || operationName.StartsWith("Toggle", StringComparison.Ordinal) || operationName == nameof(DeleteScheduleAsync);
         var entry = _runtimeEntries.GetOrAdd(address, key => new(key));
         Guid? operationId = user ? Guid.NewGuid() : null;
@@ -529,6 +538,7 @@ public sealed partial class AgpLightControlService
             if (user) { lock (entry.Sync) entry.UserOperations--; PublishRuntime(entry); }
             lock (entry.Sync)
                 if (entry.WorkGeneration == submittedGeneration) RequestRuntimePreparation(address);
+            _connectionService.ReconnectQueue.ClearOrdinaryRequest(address);
         }
     }
 
@@ -641,7 +651,7 @@ public sealed partial class AgpLightControlService
         {
             if (interrupted is not null) try { await interrupted; } catch { }
             // Only prepare a new session. A previous user command is never replayed.
-            RequestRuntimePreparation(entry.Address);
+            RequestRuntimePreparation(entry.Address, recovery: true);
         }
         finally { lock (entry.Sync) entry.RecoveryPending = false; }
     }
@@ -649,9 +659,31 @@ public sealed partial class AgpLightControlService
     private void OnRuntimeDevicesChanged(object? sender, EventArgs eventArgs)
     {
         if (!_runtimeStarted || _runtimeStopped) return;
+        foreach (var entry in _runtimeEntries.Values.Where(entry => !_repository.Contains(entry.Address)))
+        {
+            _connectionService.ReconnectQueue.Remove(entry.Address);
+            _ = CancellationDispatch.Request(entry.Lifetime, _diagnostics, "Runtime.Removed", address: entry.Address);
+            _runtimeEntries.TryRemove(entry.Address, out _);
+        }
         foreach (var device in _repository.GetAll().Where(device => !device.IsDemo))
-            if (!_runtimeEntries.ContainsKey(device.Address) && device.Capabilities is { } capabilities &&
-                (!capabilities.HasFlag(AgpCapabilities.SecureControl) || _repository.GetTokenBytes(device.Address) is not null))
+            if (!_runtimeEntries.ContainsKey(device.Address) ||
+                _runtimeEntries.TryGetValue(device.Address, out var existing) && existing.AuthorizationBlocked &&
+                !string.Equals(existing.BlockedToken, device.Token, StringComparison.Ordinal))
                 RequestRuntimePreparation(device.Address);
     }
+
+    private void RegisterRuntimeRecovery(DeviceRuntimeEntry entry) =>
+        _connectionService.ReconnectQueue.Register(entry.Address, () =>
+        {
+            lock (entry.Sync)
+            {
+                if (_runtimeStopped || _applicationSuspended || entry.Exclusive || entry.Preparation is { IsCompleted: false } ||
+                    !_repository.Contains(entry.Address) || _runtimeBindingAddresses.ContainsKey(entry.Address)) return false;
+                if (entry.AuthorizationBlocked && string.Equals(entry.BlockedToken, _repository.GetToken(entry.Address), StringComparison.Ordinal)) return false;
+                return entry.Snapshot().Availability != DeviceRuntimeAvailability.Ready;
+            }
+        }, () => RequestRuntimePreparation(entry.Address, recovery: !_connectionService.IsConnected(entry.Address)), _applicationCancellation.Token);
+
+    private static bool IsAuthenticationRejection(Exception exception) =>
+        exception.Data["AgpResult"] is AgpResultCode.NotAuthorized or AgpResultCode.AuthInvalidLength;
 }

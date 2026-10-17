@@ -40,6 +40,8 @@ internal sealed class DeviceRuntimeEntry(string address)
     internal DeviceRuntimeOperation? Operation;
     internal bool Exclusive;
     internal bool RecoveryPending;
+    internal bool AuthorizationBlocked;
+    internal string? BlockedToken;
     internal int Attention;
     internal AgpDelayOnResponse? RelativeDelayOn;
     internal AgpDelayOffResponse? RelativeDelayOff;

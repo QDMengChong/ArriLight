@@ -13,6 +13,76 @@ public sealed class MeshRuntimeConnectionTests
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(6);
 
     [Fact]
+    public async Task MeshStartupAndForegroundResumeDoNotUseTheOfflineRetryDeadline()
+    {
+        var clock = new ManualTimeProvider();
+        using var queue = new DeviceReconnectQueue(clock);
+        await using var fixture = new MeshFixture(reconnectQueue: queue);
+        var started = new[] { Signal(), Signal() };
+        var releases = new[] { Signal(), Signal() };
+        var tokens = new CancellationToken[2];
+        fixture.Radio.OnConnect = async (attempt, token) =>
+        {
+            tokens[attempt - 1] = token;
+            started[attempt - 1].TrySetResult();
+            await releases[attempt - 1].Task.WaitAsync(token);
+        };
+        for (var cycle = 0; cycle < 2; cycle++)
+        {
+            if (cycle == 0) await fixture.Mesh.StartRuntimeAsync();
+            else await fixture.Mesh.ResumeAfterBackgroundAsync();
+            await started[cycle].Task.WaitAsync(Deadline);
+            clock.Advance(TimeSpan.FromSeconds(2));
+            Assert.False(tokens[cycle].IsCancellationRequested);
+            releases[cycle].TrySetResult();
+            await fixture.Mesh.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
+            if (cycle == 0)
+            {
+                await fixture.Mesh.SuspendForBackgroundAsync();
+                clock.Advance(TimeSpan.FromSeconds(2));
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MeshRecoveryUses1200MillisecondsUnlessAManualConnectionJoins(bool manualJoin)
+    {
+        var clock = new ManualTimeProvider();
+        using var queue = new DeviceReconnectQueue(clock);
+        await using var fixture = new MeshFixture(reconnectQueue: queue);
+        await fixture.Mesh.StartRuntimeAsync();
+        await fixture.Mesh.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
+        await fixture.Mesh.SetOnOffAsync(fixture.Address, false);
+        var started = Signal();
+        var canceled = Signal();
+        var release = Signal();
+        fixture.Radio.OnConnect = async (_, token) =>
+        {
+            started.TrySetResult();
+            try { await release.Task.WaitAsync(token); }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            { canceled.TrySetResult(); throw; }
+        };
+        fixture.Radio.RaiseUnexpectedDisconnect();
+        clock.Advance(TimeSpan.FromSeconds(2));
+        await started.Task.WaitAsync(Deadline);
+        var manual = manualJoin ? fixture.Mesh.EnsureRuntimeReadyAsync(fixture.Address) : null;
+        clock.Advance(TimeSpan.FromMilliseconds(1200));
+        if (manual is not null)
+        {
+            Assert.False(canceled.Task.IsCompleted);
+            release.TrySetResult();
+            await manual.WaitAsync(Deadline);
+        }
+        else await canceled.Task.WaitAsync(Deadline);
+        Assert.Equal(2, fixture.Radio.ConnectAttempts.Count);
+    }
+
+    private static TaskCompletionSource Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+    [Fact]
     public async Task ApplicationStartupConnectsSavedOfflineMeshWithoutScanningOrUserAction()
     {
         await using var fixture = new MeshFixture();
@@ -153,12 +223,15 @@ public sealed class MeshRuntimeConnectionTests
     }
 
     [Fact]
-    public async Task TransientOfflineConnectionGetsTheSameBoundedRetryAsGatt()
+    public async Task TransientOfflineConnectionRecoversThroughTheApplicationQueue()
     {
         await using var fixture = new MeshFixture();
         fixture.Radio.OnConnect = (attempt, _) => attempt == 1
             ? Task.FromException(new IOException("temporarily unavailable")) : Task.CompletedTask;
         await fixture.Mesh.StartRuntimeAsync();
+        using var recoveryDeadline = new CancellationTokenSource(Deadline);
+        while (fixture.Mesh.GetRuntimeSnapshot(fixture.Address)?.Availability != DeviceRuntimeAvailability.Ready)
+            await Task.Delay(10, recoveryDeadline.Token);
         await fixture.Mesh.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
         Assert.Equal(2, fixture.Radio.ConnectAttempts.Count);
         Assert.True(fixture.Connection.IsConnected(fixture.Address));
@@ -190,7 +263,7 @@ public sealed class MeshRuntimeConnectionTests
 
     private sealed class MeshFixture : IAsyncDisposable
     {
-        private readonly PairingFixture fixture = new();
+        private readonly PairingFixture fixture;
         public FakeBle Radio => fixture.Ble;
         public string Address => fixture.Address;
         public DeviceRepository Repository => fixture.Repository;
@@ -199,8 +272,9 @@ public sealed class MeshRuntimeConnectionTests
         public AgpLightControlService Agp => fixture.Service;
         public MeshDeviceControlService Mesh { get; }
         public MeshServer Server { get; }
-        public MeshFixture(DeviceWorkScheduler? work = null)
+        public MeshFixture(DeviceWorkScheduler? work = null, DeviceReconnectQueue? reconnectQueue = null)
         {
+            fixture = new PairingFixture(reconnectQueue: reconnectQueue);
             Repository.SetProtocol(Address, BluetoothDeviceProtocol.Mesh);
             var networks = new MeshNetworkManager();
             networks.EnsureNode(Address, networks.DefaultNetwork);

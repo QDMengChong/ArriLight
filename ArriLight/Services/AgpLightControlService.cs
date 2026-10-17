@@ -1246,6 +1246,12 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     {
         EnsureApplicationForeground();
         using var timing = _diagnostics.BeginBleTiming("AGP.Session.Prepare", address);
+        if (_runtimeEntries.TryGetValue(address, out var runtimeEntry))
+        {
+            lock (runtimeEntry.Sync)
+                if (runtimeEntry.AuthorizationBlocked && string.Equals(runtimeEntry.BlockedToken, _repository.GetToken(address), StringComparison.Ordinal))
+                    throw new AgpAuthenticationRequiredException(address);
+        }
         if (_handles.TryGetValue(address, out var existing) &&
             _connectionService.IsConnected(address) &&
             existing.ConnectionGeneration == _connectionService.GetConnectionGeneration(address))
@@ -1307,8 +1313,15 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                 if (token is null)
                 {
                     if (_runtimeEntries.TryGetValue(address, out var entry))
+                    {
+                        lock (entry.Sync)
+                        {
+                            entry.AuthorizationBlocked = true;
+                            entry.BlockedToken = _repository.GetToken(address);
+                        }
                         MarkRuntimeStep(entry, entry.Epoch, DeviceRuntimeStep.Authentication, DeviceRuntimeStepStatus.Failed,
                             Localization.Format(nameof(AppResources.Agp_DeviceNotAuthenticated), address));
+                    }
                     throw new AgpAuthenticationRequiredException(address);
                 }
 

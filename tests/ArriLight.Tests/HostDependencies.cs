@@ -18,7 +18,9 @@ public sealed class BluetoothDiscoveryService(IDevice device)
     public List<string> InvalidatedAddresses { get; } = [];
     public event EventHandler<DiscoveredBluetoothDevice>? DeviceFound;
 
-    public Task<IDevice> FindDeviceAsync(string address, CancellationToken cancellationToken = default)
+    internal Task PrepareConnectionAsync(bool automatic) => Failure is null ? Task.CompletedTask : Task.FromException(Failure);
+
+    public Task<IDevice> FindDeviceAsync(string address, CancellationToken cancellationToken = default, bool readinessChecked = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         return Failure is null

@@ -45,6 +45,19 @@ internal sealed class AppSettingsFixture : IDisposable
 public sealed class AppSettingsTests
 {
     [Fact]
+    public async Task OfflineRecoveryWindowDefaultsTo1200AndCanBeChangedWithoutRestarting()
+    {
+        using var fixture = new AppSettingsFixture();
+        Assert.Equal(TimeSpan.FromMilliseconds(1200), await fixture.Store.LoadReconnectTimeoutAsync());
+        var text = AppSettingsFixture.DefaultText.TrimEnd();
+        var edited = text[..^1] + ",\"Reconnect\":{\"ConnectionTimeoutMilliseconds\":2400}}";
+        await fixture.Store.SaveTextAsync(edited);
+        Assert.Equal(TimeSpan.FromMilliseconds(2400), await fixture.Store.LoadReconnectTimeoutAsync());
+        await Assert.ThrowsAsync<InvalidDataException>(() => fixture.Store.SaveTextAsync(edited.Replace("2400", "0")));
+        Assert.Equal(TimeSpan.FromMilliseconds(2400), await fixture.Store.LoadReconnectTimeoutAsync());
+    }
+
+    [Fact]
     public async Task PackagedFileSeedsWritableTextOnceAndSavedEditsSurviveNewService()
     {
         using var fixture = new AppSettingsFixture();

@@ -57,11 +57,12 @@ public sealed class BluetoothDiscoveryService(
     public async Task<IDevice> FindDeviceAsync(
         string address,
         TimeSpan? timeout = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        bool readinessChecked = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (GetCachedDevice(address) is { } cached) return cached;
-        await EnsureReadyAsync();
+        if (!readinessChecked) await EnsureReadyAsync();
         cancellationToken.ThrowIfCancellationRequested();
         using var connectionCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         connectionCancellation.CancelAfter(timeout ?? TimeSpan.FromSeconds(15));
@@ -69,6 +70,7 @@ public sealed class BluetoothDiscoveryService(
         // by the add-device page, including after a cold start or QR import.
         var device = await adapter.ConnectToKnownDeviceAsync(
             BluetoothAddressParser.ToDeviceId(address), default, connectionCancellation.Token);
+        // The caller must see a late success to release it before retrying.
         _knownDevices[address] = device;
         return device;
     }
@@ -343,6 +345,22 @@ public sealed class BluetoothDiscoveryService(
         }
 #endif
         return device.Id.ToString("D").ToUpperInvariant();
+    }
+
+    internal async Task PrepareConnectionAsync(bool automatic)
+    {
+        if (!automatic) { await EnsureReadyAsync(); return; }
+        // Automatic recovery never opens a permission dialog. A foreground/manual
+        // action can request access, and the next recovery tick observes the change.
+#if ANDROID
+        if (OperatingSystem.IsAndroidVersionAtLeast(31) &&
+            await Permissions.CheckStatusAsync<Permissions.Bluetooth>() != PermissionStatus.Granted)
+            throw new BluetoothDiscoveryException(AppResources.Ble_NearbyPermissionRequired);
+        if (await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>() != PermissionStatus.Granted)
+            throw new BluetoothDiscoveryException(AppResources.Ble_LocationPermissionRequired);
+#endif
+        if (bluetoothLE.State != BluetoothState.On)
+            throw new BluetoothDiscoveryException(AppResources.Ble_Disabled);
     }
 
     private async Task EnsureReadyAsync()
