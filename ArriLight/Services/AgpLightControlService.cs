@@ -27,8 +27,11 @@ public sealed record AgpDeviceControlProfile(
     AgpCtlRange CtlRange,
     AgpLightMode EffectMode = AgpLightMode.Steady,
     ushort? EffectPeriodMilliseconds = null,
-    AgpLightState? LightState = null)
+    AgpLightState? LightState = null,
+    AgpBatteryState? BatteryState = null,
+    bool HasBatteryStateCharacteristic = false)
 {
+    public bool SupportsBattery => HasBatteryStateCharacteristic || Capabilities.HasFlag(AgpCapabilities.Battery);
     public AgpControlPageKind PageKind
     {
         get
@@ -767,6 +770,26 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     }
                 }
 
+                if (SupportsBattery(handle))
+                {
+                    try
+                    {
+                        if (handle.Client.HasBatteryStateCharacteristic)
+                            await handle.Transport!.EnsureBatteryStateSubscriptionAsync(operationToken);
+                    }
+                    catch (OperationCanceledException) when (operationToken.IsCancellationRequested) { throw; }
+                    catch (Exception exception)
+                    {
+                        _diagnostics.Warning("AGP/Battery", $"电量订阅失败，继续读取快照：{exception.Message}");
+                    }
+                    try { await ReadBatteryStateAsync(handle, operationToken); }
+                    catch (OperationCanceledException) when (operationToken.IsCancellationRequested) { throw; }
+                    catch (Exception exception)
+                    {
+                        _diagnostics.Warning("AGP/Battery", $"电量读取失败，继续使用灯光控制：{exception.Message}");
+                    }
+                }
+
                 if (handle.Capabilities.HasFlag(AgpCapabilities.Ctl) &&
                     handle.CtlRange is null)
                 {
@@ -835,7 +858,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                     handle.CtlRange ?? DefaultCtlRange,
                     effectMode,
                     effectPeriodMilliseconds,
-                    handle.LastState);
+                    handle.LastState, handle.LastBatteryState, handle.Client.HasBatteryStateCharacteristic);
                 _deviceStatuses[address] = new DeviceStatusSnapshot(
                     true, handle.LastState, profile, DateTimeOffset.UtcNow);
                 return profile;
@@ -1368,6 +1391,12 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
                 handle.LastColorState = value;
                 CacheControlState(handle);
             };
+            client.BatteryStateChanged += (_, value) =>
+            {
+                if (!IsCurrentHandle(handle)) return;
+                handle.TryAcceptBatteryState(value);
+                CacheControlState(handle);
+            };
             client.InvalidPacketReceived += (_, args) =>
                 _diagnostics.Warning("AGP/RX", $"忽略无效 AGP 数据包：{args.Exception.Message}");
             _handles[address] = handle;
@@ -1443,7 +1472,8 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             handle.SelectedEffectMode ?? handle.LastState.Mode,
             effectPeriod ?? handle.EffectPeriod ?? (previous?.EffectMode == (handle.SelectedEffectMode ?? handle.LastState.Mode)
                 ? previous.EffectPeriodMilliseconds : null),
-            handle.HasLightState ? handle.LastState : null);
+            handle.HasLightState ? handle.LastState : null,
+            handle.LastBatteryState, handle.Client.HasBatteryStateCharacteristic);
         PublishDeviceStatus(handle.Address, new DeviceStatusSnapshot(
             true, handle.HasLightState ? handle.LastState : null, profile, DateTimeOffset.UtcNow));
     }
@@ -1495,6 +1525,20 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         public AgpGattTransport? Transport { get; } = transport;
         public AgpCapabilities Capabilities { get; } = capabilities;
         private readonly object _stateSync = new();
+        private AgpBatteryState? _lastBatteryState;
+        private long _batteryVersion;
+        public AgpBatteryState? LastBatteryState { get { lock (_stateSync) return _lastBatteryState; } }
+        public long BatteryVersion { get { lock (_stateSync) return _batteryVersion; } }
+        public void TryAcceptBatteryState(AgpBatteryState value, long? readVersion = null)
+        {
+            lock (_stateSync)
+            {
+                // A notification received while Read/GET was pending is the newer observation.
+                if (readVersion is { } version && version != _batteryVersion) return;
+                _lastBatteryState = value;
+                _batteryVersion++;
+            }
+        }
         private AgpLightState _lastState = lastState;
         private bool _hasLightState = hasLightState;
         private bool _hasKnownLightRevision = hasLightState;

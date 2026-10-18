@@ -15,10 +15,10 @@ ArriLight 或其他宿主应用
 主要入口：
 
 - `AgpCodec`：严格编码/解析 v1 公共帧；版本、flags、长度和 20 字节上限不放宽。
-- `AgpModelCodec`：基础灯控、本地硬件延时模式、UTC 时间、延时开/关灯、日程和灯效负载。
+- `AgpModelCodec`：基础灯控、本地硬件延时模式、电池状态、UTC 时间、延时开/关灯、日程和灯效负载。
 - `AgpColorModelCodec`：Lightness16、HSL、CTL、颜色范围/默认值和组合过渡编解码。
 - `AgpClient`：一次一个在途请求，自动使用非零递增 transaction ID，同时匹配 opcode 与 transaction ID。
-- `PluginBleAgpConnection`：发现 Capabilities、Control Point、Light State 和可选 Color State，先开启 Indicate，再开启状态 Notify。
+- `PluginBleAgpConnection`：发现 Capabilities、Control Point、Light State 和可选 Color/Battery State，先开启 Indicate，再开启状态 Notify。
 
 ## Plugin.BLE 用法
 
@@ -55,6 +55,7 @@ if (response.Result != AgpResultCode.Success)
 | Capabilities / Light State | `ReadCapabilitiesAsync`、`ReadLightStateAsync`、`LightStateChanged` | 状态 TID 为 0，revision 由设备维护 |
 | 基础灯控 | `SetOnOffAsync`、`ToggleOnOffAsync`、`SetLightnessAsync` | OnOff 支持关/开/翻转；亮度为线性协议百分比 0..100；APP 不做 Gamma |
 | 本地硬件模式 | `SetModeAsync`、`GetModeAsync` | 能力 bit22 `LocalMode`；各启用方向为独立的 1..2,592,000 秒 |
+| Battery | `GetBatteryAsync`、`ReadBatteryStateAsync`、`BatteryStateChanged` | bit11 判断 GET；`HasBatteryStateCharacteristic` 判断 Read/Notify；电量未知为 null |
 | UTC Time | `SetTimeAsync`、`GetTimeAsync` | 仅 UTC；2024-01-01 至 2099-12-31；时区/DST 属于 APP |
 | Relative Timer | `SetDelayOffAsync`、`GetDelayOffAsync`、`SetDelayOnAsync`、`GetDelayOnAsync` | 0 取消，最大 30 天；与 UTC 校时无关 |
 | Scheduler | `Set/Get/DeleteScheduleAsync`、`GetScheduleListAsync` | 8 槽；APP 把本地时间/DST 转成 UTC |
@@ -67,6 +68,49 @@ if (response.Result != AgpResultCode.Success)
 所有业务错误（如 `Busy`、`NotAuthorized`、`InvalidValue`）保留在响应对象的 `Result`。畸形帧抛 `AgpProtocolException`，响应超时抛 `AgpTimeoutException`，平台连接/读写错误沿用 GATT 异常或 `IOException`。
 
 已登记的认证业务错误 `AuthTimeout=11`、`AuthInvalidLength=12`、`AuthBusy=13` 同样保留在 `Result`；未登记结果码仍拒绝解析。
+
+### BATTERY_GET / Battery State Read、Notify
+
+按 2026-10-18 PW01 工作区的 `docs/AGP/SPEC.md` 第 17 节和 `src/AGP/agp_battery_model.c/.h`，`BATTERY_GET (0x0701)` 是空负载查询，通过 Control Point Indicate 返回相同 opcode 和非零 TID。PW01 的电量查询和状态 Read/Notify 无需 Token 认证，仍遵守设备的 GATT 权限和运输锁。
+
+Battery State 特征 UUID 为 `8f092406-c433-4408-870f-fc60f806f9d7`，支持 Read＋Notify，使用独立 CCC。`PluginBleAgpConnection.OpenAsync` 发现特征后自动开启 Notify；缺少此特征的旧固件仍可连接并使用 GET。只支持 GET 的固件也可能声明 Battery bit11，Read/Notify 支持须检查 `client.HasBatteryStateCharacteristic`。
+
+```csharp
+var capabilities = await client.ReadCapabilitiesAsync(cancellationToken);
+if (client.HasBatteryStateCharacteristic)
+{
+    client.BatteryStateChanged += (_, battery) =>
+    {
+        byte? percent = battery.LevelPercent; // null 表示未知，0 表示确实为 0%。
+        // 由宿主保存或显示收到的设备状态。
+    };
+    var initial = await client.ReadBatteryStateAsync(cancellationToken);
+}
+else if (capabilities.HasFlag(AgpCapabilities.Battery))
+{
+    var response = await client.GetBatteryAsync(cancellationToken);
+    if (response.Result == AgpResultCode.Success)
+    {
+        byte? percent = response.State!.LevelPercent;
+    }
+}
+```
+
+`AgpBatteryResponse(Result, State)` 成功时包含 `AgpBatteryState`，失败时 `State=null`，结果码原样保留。成功负载严格为 9 字节：`result u8 + level u8 + time_to_discharge u24_le + time_to_charge u24_le + flags u8`；失败负载只有 1 字节 result。解析器拒绝错误消息类型/opcode、零 TID、错误长度、未知结果码、电量 101..254，以及 Flags 的保留 Serviceability 值 0。
+
+Read 和 Notify 共用 `BATTERY_STATUS (0x0702)`：Status 类型、TID=0、8 字节电池状态，无 result 前缀，整包 17 字节。`AgpModelCodec.DecodeBatteryStatus` 返回 `AgpBatteryState`，并与 GET 共用字段校验。`ReadBatteryStateAsync` 返回快照；Notify 经 `BatteryStateChanged` 提供状态，畸形通知经 `InvalidPacketReceived` 报告且不影响后续有效通知。电池通知独立于 Light State 和 Control Point，不完成在途 GET，也不消耗请求 TID。
+
+PW01 订阅成功后安排当前快照，此后只发送已确认电量变化，临时发送失败合并重试最新值；重连需要重新订阅。初始通知可能早于 `AgpClient` 的创建或事件注册，因此上例显式 Read 初始化状态。库不替设备重放历史状态，也不提供通知收件确认。
+
+`State.Level` 保留原始电量，`LevelPercent` 将 `0xFF` 转为 null。两个 `TimeToDischargeMinutes` / `TimeToChargeMinutes` 保留原始 24 位分钟值，`0xFFFFFF` 表示未知；对应的 `KnownTimeToDischargeMinutes` / `KnownTimeToChargeMinutes` 将未知值转为 null。`Flags` 保留原始字节，`ParsedFlags` 提供 Presence、Indicator、Charging、Serviceability 四个 2-bit 字段，3 均表示未知。
+
+PW01 当前只提供电量估算，两个时间固定为 `0xFFFFFF`，Flags 固定为 `0xFF`。GET、Read、Notify 共用设备的已确认电量，首次周期采样前为未知，后续采样失败保留已确认值。读取不改变灯光或 revision；库不缓存电量，也不触发采样。旧固件未声明 Battery 能力且缺少电池特征时，宿主应跳过电量操作。
+
+批量入口为 `AgpCommands.GetBattery()`，返回 `AgpCommand<AgpBatteryResponse>`；与普通查询共用事务匹配和串行门，沿用批量 Busy 重试规则。普通 `GetBatteryAsync` 不自动重试。
+
+宿主自定义 GATT 连接可实现可选的 `IAgpBatteryGattConnection`，提供 `HasBatteryStateCharacteristic`、`ReadBatteryStateAsync` 和 `BatteryStateNotified`，并负责订阅、退订及断连清理。原 `IAgpGattConnection` 无新增必需成员。
+
+ArriLight 自有的 `AgpGattTransport` 已实现该接口，沿用应用连接所有权及地址/连接代次校验。共享 Runtime 分别准备 BatterySubscription、BatteryState；没有新特征时按 Battery 能力位回退 GET。电量是可选资料，读取或订阅失败仍保留在线灯控会话。控制页顶部仅为支持电量的真实 AGP 设备显示电量行；未知及离线显示“未知”，0% 保留为 0%。通知更新共享控制资料和当前可见页面，离页后只更新共享缓存；重连建立新的电量快照。Read/GET 返回时若已收到较新的通知，不覆盖该通知值。手动刷新会重新读取电量。
 
 ### ONOFF_SET 开关与翻转
 
@@ -184,7 +228,7 @@ var cancelled = await client.SetDelayOnAsync(0, cancellationToken);
 
 ## PW01 基线与颜色产品
 
-正式语义和测试向量来自 `D:\git\PW01\docs\AGP`，可移植 C 实现来自 `D:\git\PW01\src\AGP`。颜色模型基线为 PW01 `97bed2d`；MODE 与恢复的基础灯控格式按 2026-10-07 的 PW01 工作区同步（基于 `877214b`，新增 `agp_mode_model.c/.h`）。2026-10-08 同步 PW01 `fd92673` 的 `ONOFF_SET=2` 翻转。MODE 正式语义同时见 PW01 `docs/DELAY_MODE.md`。当前 PW01 能力为 `0x0000000000402287`。
+正式语义和测试向量来自 `D:\git\PW01\docs\AGP`，可移植 C 实现来自 `D:\git\PW01\src\AGP`。颜色模型基线为 PW01 `97bed2d`；MODE 与恢复的基础灯控格式按 2026-10-07 的 PW01 工作区同步（基于 `877214b`，新增 `agp_mode_model.c/.h`）。2026-10-08 同步 PW01 `fd92673` 的 `ONOFF_SET=2` 翻转；2026-10-18 同步 PW01 工作区新增的 `BATTERY_GET`。MODE 正式语义同时见 PW01 `docs/DELAY_MODE.md`。增加 Battery bit11 后，当前 PW01 工作区能力为 `0x0000000000402A87`。
 
 当前 PW01 仍是单 PWM 单色硬件，因此颜色能力位全部为 0、不暴露 Color State，格式正确的颜色请求会返回 `UnsupportedFeature`。这不影响协议 binding 用于后续 RGB、RGBW、CCT 或 RGB+CCT 产品：
 

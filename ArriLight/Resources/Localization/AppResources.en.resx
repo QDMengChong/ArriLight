@@ -1,5 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <root>
+  <data name="Control_Battery" xml:space="preserve"><value>Battery</value></data>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>

@@ -255,6 +255,19 @@ public sealed partial class AgpLightControlService
                     }
                     CacheControlState(handle);
                 }, token);
+            await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.BatterySubscription, null,
+                async (handle, operationToken) =>
+                {
+                    if (handle.Client.HasBatteryStateCharacteristic)
+                        await handle.Transport!.EnsureBatteryStateSubscriptionAsync(operationToken);
+                    else MarkRuntimeStep(entry, epoch, DeviceRuntimeStep.BatterySubscription, DeviceRuntimeStepStatus.NotApplicable);
+                }, token);
+            await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.BatteryState, null,
+                async (handle, operationToken) =>
+                {
+                    if (SupportsBattery(handle)) await ReadBatteryStateAsync(handle, operationToken);
+                    else MarkRuntimeStep(entry, epoch, DeviceRuntimeStep.BatteryState, DeviceRuntimeStepStatus.NotApplicable);
+                }, token);
             await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.Effects, AgpCapabilities.Effects,
                 async (handle, operationToken) =>
                 {
@@ -364,6 +377,26 @@ public sealed partial class AgpLightControlService
             // An optional-data failure must leave a live authenticated session usable.
             _diagnostics.Warning("BLE/Runtime", $"资料读取失败：{entry.Address}，{step}，{exception.Message}");
         }
+    }
+
+    private static bool SupportsBattery(AgpClientHandle handle) =>
+        handle.Client.HasBatteryStateCharacteristic || handle.Capabilities.HasFlag(AgpCapabilities.Battery);
+
+    private async Task ReadBatteryStateAsync(AgpClientHandle handle, CancellationToken token)
+    {
+        var version = handle.BatteryVersion;
+        AgpBatteryState state;
+        if (handle.Client.HasBatteryStateCharacteristic)
+            state = await handle.Client.ReadBatteryStateAsync(token);
+        else
+        {
+            var response = await handle.Client.GetBatteryAsync(token);
+            EnsureSuccess(response.Result);
+            state = response.State!;
+        }
+        if (!IsCurrentHandle(handle)) throw new IOException("电量读取所属的设备连接已失效。");
+        handle.TryAcceptBatteryState(state, version);
+        CacheControlState(handle);
     }
 
     private static bool HasColorModel(AgpClientHandle handle) =>

@@ -53,7 +53,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanRefreshStatus)), NotifyPropertyChangedFor(nameof(SupportsLocalMode)),
         NotifyPropertyChangedFor(nameof(CanSetLocalMode)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private bool _isDemo;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(ControlOpacity)),
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(ControlOpacity)), NotifyPropertyChangedFor(nameof(BatteryLevelText)),
         NotifyPropertyChangedFor(nameof(CanSetLocalMode)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private bool _isDeviceOnline;
     [ObservableProperty]
@@ -206,6 +206,8 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     public override Task OnAppearingAsync()
     {
         _isControlPageVisible = true;
+        IsBatterySupported = false;
+        BatteryLevelPercent = null;
         _appearanceLightingEditVersion = _lightingEditVersion;
         _hasAppliedRuntimeEffect = false;
         using var timing = _diagnostics.BeginBleTiming(

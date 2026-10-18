@@ -319,6 +319,10 @@ internal sealed class FakeBle
     public Queue<AgpResultCode> OnOffResults { get; } = [];
     public AgpOpcode? SuppressedResponseOpcode { get; set; }
     public AgpResultCode ModeResult { get; set; } = AgpResultCode.Success;
+    public AgpResultCode BatteryGetResult { get; set; } = AgpResultCode.Success;
+    public byte[] BatteryStatePacket { get; set; } = Convert.FromHexString("01000200020700000850FFFFFFFFFFFFFF");
+    public Exception? BatteryReadFailure { get; set; }
+    public Exception? BatterySubscriptionFailure { get; set; }
     public AgpModeConfig LocalMode { get; set; } = new(AgpLocalMode.DelayNone);
     public AgpLightMode CurrentEffectMode { get; set; } = AgpLightMode.Steady;
     public ushort CurrentEffectPeriodMilliseconds { get; set; }
@@ -417,6 +421,18 @@ internal sealed class FakeBle
 
     public FakeBle CreatePeer() => new(this);
 
+    public void EnableBatteryState() => AddCharacteristic(AgpProfile.BatteryStateCharacteristicId,
+        CharacteristicPropertyType.Read | CharacteristicPropertyType.Notify);
+
+    public void NotifyBatteryState(byte[] packet)
+    {
+        BatteryStatePacket = packet;
+        _indicatedValue = packet;
+        var characteristic = _characteristics[AgpProfile.BatteryStateCharacteristicId];
+        InterfaceProxy.From(characteristic).Raise("ValueUpdated", characteristic,
+            new CharacteristicUpdatedEventArgs(characteristic));
+    }
+
     private bool HasFirmwareRevision => FirmwareRevision is not null || FirmwareReadFailure is not null;
 
     public void NotifyLightState(byte[] packet)
@@ -491,10 +507,16 @@ internal sealed class FakeBle
 
     private async Task<(byte[], int)> ReadAsync(Guid id, CancellationToken cancellationToken)
     {
+        var batterySnapshot = id == AgpProfile.BatteryStateCharacteristicId ? BatteryStatePacket.ToArray() : null;
         Reads.Add(id);
         if (BeforeReadAsync is not null)
             await BeforeReadAsync(id).WaitAsync(cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
+        if (batterySnapshot is not null)
+        {
+            if (BatteryReadFailure is { } failure) throw failure;
+            return (batterySnapshot, 0);
+        }
         if (id == FirmwareRevisionCharacteristicId)
         {
             if (FirmwareReadFailure is { } failure)
@@ -516,6 +538,8 @@ internal sealed class FakeBle
     private Task SubscribeAsync(Guid id)
     {
         Subscriptions.Add(id);
+        if (id == AgpProfile.BatteryStateCharacteristicId && BatterySubscriptionFailure is { } failure)
+            return Task.FromException(failure);
         return Task.CompletedTask;
     }
 
@@ -544,6 +568,9 @@ internal sealed class FakeBle
             AgpOpcode.DelayOnSet or AgpOpcode.DelayOffSet or AgpOpcode.DelayOnGet or AgpOpcode.DelayOffGet => TimerResponse(request),
             AgpOpcode.EffectSet or AgpOpcode.EffectGet => EffectResponse(request),
             AgpOpcode.ModeSet or AgpOpcode.ModeGet => ModeResponse(request),
+            AgpOpcode.BatteryGet => BatteryGetResult == AgpResultCode.Success
+                ? new byte[] { 0 }.Concat(AgpCodec.Decode(BatteryStatePacket).Payload.ToArray()).ToArray()
+                : [(byte)BatteryGetResult],
             AgpOpcode.ScheduleListGet => ScheduleListResponse(),
             AgpOpcode.ScheduleGet => ScheduleResponse(request.Payload.Span[0]),
             AgpOpcode.ScheduleSet => SetScheduleResponse(request),

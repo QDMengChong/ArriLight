@@ -8,7 +8,8 @@ public enum DeviceRuntimeStep
 {
     Connection, ResponseChannel, Authentication, StateSubscription, LightState,
     Effects, LocalMode, RelativeDelayOn, RelativeDelayOff, ColorSubscription,
-    ColorState, CtlRange, Clock, ScheduleList, Schedules, DeviceInformation
+    ColorState, CtlRange, Clock, ScheduleList, Schedules, DeviceInformation,
+    BatterySubscription, BatteryState
 }
 public enum DeviceRuntimeStepStatus { Pending, Running, Succeeded, NotApplicable, Failed, Invalidated }
 public sealed record DeviceRuntimeStepResult(DeviceRuntimeStepStatus Status, DateTimeOffset UpdatedAt, string? Error = null);

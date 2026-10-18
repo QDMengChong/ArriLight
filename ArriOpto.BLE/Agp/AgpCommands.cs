@@ -78,6 +78,10 @@ public static class AgpCommands
     public static AgpCommand<AgpModeResponse> GetMode() =>
         Create(AgpOpcode.ModeGet, [], AgpModelCodec.DecodeModeResponse, response => response.Result);
 
+    /// <summary>创建空负载电池查询；调用方通过 Battery 能力位判断支持情况。</summary>
+    public static AgpCommand<AgpBatteryResponse> GetBattery() =>
+        Create(AgpOpcode.BatteryGet, [], AgpModelCodec.DecodeBatteryResponse, response => response.Result);
+
     public static AgpCommand<AgpTimeResponse> SetTime(uint utcSeconds) =>
         Create(AgpOpcode.TimeSet, AgpModelCodec.EncodeTimeSet(utcSeconds),
             AgpModelCodec.DecodeTimeResponse, response => response.Result);

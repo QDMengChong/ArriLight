@@ -51,6 +51,28 @@
                 Spacing="18"
                 IsEnabled="{Binding IsDeviceOnline}"
                 Opacity="{Binding ControlOpacity}">
+                <Border
+                    x:Name="BatteryStatusCard"
+                    IsVisible="{Binding IsBatterySupported}"
+                    Padding="16,12"
+                    Style="{StaticResource MenuCardStyle}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Image Source="battery.svg" WidthRequest="24" HeightRequest="24" />
+                        <Label
+                            Grid.Column="1"
+                            FontSize="14"
+                            Text="{x:Static strings:AppResources.Control_Battery}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
+                            VerticalTextAlignment="Center" />
+                        <Label
+                            Grid.Column="2"
+                            FontFamily="OpenSansSemibold"
+                            FontSize="16"
+                            Text="{Binding BatteryLevelText}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}"
+                            VerticalTextAlignment="Center" />
+                    </Grid>
+                </Border>
                 <Border x:Name="LightControlCard" Style="{StaticResource MenuCardStyle}">
                     <VerticalStackLayout Spacing="14">
                         <Grid ColumnDefinitions="*,Auto">
