@@ -105,6 +105,14 @@ public sealed record AgpProvisionTokenResponse(
 public sealed record AgpAuthenticationResponse(
     AgpResultCode Result);
 
+/// <summary>Light State 的业务状态位，独立于 AGP 帧头 flags。</summary>
+[Flags]
+public enum AgpLightStateFlags : byte
+{
+    None = 0,
+    Locked = 1 << 0
+}
+
 public sealed record AgpLightState(
     uint Revision,
     bool IsOn,
@@ -113,7 +121,11 @@ public sealed record AgpLightState(
     byte LastNonzeroBrightness,
     byte RemainingTime,
     AgpLightMode Mode,
-    byte StateFlags);
+    byte StateFlags)
+{
+    /// <summary>设备上报的锁定状态；旧固件该位为 0，不能据此判断是否支持锁定上报。</summary>
+    public bool IsLocked => (StateFlags & (byte)AgpLightStateFlags.Locked) != 0;
+}
 
 public sealed record AgpTimeResponse(
     AgpResultCode Result,

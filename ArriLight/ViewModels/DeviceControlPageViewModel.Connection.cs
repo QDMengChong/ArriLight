@@ -221,6 +221,7 @@ public partial class DeviceControlPageViewModel
     public void ApplyLightState(AgpLightState state, bool applyBrightness = true)
     {
         _pendingLightState = state; IsMasterPowerOn = state.IsOn;
+        IsLocked = state.IsLocked;
         if (applyBrightness)
             Brightness = Math.Clamp(state.IsOn && state.PresentBrightness > 0 ?
                 (int)state.PresentBrightness : state.LastNonzeroBrightness, 1, 100);
@@ -393,13 +394,15 @@ public partial class DeviceControlPageViewModel
     private void ApplyAvailableRuntimeData(DeviceRuntimeSnapshot snapshot)
     {
         if (!_isControlPageVisible) return;
+        var status = _agpLight.GetCachedDeviceStatus(DeviceAddress);
+        if (status?.LightState is { } knownState)
+            IsLocked = knownState.IsLocked;
         if (!IsDeviceOnline)
         {
             IsLocalModeSupported = false;
             return;
         }
         bool Succeeded(DeviceRuntimeStep step) => snapshot.Steps.GetValueOrDefault(step)?.Status == DeviceRuntimeStepStatus.Succeeded;
-        var status = _agpLight.GetCachedDeviceStatus(DeviceAddress);
         var applyLighting = _lightingEditVersion == _appearanceLightingEditVersion;
         if (status?.LightState is { } state && state != _pendingLightState)
             ApplyLightState(state, applyLighting);

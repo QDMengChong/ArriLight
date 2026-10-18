@@ -57,6 +57,8 @@ public partial class DeviceControlPageViewModel : ViewModelBase
         NotifyPropertyChangedFor(nameof(CanSetLocalMode)), NotifyPropertyChangedFor(nameof(CanEditDelaySeconds))]
     private bool _isDeviceOnline;
     [ObservableProperty]
+    private bool _isLocked;
+    [ObservableProperty]
     private bool _isMasterPowerOn = true;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanTogglePower))]
     private bool _isPowerChanging;
@@ -206,6 +208,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     public override Task OnAppearingAsync()
     {
         _isControlPageVisible = true;
+        IsLocked = false;
         IsBatterySupported = false;
         BatteryLevelPercent = null;
         _appearanceLightingEditVersion = _lightingEditVersion;

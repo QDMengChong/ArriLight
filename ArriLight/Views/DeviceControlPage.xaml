@@ -17,6 +17,13 @@
                 WidthRequest="10"
                 Fill="{Binding ConnectionStatusColor, Converter={StaticResource PresentationColorConverter}}"
                 VerticalOptions="Center" />
+            <Image
+                HeightRequest="17"
+                WidthRequest="17"
+                IsVisible="{Binding IsLocked}"
+                Source="device_locked.svg"
+                VerticalOptions="Center"
+                SemanticProperties.Description="{x:Static strings:AppResources.Device_Locked}" />
             <Label
                 FontFamily="OpenSansSemibold"
                 FontSize="17"

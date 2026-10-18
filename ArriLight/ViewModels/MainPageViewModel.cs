@@ -219,6 +219,8 @@ public partial class MainPageViewModel : ViewModelBase
 
         var runtime = _agpLight.GetRuntimeSnapshot(device.Address);
         var cachedStatus = _agpLight.GetCachedDeviceStatus(device.Address);
+        if (cachedStatus?.LightState is { } knownLightState)
+            device.IsLocked = knownLightState.IsLocked;
         var availability = runtime?.Availability ?? (cachedStatus?.IsOnline == true
             ? DeviceRuntimeAvailability.Online : DeviceRuntimeAvailability.Offline);
         device.IsOnline = availability is DeviceRuntimeAvailability.Online or DeviceRuntimeAvailability.Ready;

@@ -48,6 +48,18 @@ if (response.Result != AgpResultCode.Success)
 
 `AgpClient.DisposeAsync()` 会释放传入连接，因此上例只把 client 放入 `await using`。如宿主已有自己的 BLE 连接所有权，应实现 `IAgpGattConnection`，并在实现中定义符合应用架构的释放策略。
 
+## 锁定状态
+
+PW01 使用 Light State 负载最后一个字节 `state_flags` 的 bit0 表示锁定（完整报文偏移 19）。`AgpLightState.IsLocked` 解析该位，`AgpLightStateFlags.Locked = 0x01`；原始 `StateFlags` 字节继续保留其他位。读取 `ReadLightStateAsync` 和订阅 `LightStateChanged` 均提供此属性，不新增命令、能力位或报文字节，帧头 flags 仍必须为 0。
+
+```csharp
+var state = await client.ReadLightStateAsync(cancellationToken);
+bool locked = state.IsLocked;
+client.LightStateChanged += (_, latest) => UpdateLockIndicator(latest.IsLocked);
+```
+
+锁定与在线、就绪、灯效和本地 MODE 独立。新版 PW01 锁定后保持广播、连接、认证和只读查询，允许状态订阅；受保护的灯控 Set 返回 `NotAuthorized`，OTA 也被拒绝。认证成功不会解锁，解锁仍需本地手势。实际锁定/解锁使 revision 递增，并通知当前状态，即使灯原本已关闭；宿主应忽略旧 revision。旧固件此位为 0，不能据此判断是否支持锁定上报。
+
 ## 已支持模型
 
 | 模型 | 客户端方法 | 关键约束 |
@@ -71,7 +83,7 @@ if (response.Result != AgpResultCode.Success)
 
 ### BATTERY_GET / Battery State Read、Notify
 
-按 2026-10-18 PW01 工作区的 `docs/AGP/SPEC.md` 第 17 节和 `src/AGP/agp_battery_model.c/.h`，`BATTERY_GET (0x0701)` 是空负载查询，通过 Control Point Indicate 返回相同 opcode 和非零 TID。PW01 的电量查询和状态 Read/Notify 无需 Token 认证，仍遵守设备的 GATT 权限和运输锁。
+按 2026-10-18 PW01 工作区的 `docs/AGP/SPEC.md` 第 17 节和 `src/AGP/agp_battery_model.c/.h`，`BATTERY_GET (0x0701)` 是空负载查询，通过 Control Point Indicate 返回相同 opcode 和非零 TID。PW01 的电量查询和状态 Read/Notify 无需 Token 认证；新版固件锁定期间也允许访问，返回已确认的缓存电量，不恢复 ADC 采样。
 
 Battery State 特征 UUID 为 `8f092406-c433-4408-870f-fc60f806f9d7`，支持 Read＋Notify，使用独立 CCC。`PluginBleAgpConnection.OpenAsync` 发现特征后自动开启 Notify；缺少此特征的旧固件仍可连接并使用 GET。只支持 GET 的固件也可能声明 Battery bit11，Read/Notify 支持须检查 `client.HasBatteryStateCharacteristic`。
 

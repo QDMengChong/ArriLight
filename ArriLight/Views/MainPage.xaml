@@ -204,7 +204,13 @@
                                             FontSize="17"
                                             LineBreakMode="TailTruncation"
                                             Text="{Binding Name}"
-                                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsOnline}" Value="False">
+                                                    <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray500}}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
                                         <Border
                                             Padding="6,2"
                                             BackgroundColor="{StaticResource Primary}"
@@ -230,6 +236,13 @@
                                             Text="{Binding Status}"
                                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}"
                                             VerticalTextAlignment="Center" />
+                                        <Image
+                                            HeightRequest="15"
+                                            WidthRequest="15"
+                                            IsVisible="{Binding IsLocked}"
+                                            Source="device_locked.svg"
+                                            VerticalOptions="Center"
+                                            SemanticProperties.Description="{x:Static strings:AppResources.Device_Locked}" />
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>
                                 </Grid>

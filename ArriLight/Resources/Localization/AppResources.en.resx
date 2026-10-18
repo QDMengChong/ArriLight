@@ -985,6 +985,7 @@ Keep the device powered and phone Bluetooth on during the update. Stay on this p
     <value>Offline</value>
     <comment>MainPage.xaml.cs:214; MainPage.xaml.cs:239</comment>
   </data>
+  <data name="Device_Locked" xml:space="preserve"><value>Device locked</value></data>
   <data name="Device_SavedWaiting" xml:space="preserve">
     <value>Saved · Awaiting connection</value>
     <comment>MainPage.xaml.cs:240</comment>
