@@ -31,6 +31,32 @@ public sealed partial class AgpLightControlService
         }, cancellationToken, resumePreparation: true);
     }
 
+    /// <summary>Recover a loader while the application service and authentication are unavailable.</summary>
+    public async Task RunExclusiveOtaRecoveryAsync(string address,
+        Func<CancellationToken, Task> operation, CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(address);
+        ArgumentNullException.ThrowIfNull(operation);
+        EnsureApplicationForeground();
+        async Task Recover(CancellationToken token)
+        {
+            await InvalidateOtaSessionAsync(address);
+            try { await _connectionService.RunExclusiveOtaRecoveryAsync(address, operation, token); }
+            finally { await InvalidateOtaSessionAsync(address); }
+        }
+        if (!_runtimeStarted)
+        {
+            using var lifetime = LinkApplicationCancellation(cancellationToken);
+            await Recover(lifetime.Token);
+            return;
+        }
+        await RunRuntimeExclusiveAsync(address, AppResources.Firmware_Updating, async token =>
+        {
+            await Recover(token);
+            return true;
+        }, cancellationToken, resumePreparation: false);
+    }
+
     internal async Task RunRuntimeBindingAsync(string address, Func<Task> binding,
         CancellationToken cancellationToken)
     {

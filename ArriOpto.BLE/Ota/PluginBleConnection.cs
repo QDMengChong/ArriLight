@@ -23,6 +23,7 @@ public sealed class PluginBleConnection : IOtaGattConnection
     private readonly ICharacteristic _notify;
     private readonly Func<Func<Task>, Task> _dispatch;
     private readonly OtaDiagnostics? _diagnostics;
+    private readonly PluginBleOtaTransport? _transport;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private bool _notificationsStarted;
     private bool _disconnected;
@@ -37,7 +38,7 @@ public sealed class PluginBleConnection : IOtaGattConnection
         OtaGattMode mode,
         int mtu,
         Func<Func<Task>, Task>? dispatcher,
-        OtaDiagnostics? diagnostics)
+        OtaDiagnostics? diagnostics, PluginBleOtaTransport? transport)
     {
         _adapter = adapter;
         _device = device;
@@ -48,6 +49,7 @@ public sealed class PluginBleConnection : IOtaGattConnection
         Mtu = mtu;
         _dispatch = dispatcher ?? (operation => operation());
         _diagnostics = diagnostics;
+        _transport = transport;
     }
 
     /// <inheritdoc />
@@ -74,6 +76,7 @@ public sealed class PluginBleConnection : IOtaGattConnection
     /// <param name="dispatcher">可选的平台线程调度器。</param>
     /// <param name="cancellationToken">取消连接、发现、MTU 和订阅。</param>
     /// <param name="diagnostics">可选结构化诊断配置。</param>
+    /// <param name="transport">可选平台写入及 MTU 单位适配。</param>
     /// <returns>通知已经启用、可以立即执行协议命令的连接。</returns>
     /// <exception cref="OtaException">没有服务、服务组合异常或必要特征不可用。</exception>
     public static async Task<PluginBleConnection> OpenAsync(
@@ -82,7 +85,8 @@ public sealed class PluginBleConnection : IOtaGattConnection
         int requestedMtu = 517,
         Func<Func<Task>, Task>? dispatcher = null,
         CancellationToken cancellationToken = default,
-        OtaDiagnostics? diagnostics = null)
+        OtaDiagnostics? diagnostics = null,
+        PluginBleOtaTransport? transport = null)
     {
         ArgumentNullException.ThrowIfNull(adapter);
         ArgumentNullException.ThrowIfNull(device);
@@ -147,6 +151,7 @@ public sealed class PluginBleConnection : IOtaGattConnection
                         requestedMtu,
                         dispatcher,
                         diagnostics,
+                        transport,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -159,6 +164,7 @@ public sealed class PluginBleConnection : IOtaGattConnection
                         requestedMtu,
                         dispatcher,
                         diagnostics,
+                        transport,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -348,6 +354,7 @@ public sealed class PluginBleConnection : IOtaGattConnection
         int requestedMtu,
         Func<Func<Task>, Task>? dispatcher,
         OtaDiagnostics? diagnostics,
+        PluginBleOtaTransport? transport,
         CancellationToken cancellationToken)
     {
         var command = await RequiredCharacteristicAsync(
@@ -378,9 +385,9 @@ public sealed class PluginBleConnection : IOtaGattConnection
             data,
             notify,
             OtaGattMode.Slb,
-            Math.Max(23, mtu),
+            Math.Max(23, transport?.NormalizeRequestedMtuResult?.Invoke(mtu) ?? mtu),
             dispatcher,
-            diagnostics);
+            diagnostics, transport);
     }
 
     private static async Task<PluginBleConnection> CreateSingleBankAsync(
@@ -390,6 +397,7 @@ public sealed class PluginBleConnection : IOtaGattConnection
         int requestedMtu,
         Func<Func<Task>, Task>? dispatcher,
         OtaDiagnostics? diagnostics,
+        PluginBleOtaTransport? transport,
         CancellationToken cancellationToken)
     {
         var command = await RequiredCharacteristicAsync(
@@ -429,9 +437,10 @@ public sealed class PluginBleConnection : IOtaGattConnection
             data,
             notify,
             mode,
-            Math.Max(23, mtu),
+            Math.Max(23, mode == OtaGattMode.SingleBankOta
+                ? transport?.NormalizeRequestedMtuResult?.Invoke(mtu) ?? mtu : mtu),
             dispatcher,
-            diagnostics);
+            diagnostics, transport);
     }
 
     private static async Task<ICharacteristic> RequiredCharacteristicAsync(
@@ -487,13 +496,18 @@ public sealed class PluginBleConnection : IOtaGattConnection
         var stopwatch = Stopwatch.StartNew();
         var capture = _diagnostics?.CapturePayload(data.Span, payloadKind);
         var result = 0;
+        using var writeTimeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        writeTimeout.CancelAfter(TimeSpan.FromSeconds(10));
         try
         {
             await _dispatch(
                     async () =>
                     {
-                        result = await characteristic
-                            .WriteAsync(data.ToArray(), cancellationToken)
+                        var write = characteristic.WriteType == CharacteristicWriteType.WithoutResponse &&
+                            _transport?.WriteWithoutResponseAsync is { } nativeWrite
+                            ? nativeWrite(_device, characteristic, data, writeTimeout.Token)
+                            : characteristic.WriteAsync(data.ToArray(), writeTimeout.Token);
+                        result = await write.WaitAsync(writeTimeout.Token)
                             .ConfigureAwait(false);
                     })
                 .ConfigureAwait(false);
@@ -560,6 +574,8 @@ public sealed class PluginBleConnection : IOtaGattConnection
                         ["writeType"] = characteristic.WriteType.ToString()
                     }
                 });
+            if (exception is OperationCanceledException && !cancellationToken.IsCancellationRequested && writeTimeout.IsCancellationRequested)
+                throw new TimeoutException("OTA GATT write did not complete within 10 seconds.", exception);
             throw;
         }
         finally

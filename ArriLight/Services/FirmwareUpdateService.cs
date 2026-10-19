@@ -4,6 +4,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using ArriOpto.BLE.Ota;
+using Plugin.BLE.Abstractions.Contracts;
 
 namespace ArriLight;
 
@@ -83,6 +84,7 @@ public sealed class FirmwareUpdateConfiguration(AppSettingsService? appSettingsS
     public string? GetWorkerUrl { get; init; }
 
     public int RequestedMtu { get; init; } = 517;
+    public PluginBleOtaTransport? OtaTransport { get; init; }
 
     // AES Key 不持久化。若产品使用加密 SLB，应由安全配置在运行时注入。
     public string? AesKeyHex { get; set; }
@@ -269,10 +271,13 @@ public sealed class FirmwareUpdateService(
         string deviceAddress,
         FirmwareCandidate candidate,
         IProgress<FirmwareUpdateProgress>? progress = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        Func<IReadOnlyList<IDevice>, Task<IDevice?>>? selectRecoveryDevice = null)
     {
         ArgumentNullException.ThrowIfNull(connectionService);
         ArgumentNullException.ThrowIfNull(candidate);
+        if (selectRecoveryDevice is not null && candidate.Protocol != OtaProtocol.SingleBank)
+            throw new NotSupportedException(AppResources.Firmware_RecoverySingleBankOnly);
         var prepared = await PrepareFirmwareAsync(
             candidate,
             progress,
@@ -289,60 +294,79 @@ public sealed class FirmwareUpdateService(
 
             try
             {
-                await agpLightControlService.RunExclusiveOtaAsync(
-                    deviceAddress,
-                    async (device, token) =>
+                async Task TransferAsync(IDevice device, CancellationToken token)
+                {
+                    var otaDiagnostics = diagnostics.CreateOtaDiagnostics();
+                    var otaOptions = new PluginBleOtaOptions
                     {
-                        var otaDiagnostics = diagnostics.CreateOtaDiagnostics();
-                        var otaOptions = new PluginBleOtaOptions
+                        Protocol = new OtaOptions
                         {
-                            Protocol = new OtaOptions
-                            {
-                                RequestedMtu = configuration.RequestedMtu,
-                                AesKeyHex = configuration.AesKeyHex,
-                                ValidateProductId = true,
-                                Diagnostics = otaDiagnostics
-                            },
-                            OperationDispatcher = operation =>
-                                MainThread.InvokeOnMainThreadAsync(operation)
-                        };
-                        var otaProgress = new InlineProgress<OtaProgress>(value =>
+                            RequestedMtu = configuration.RequestedMtu,
+                            AesKeyHex = configuration.AesKeyHex,
+                            ValidateProductId = true,
+                            Diagnostics = otaDiagnostics
+                        },
+                        OperationDispatcher = operation =>
+                            MainThread.InvokeOnMainThreadAsync(operation),
+                        Transport = configuration.OtaTransport
+                    };
+                    var otaProgress = new InlineProgress<OtaProgress>(value =>
+                    {
+                        var percentage = Math.Clamp(value.Percentage, 0, 100);
+                        if (candidate.Protocol == OtaProtocol.SingleBank &&
+                            value.State == OtaState.UpgradeCompleteWaitingDisconnect &&
+                            value.TotalBytes > 0 &&
+                            value.BytesTransferred >= value.TotalBytes)
                         {
-                            var percentage = Math.Clamp(value.Percentage, 0, 100);
-                            if (candidate.Protocol == OtaProtocol.SingleBank &&
-                                value.State == OtaState.FeedbackProgress &&
-                                value.TotalBytes > 0 &&
-                                value.BytesTransferred >= value.TotalBytes)
-                            {
-                                singleBankPayloadAccepted = true;
-                            }
+                            singleBankPayloadAccepted = true;
+                        }
 
-                            diagnostics.Debug(
-                                "OTA/Progress",
-                                $"state={value.State}, progress={percentage:0.0}%, bytes={value.BytesTransferred}/{value.TotalBytes}, message={value.Message}");
-                            progress?.Report(
-                                new FirmwareUpdateProgress(
-                                    value.State == OtaState.FeedbackProgress
-                                        ? FirmwareUpdateStage.Transferring
-                                        : FirmwareUpdateStage.Connecting,
-                                    percentage,
-                                    ToUserMessage(value),
-                                    value.State));
-                        });
+                        diagnostics.Debug(
+                            "OTA/Progress",
+                            $"state={value.State}, progress={percentage:0.0}%, bytes={value.BytesTransferred}/{value.TotalBytes}, message={value.Message}");
+                        progress?.Report(
+                            new FirmwareUpdateProgress(
+                                value.State == OtaState.FeedbackProgress
+                                    ? FirmwareUpdateStage.Transferring
+                                    : FirmwareUpdateStage.Connecting,
+                                percentage,
+                                ToUserMessage(value),
+                                value.State));
+                    });
 
-                        await using var stream = await prepared.OpenReadAsync(token);
-                        diagnostics.Information(
-                            "OTA",
-                            $"开始 {candidate.ProtocolText} 升级：device={deviceAddress}，file={candidate.FileName}，source={candidate.SourceText}。");
-                        await otaClient.UpgradeAsync(
-                            device,
-                            stream,
-                            candidate.FileName,
-                            otaOptions,
-                            otaProgress,
-                            token);
-                    },
-                    cancellationToken);
+                    await using var stream = await prepared.OpenReadAsync(token);
+                    diagnostics.Information(
+                        "OTA",
+                        $"开始 {candidate.ProtocolText} 升级：device={deviceAddress}，file={candidate.FileName}，source={candidate.SourceText}。");
+                    await otaClient.UpgradeAsync(
+                        device,
+                        stream,
+                        candidate.FileName,
+                        otaOptions,
+                        otaProgress,
+                        token);
+                }
+                if (selectRecoveryDevice is null)
+                {
+                    await agpLightControlService.RunExclusiveOtaAsync(deviceAddress, TransferAsync, cancellationToken);
+                }
+                else
+                {
+                    await agpLightControlService.RunExclusiveOtaRecoveryAsync(deviceAddress, async token =>
+                    {
+                        progress?.Report(new(FirmwareUpdateStage.Connecting, 0, AppResources.Firmware_RecoveryScanning));
+                        var devices = await otaClient.ScanBootloadersAsync(new PluginBleOtaOptions
+                        {
+                            BootloaderScanTimeout = TimeSpan.FromSeconds(5)
+                        }, token);
+                        if (devices.Count == 0)
+                            throw new IOException(AppResources.Firmware_RecoveryNotFound);
+                        var selected = await selectRecoveryDevice(devices);
+                        if (selected is null || !devices.Any(device => ReferenceEquals(device, selected)))
+                            throw new OperationCanceledException(token);
+                        await TransferAsync(selected, token);
+                    }, cancellationToken);
+                }
             }
             catch (IOException exception)
                 when (IsExpectedSingleBankRestartDisconnect(

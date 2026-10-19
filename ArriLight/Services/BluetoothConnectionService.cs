@@ -655,6 +655,16 @@ public sealed class BluetoothConnectionService
         }
     }
 
+    // Recovery holds the same target gate but must never connect its erased app.
+    public async Task RunExclusiveOtaRecoveryAsync(string address,
+        Func<CancellationToken, Task> operation, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        await WaitForOperationLockAsync("ota-recovery", address, cancellationToken);
+        try { await operation(cancellationToken); }
+        finally { GetOrCreateSession(address).OperationLock.Release(); }
+    }
+
     private async Task<IDevice> ConnectCoreAsync(
         string address,
         CancellationToken cancellationToken)

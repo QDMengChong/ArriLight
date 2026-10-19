@@ -40,6 +40,7 @@ public sealed record PluginBleOtaOptions
     /// <c>operation =&gt; MainThread.InvokeOnMainThreadAsync(operation)</c>
     /// </example>
     public Func<Func<Task>, Task>? OperationDispatcher { get; init; }
+    public PluginBleOtaTransport? Transport { get; init; }
 
     internal void Validate()
     {

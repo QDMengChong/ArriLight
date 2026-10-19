@@ -62,7 +62,11 @@ public static class MauiProgram
         builder.Services.AddSingleton<DeviceWorkScheduler>();
         builder.Services.AddSingleton<DeviceRepository>();
         builder.Services.AddSingleton<AppSettingsService>();
-        builder.Services.AddSingleton<FirmwareUpdateConfiguration>();
+        builder.Services.AddSingleton(provider => new FirmwareUpdateConfiguration(
+            provider.GetRequiredService<AppSettingsService>())
+        {
+            OtaTransport = OtaPlatformTransport.Create()
+        });
         builder.Services.AddSingleton(
             _ => new HttpClient
             {

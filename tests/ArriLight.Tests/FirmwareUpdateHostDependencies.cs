@@ -47,4 +47,5 @@ public partial class FirmwareUpdatePage
     private void InitializeComponent() { }
     internal void AppearForTest() => OnAppearing();
     internal void DisappearForTest() => OnDisappearing();
+    internal bool BackForOtaTest() => OnBackButtonPressed();
 }

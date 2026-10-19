@@ -147,16 +147,27 @@ public partial class MainPage
 
 public sealed class Shell
 {
+    public event EventHandler<ShellNavigatingEventArgs>? Navigating;
     public static Shell Current { get; } = new();
     public List<string> Routes { get; } = [];
     public List<bool> AnimationRequests { get; } = [];
     public Func<string, Task>? OnNavigate { get; set; }
     public Task GoToAsync(string route, bool animate = true)
     {
+        var args = new ShellNavigatingEventArgs();
+        Navigating?.Invoke(this, args);
+        if (args.Cancelled) return Task.CompletedTask;
         Routes.Add(route);
         AnimationRequests.Add(animate);
         return OnNavigate?.Invoke(route) ?? Task.CompletedTask;
     }
+}
+
+public sealed class ShellNavigatingEventArgs : EventArgs
+{
+    public bool CanCancel => true;
+    public bool Cancelled { get; private set; }
+    public void Cancel() => Cancelled = true;
 }
 
 internal static class DeviceControlPageRoutes

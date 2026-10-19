@@ -189,7 +189,7 @@ public sealed class PluginBleOtaClient
                     options.Protocol.RequestedMtu,
                     options.OperationDispatcher,
                     cancellationToken,
-                    options.Protocol.Diagnostics)
+                    options.Protocol.Diagnostics, options.Transport)
                 .ConfigureAwait(false);
             var session = new SlbOtaSession(connection, slb, options.Protocol, progress);
             await session.RunAsync(cancellationToken).ConfigureAwait(false);
@@ -204,7 +204,7 @@ public sealed class PluginBleOtaClient
                          options.Protocol.RequestedMtu,
                          options.OperationDispatcher,
                          cancellationToken,
-                         options.Protocol.Diagnostics)
+                         options.Protocol.Diagnostics, options.Transport)
                      .ConfigureAwait(false))
         {
             if (initialConnection.Mode == OtaGattMode.SingleBankApp)
@@ -249,7 +249,7 @@ public sealed class PluginBleOtaClient
                 options.Protocol.RequestedMtu,
                 options.OperationDispatcher,
                 cancellationToken,
-                options.Protocol.Diagnostics)
+                options.Protocol.Diagnostics, options.Transport)
             .ConfigureAwait(false);
         var otaSession = new SingleBankOtaSession(
             otaConnection,
@@ -257,6 +257,42 @@ public sealed class PluginBleOtaClient
             options.Protocol,
             progress);
         await otaSession.RunOtaModeAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Scan recovery loaders without connecting to the old application identity.</summary>
+    public async Task<IReadOnlyList<IDevice>> ScanBootloadersAsync(
+        PluginBleOtaOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        options ??= new PluginBleOtaOptions();
+        options.Validate();
+        if (_adapter.IsScanning)
+            await _adapter.StopScanningForDevicesAsync().ConfigureAwait(false);
+        var found = new System.Collections.Concurrent.ConcurrentDictionary<Guid, IDevice>();
+        bool IsLoader(IDevice device) => device.Name is not null && options.BootloaderNames.Contains(device.Name);
+        void Discovered(object? sender, DeviceEventArgs args)
+        {
+            if (IsLoader(args.Device)) found[args.Device.Id] = args.Device;
+        }
+        using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeout.CancelAfter(options.BootloaderScanTimeout);
+        _adapter.DeviceDiscovered += Discovered;
+        _adapter.DeviceAdvertised += Discovered;
+        try
+        {
+            // No service filter: this loader advertises its name/manufacturer data only.
+            await _adapter.StartScanningForDevicesAsync(new ScanFilterOptions(), IsLoader, false, timeout.Token)
+                .ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested) { }
+        finally
+        {
+            _adapter.DeviceDiscovered -= Discovered;
+            _adapter.DeviceAdvertised -= Discovered;
+            if (_adapter.IsScanning)
+                await _adapter.StopScanningForDevicesAsync().ConfigureAwait(false);
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return found.Values.OrderBy(device => device.Id).ToArray();
     }
 
     private async Task<IDevice> FindBootloaderAsync(

@@ -397,7 +397,11 @@ public sealed class SingleBankOtaSession : OtaSessionBase
         {
             await Connection.WriteCommandAsync(command, cancellationToken).ConfigureAwait(false);
         }
-        catch (IOException exception) when (IsGatt133(exception))
+        catch (Exception exception) when (
+            exception is not OperationCanceledException &&
+            ((exception is IOException io && IsGatt133(io)) ||
+             Connection is PluginBleConnection native &&
+             native.Device.State == Plugin.BLE.Abstractions.DeviceState.Disconnected))
         {
             // Android can report GATT 133 because the peripheral resets immediately
             // after accepting the mode-switch/reboot command. These are the only two
@@ -437,14 +441,16 @@ public sealed class SingleBankOtaSession : OtaSessionBase
         var response = await WaitForNotificationAsync(
                 inbox,
                 data => data.Span.SequenceEqual(expected.Span)
-                        || data.Span.SequenceEqual(new byte[] { 0x68, 0x87 }),
+                        || data.Span.SequenceEqual(new byte[] { 0x68, 0x87 })
+                        || (data.Length == 2 && data.Span[0] != 0 &&
+                            (data.Span[1] == expected.Span[1] || data.Span[1] == 0xFF)),
                 timeout,
                 $"Single Bank response {Convert.ToHexString(expected.Span)}",
                 cancellationToken)
             .ConfigureAwait(false);
-        if (response.Span.SequenceEqual(new byte[] { 0x68, 0x87 }))
+        if (!response.Span.SequenceEqual(expected.Span))
         {
-            throw FirmwareError("Device returned Single Bank error 0x6887.");
+            throw FirmwareError($"Device returned Single Bank error {Convert.ToHexString(response.Span)}.");
         }
     }
 

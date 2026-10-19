@@ -889,7 +889,9 @@
 文件：{2}
 Product ID：{3}
 
-升级期间请保持设备供电、手机蓝牙开启，并不要离开此页面。</value>
+中途停止升级可能导致设备固件损坏、无法正常运行，必须重新升级才能恢复。确认开始后不可取消。
+
+升级期间请保持灯具和手机均有电、蓝牙开启、通信畅通，并留在此页面。</value>
     <comment>FirmwareUpdatePage.xaml.cs:248</comment>
   </data>
   <data name="Firmware_UpdateNow" xml:space="preserve">
@@ -1458,7 +1460,7 @@ Product ID：{3}
     <comment>FirmwareUpdatePage.xaml:Text</comment>
   </data>
   <data name="Firmware_KeepPowered" xml:space="preserve">
-    <value>升级期间请保持灯具通电、手机蓝牙开启，并避免离开设备附近。</value>
+    <value>升级开始后不可取消。请保持灯具和手机均有电、蓝牙开启、通信畅通。失败后可选择“恢复升级”重新写入完整固件。</value>
     <comment>FirmwareUpdatePage.xaml:Text</comment>
   </data>
   <data name="Effect_Title" xml:space="preserve">
@@ -1842,4 +1844,11 @@ Product ID：{3}
   <data name="Mesh_LightStateUnavailable" xml:space="preserve"><value>Mesh 灯光状态未知，请刷新后重试。</value></data>
   <data name="Mesh_LightResultUnknown" xml:space="preserve"><value>Mesh 灯光设置结果未知，请刷新状态。</value></data>
   <data name="Mesh_ModelUnavailable" xml:space="preserve"><value>设备不支持此灯光控制。</value></data>
+  <data name="Firmware_RecoveryUpdate" xml:space="preserve"><value>设备已处于 OTA：恢复升级</value></data>
+  <data name="Firmware_RecoverySelect" xml:space="preserve"><value>选择待恢复的 OTA 设备（请仅让目标设备处于 OTA 模式）</value></data>
+  <data name="Firmware_RecoveryScanning" xml:space="preserve"><value>正在扫描 OTA 设备，无需连接旧应用…</value></data>
+  <data name="Firmware_RecoveryNotFound" xml:space="preserve"><value>未找到 OTA 设备。请保持设备供电并靠近手机，确认红灯慢闪后重试。</value></data>
+  <data name="Firmware_RecoveryHint" xml:space="preserve"><value>请保持设备供电。支持空闲恢复的 OTA 程序在停止通信 60 秒后会重启；应用完整有效时返回应用，否则继续广播 OTA。若仍红灯慢闪，请重新选择完整固件，点击“设备已处于 OTA：恢复升级”。旧版 OTA 程序可能需要重新上电。</value></data>
+  <data name="Firmware_RecoverySingleBankOnly" xml:space="preserve"><value>恢复入口仅支持 Single Bank 固件，请选择与设备匹配的完整固件。</value></data>
+  <data name="Firmware_UpdateInterrupted" xml:space="preserve"><value>升级意外中断，设备固件可能不完整，需要恢复升级。</value></data>
 </root>

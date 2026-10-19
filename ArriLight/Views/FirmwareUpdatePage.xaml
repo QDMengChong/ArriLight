@@ -133,6 +133,14 @@
                         ProgressColor="{StaticResource Primary}" />
                     <Button
                         Command="{Binding StartSelectedUpdateCommand}"
+                        IsVisible="{Binding CanStartLocalUpdate}"
+                        Text="{x:Static strings:AppResources.Firmware_UpdateNow}" />
+                    <Button
+                        Command="{Binding StartRecoveryCommand}"
+                        IsVisible="{Binding CanRecoverUpdate}"
+                        Text="{x:Static strings:AppResources.Firmware_RecoveryUpdate}" />
+                    <Button
+                        Command="{Binding StartSelectedUpdateCommand}"
                         IsEnabled="{Binding CanStartUpdate}"
                         IsVisible="{Binding CanShowOnlineUpdateButton}"
                         Text="{x:Static strings:AppResources.Firmware_DownloadAndUpdate}" />
@@ -141,7 +149,7 @@
                         BorderColor="#E65B65"
                         BorderWidth="1"
                         Command="{Binding CancelCommand}"
-                        IsVisible="{Binding IsOperationRunning}"
+                        IsVisible="{Binding CanCancelOperation}"
                         Text="{x:Static strings:AppResources.Firmware_CancelUpdate}"
                         TextColor="#E65B65" />
                 </VerticalStackLayout>

@@ -25,8 +25,11 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
     private string _progressText = string.Empty;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(IsProgressVisible))]
     private double _progressValue;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanOperate)), NotifyPropertyChangedFor(nameof(CanStartUpdate)), NotifyPropertyChangedFor(nameof(CanShowOnlineUpdateButton)), NotifyPropertyChangedFor(nameof(IsProgressVisible))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanOperate)), NotifyPropertyChangedFor(nameof(CanStartUpdate)), NotifyPropertyChangedFor(nameof(CanShowOnlineUpdateButton)), NotifyPropertyChangedFor(nameof(IsProgressVisible)), NotifyPropertyChangedFor(nameof(CanCancelOperation)), NotifyPropertyChangedFor(nameof(CanRecoverUpdate)), NotifyPropertyChangedFor(nameof(CanStartLocalUpdate)), NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     private bool _isOperationRunning;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanCancelOperation)), NotifyCanExecuteChangedFor(nameof(CancelCommand))]
+    private bool _isUpgradeLocked;
+    private bool _isConfirmingUpdate;
     private bool _hasInitializedDeviceInfo;
     private bool _canUseCandidate;
     private bool _isUpdateCompleted;
@@ -42,9 +45,11 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         FirmwareUpdateService firmwareUpdateService, AppDiagnosticService diagnostics,
         IUiDispatcher dispatcher, IUserInteraction interaction, IFirmwareFilePicker filePicker,
         AgpLightControlService? agpLight = null)
-    { _repository = repository; _connectionService = connectionService; _firmwareUpdateService = firmwareUpdateService;
-      _diagnostics = diagnostics; _dispatcher = dispatcher; _interaction = interaction; _filePicker = filePicker;
-      _agpLight = agpLight; OnlineCheckCommand = new AsyncRelayCommand(OnlineCheckAsync); }
+    {
+        _repository = repository; _connectionService = connectionService; _firmwareUpdateService = firmwareUpdateService;
+        _diagnostics = diagnostics; _dispatcher = dispatcher; _interaction = interaction; _filePicker = filePicker;
+        _agpLight = agpLight; OnlineCheckCommand = new AsyncRelayCommand(OnlineCheckAsync);
+    }
 
     public string CurrentVersion
     {
@@ -55,6 +60,11 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
     }
 
     public bool CanOperate => !IsOperationRunning;
+    public bool CanCancelOperation => IsOperationRunning && !IsUpgradeLocked;
+    public bool CanRecoverUpdate => _candidate?.Protocol == OtaProtocol.SingleBank &&
+        _canUseCandidate && !_isUpdateCompleted && !IsOperationRunning;
+    public bool CanStartLocalUpdate => _candidate?.SourceKind == FirmwareSourceKind.Local &&
+        _canUseCandidate && !_isUpdateCompleted && !IsOperationRunning;
     public bool IsFirmwareReady => _candidate is not null;
     public bool CanStartUpdate =>
         _candidate?.SourceKind == FirmwareSourceKind.Online &&
@@ -205,7 +215,7 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
             return;
 
         ClearCandidate();
-        var loaded = await RunBusyOperationAsync(
+        await RunBusyOperationAsync(
             AppResources.Firmware_ValidatingLocal,
             async token =>
             {
@@ -214,25 +224,6 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
                 SetCandidate(candidate, canUpgrade: true);
                 StatusText = Localization.Format(nameof(AppResources.Firmware_LocalReady), candidate.ProtocolText);
             });
-
-        if (!loaded || _candidate is not { SourceKind: FirmwareSourceKind.Local } candidate)
-            return;
-
-        var confirmed = await _interaction.ConfirmAsync(
-            AppResources.Firmware_ConfirmUpdate,
-            Localization.Format(nameof(AppResources.Firmware_UpdateConfirmation), DeviceName, candidate.ProtocolText, candidate.FileName, candidate.ProductId ?? AppResources.Common_NotProvided),
-            AppResources.Firmware_UpdateNow,
-            AppResources.Common_Cancel);
-        if (!confirmed)
-        {
-            StatusText = AppResources.Firmware_LocalCancelled;
-            _diagnostics.Information(
-                "OTA/Local",
-                $"用户取消了本地固件升级确认：{candidate.FileName}。");
-            return;
-        }
-
-        await StartUpdateAsync(candidate);
     }
 
     [RelayCommand]
@@ -245,49 +236,98 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         await StartUpdateAsync(candidate);
     }
 
-    private async Task StartUpdateAsync(FirmwareCandidate candidate)
+    [RelayCommand]
+    private Task StartRecoveryAsync() => CanRecoverUpdate && _candidate is { } candidate
+        ? StartUpdateAsync(candidate, recovery: true)
+        : Task.CompletedTask;
+
+    private async Task StartUpdateAsync(FirmwareCandidate candidate, bool recovery = false)
     {
+        if (IsOperationRunning || _isConfirmingUpdate)
+            return;
+        _isConfirmingUpdate = true;
+        try
+        {
+            var confirmed = await _interaction.ConfirmAsync(
+                AppResources.Firmware_ConfirmUpdate,
+                Localization.Format(nameof(AppResources.Firmware_UpdateConfirmation), DeviceName,
+                    candidate.ProtocolText, candidate.FileName, candidate.ProductId ?? AppResources.Common_NotProvided),
+                AppResources.Firmware_UpdateNow, AppResources.Common_Cancel);
+            if (!confirmed)
+                return;
+        }
+        finally { _isConfirmingUpdate = false; }
+
+        // Lock before any command can switch modes or invalidate the single bank.
+        IsUpgradeLocked = true;
         ProgressValue = 0;
         ProgressText = "0%";
-        await RunBusyOperationAsync(
-            candidate.SourceKind == FirmwareSourceKind.Online
-                ? AppResources.Firmware_DownloadingBeforeUpdate
-                : AppResources.Firmware_PreparingLocalUpdate,
-            async token =>
-            {
-                var progress = new Progress<FirmwareUpdateProgress>(
-                    update =>
-                    {
-                        StatusText = update.Message;
-                        ProgressValue = update.Percentage / 100d;
-                        ProgressText = $"{update.Percentage:0.0}%";
-                    });
-                await _firmwareUpdateService.UpgradeAsync(
-                    _deviceAddress,
-                    candidate,
-                    progress,
-                    token);
-
-                if (candidate.SourceKind == FirmwareSourceKind.Online)
+        try
+        {
+            var completed = await RunBusyOperationAsync(
+                candidate.SourceKind == FirmwareSourceKind.Online
+                    ? AppResources.Firmware_DownloadingBeforeUpdate
+                    : AppResources.Firmware_PreparingLocalUpdate,
+                async token =>
                 {
-                    CurrentVersion = candidate.Version;
-                    _repository.SetFirmwareVersion(
+                    var progress = new Progress<FirmwareUpdateProgress>(
+                        update =>
+                        {
+                            StatusText = update.Message;
+                            ProgressValue = update.Percentage / 100d;
+                            ProgressText = $"{update.Percentage:0.0}%";
+                        });
+                    await _firmwareUpdateService.UpgradeAsync(
                         _deviceAddress,
-                        candidate.Version);
+                        candidate,
+                        progress,
+                        token,
+                        recovery ? SelectRecoveryDeviceAsync : null);
+
+                    if (candidate.SourceKind == FirmwareSourceKind.Online)
+                    {
+                        CurrentVersion = candidate.Version;
+                        _repository.SetFirmwareVersion(
+                            _deviceAddress,
+                            candidate.Version);
+                    }
+
                     _isUpdateCompleted = true;
                     OnPropertyChanged(nameof(CanStartUpdate));
                     OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
-                }
+                    OnPropertyChanged(nameof(CanRecoverUpdate));
+                    OnPropertyChanged(nameof(CanStartLocalUpdate));
 
-                StatusText = AppResources.Firmware_UpdateSucceeded;
-                ProgressValue = 1;
-                ProgressText = "100%";
-            });
+                    StatusText = AppResources.Firmware_UpdateSucceeded;
+                    ProgressValue = 1;
+                    ProgressText = "100%";
+                });
+            if (!completed && candidate.Protocol == OtaProtocol.SingleBank)
+                StatusText += "\n" + AppResources.Firmware_RecoveryHint;
+        }
+        finally { IsUpgradeLocked = false; }
     }
 
-    [RelayCommand]
+    private async Task<Plugin.BLE.Abstractions.Contracts.IDevice?> SelectRecoveryDeviceAsync(
+        IReadOnlyList<Plugin.BLE.Abstractions.Contracts.IDevice> devices)
+    {
+        // Explicit selection also covers iOS opaque UUIDs and multiple same-name loaders.
+        var labels = devices.Select((device, index) => $"{index + 1}. {device.Name} · {device.Id}").ToArray();
+        string? selected = null;
+        await _dispatcher.InvokeAsync(async () =>
+        {
+            selected = await _interaction.ActionSheetAsync(AppResources.Firmware_RecoverySelect,
+                AppResources.Common_Cancel, labels);
+        });
+        var selectedIndex = Array.IndexOf(labels, selected);
+        return selectedIndex >= 0 ? devices[selectedIndex] : null;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanCancelOperation))]
     private void Cancel()
     {
+        if (!CanCancelOperation)
+            return;
         _diagnostics.Warning("OTA/UI", "用户请求取消当前 OTA 操作。");
         _operationCancellation?.Cancel();
         StatusText = AppResources.Firmware_Cancelling;
@@ -311,7 +351,7 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         }
         catch (OperationCanceledException)
         {
-            StatusText = AppResources.Firmware_OperationCancelled;
+            StatusText = IsUpgradeLocked ? AppResources.Firmware_UpdateInterrupted : AppResources.Firmware_OperationCancelled;
             _diagnostics.Warning("OTA/UI", "OTA 操作已取消。");
             return false;
         }
@@ -344,9 +384,7 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         }
         catch (IOException exception)
         {
-            StatusText = _candidate?.Protocol == OtaProtocol.SingleBank
-                ? AppResources.Firmware_SwitchDisconnect
-                : Localization.Format(nameof(AppResources.Firmware_BleTransferFailed), exception.Message);
+            StatusText = Localization.Format(nameof(AppResources.Firmware_BleTransferFailed), exception.Message);
             _diagnostics.Error("OTA/UI", "蓝牙 OTA 传输失败。", exception);
             return false;
         }
@@ -371,6 +409,8 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         _canUseCandidate = canUpgrade;
         _isUpdateCompleted = false;
         OnPropertyChanged(nameof(IsFirmwareReady));
+        OnPropertyChanged(nameof(CanRecoverUpdate));
+        OnPropertyChanged(nameof(CanStartLocalUpdate));
         OnPropertyChanged(nameof(CanStartUpdate));
         OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
         OnPropertyChanged(nameof(CandidateTitle));
@@ -385,6 +425,8 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         _canUseCandidate = false;
         _isUpdateCompleted = false;
         OnPropertyChanged(nameof(IsFirmwareReady));
+        OnPropertyChanged(nameof(CanRecoverUpdate));
+        OnPropertyChanged(nameof(CanStartLocalUpdate));
         OnPropertyChanged(nameof(CanStartUpdate));
         OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
         OnPropertyChanged(nameof(CandidateTitle));

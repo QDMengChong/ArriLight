@@ -393,6 +393,13 @@ public static class AppResources
     public static string Firmware_DownloadAndUpdate => global::ArriLight.Localization.GetString(nameof(Firmware_DownloadAndUpdate));
     public static string Firmware_CancelUpdate => global::ArriLight.Localization.GetString(nameof(Firmware_CancelUpdate));
     public static string Firmware_KeepPowered => global::ArriLight.Localization.GetString(nameof(Firmware_KeepPowered));
+    public static string Firmware_RecoveryUpdate => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryUpdate));
+    public static string Firmware_RecoverySelect => global::ArriLight.Localization.GetString(nameof(Firmware_RecoverySelect));
+    public static string Firmware_RecoveryScanning => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryScanning));
+    public static string Firmware_RecoveryNotFound => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryNotFound));
+    public static string Firmware_RecoveryHint => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryHint));
+    public static string Firmware_RecoverySingleBankOnly => global::ArriLight.Localization.GetString(nameof(Firmware_RecoverySingleBankOnly));
+    public static string Firmware_UpdateInterrupted => global::ArriLight.Localization.GetString(nameof(Firmware_UpdateInterrupted));
     public static string Effect_Title => global::ArriLight.Localization.GetString(nameof(Effect_Title));
     public static string Effect_LongPressHint => global::ArriLight.Localization.GetString(nameof(Effect_LongPressHint));
     public static string Preset_Title => global::ArriLight.Localization.GetString(nameof(Preset_Title));
