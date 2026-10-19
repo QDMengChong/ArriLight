@@ -17,6 +17,7 @@ public sealed class FirmwareRecoveryTests
     public async Task EverySourceRequiresWarningBeforeAnyUpgradeOperation(FirmwareSourceKind source)
     {
         await using var fixture = new PairingFixture();
+        await fixture.Connection.ConnectAsync(fixture.Address);
         var model = CreateModel(fixture);
         model.SetCandidateForTest(Candidate(source));
         var page = new FirmwareUpdatePage(model);
@@ -27,25 +28,26 @@ public sealed class FirmwareRecoveryTests
         };
         await model.StartSelectedUpdateCommand.ExecuteAsync(null);
         Assert.Single(page.Alerts);
-        Assert.Empty(fixture.Ble.ConnectAttempts);
+        Assert.Single(fixture.Ble.ConnectAttempts);
         Assert.False(model.IsUpgradeLocked);
     }
 
     [Fact]
-    public async Task LoadingLocalFirmwareLeavesNormalAndRecoveryChoicesAvailable()
+    public async Task LoadingLocalFirmwareRequiresOtaDetectionBeforeRecovery()
     {
         await using var fixture = new PairingFixture();
         var model = CreateModel(fixture, new MemoryPicker());
         var page = new FirmwareUpdatePage(model);
         await model.SelectLocalCommand.ExecuteAsync(null);
-        Assert.True(model.CanStartLocalUpdate);
-        Assert.True(model.CanRecoverUpdate);
+        Assert.False(model.CanStartLocalUpdate);
+        Assert.True(model.CanCheckRecovery);
+        Assert.False(model.IsRecoverySelectionVisible);
         Assert.Empty(page.Alerts);
         Assert.Empty(fixture.Ble.ConnectAttempts);
     }
 
     [Fact]
-    public async Task ConfirmedUpgradeBlocksCancelAndNavigationThenAllowsRecoveryAfterFailure()
+    public async Task ConfirmedUpgradeBlocksCancelAndNavigationThenRequiresDetectionAfterFailure()
     {
         await using var fixture = new PairingFixture();
         fixture.Repository.SetToken(fixture.Address, [1, 2, 3, 4]);
@@ -69,7 +71,8 @@ public sealed class FirmwareRecoveryTests
             file.Release.TrySetException(new IOException("simulated transfer failure"));
             await update.WaitAsync(TimeSpan.FromSeconds(3));
             Assert.False(model.IsUpgradeLocked);
-            Assert.True(model.CanRecoverUpdate);
+            fixture.Ble.RaiseUnexpectedDisconnect();
+            Assert.True(model.CanCheckRecovery);
             Assert.Contains(AppResources.Firmware_RecoveryHint, model.StatusText);
             await Shell.Current.GoToAsync("..after-ota");
             Assert.Equal(routeCount + 1, Shell.Current.Routes.Count);
@@ -197,11 +200,285 @@ public sealed class FirmwareRecoveryTests
         Assert.Contains(second.Device, devices);
     }
 
-    private static FirmwareUpdatePageViewModel CreateModel(PairingFixture fixture, IFirmwareFilePicker? picker = null)
+    [Theory]
+    [InlineData(FirmwareSourceKind.Local)]
+    [InlineData(FirmwareSourceKind.Online)]
+    public async Task OnlineDeviceShowsNormalUpgradeAndOfflineDeviceShowsRecovery(FirmwareSourceKind source)
+    {
+        await using var fixture = new PairingFixture();
+        var model = CreateModel(fixture);
+        model.SetCandidateForTest(Candidate(source));
+        Assert.True(model.CanShowRecoveryControls);
+        Assert.False(model.CanShowOnlineUpdateButton);
+        Assert.False(model.CanStartLocalUpdate);
+        await fixture.Connection.ConnectAsync(fixture.Address);
+        await model.OnAppearingAsync();
+        try
+        {
+            Assert.True(model.IsDeviceOnline);
+            Assert.False(model.CanShowRecoveryControls);
+            Assert.False(model.CheckRecoveryCommand.CanExecute(null));
+            Assert.Equal(source == FirmwareSourceKind.Online, model.CanShowOnlineUpdateButton);
+            Assert.Equal(source == FirmwareSourceKind.Local, model.CanStartLocalUpdate);
+            fixture.Ble.RaiseUnexpectedDisconnect();
+            Assert.False(model.IsDeviceOnline);
+            Assert.True(model.CanCheckRecovery);
+            Assert.False(model.CanShowOnlineUpdateButton);
+            Assert.False(model.CanStartLocalUpdate);
+        }
+        finally { model.OnDisappearing(); }
+    }
+
+    [Fact]
+    public async Task SelectingDeviceKeepsDialogOpenAndDoesNotSendAnyCommands()
+    {
+        await using var fixture = new PairingFixture();
+        var radio = new LoaderRadio();
+        var other = new LoaderRadio();
+        radio.Advertisements = [radio.Device, other.Device];
+        var model = CreateModel(fixture, radio: radio);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local));
+        var detection = await OpenRecoverySelectionAsync(model);
+        Assert.Equal(2, model.RecoveryDevices.Count);
+        Assert.False(model.CanConfirmRecoverySelection);
+        Assert.False(model.ConfirmRecoverySelectionCommand.CanExecute(null));
+        model.ConfirmRecoverySelectionCommand.Execute(null);
+        Assert.True(model.IsRecoverySelectionVisible);
+        model.SelectedRecoveryDevice = model.RecoveryDevices[0];
+        Assert.True(model.IsRecoverySelectionVisible);
+        Assert.False(detection.IsCompleted);
+        Assert.True(model.CanConfirmRecoverySelection);
+        Assert.True(model.SelectedRecoveryDevice.IsSelected);
+        model.SelectedRecoveryDevice = model.RecoveryDevices[1];
+        Assert.False(model.RecoveryDevices[0].IsSelected);
+        Assert.True(model.RecoveryDevices[1].IsSelected);
+        Assert.Empty(radio.Commands);
+        Assert.Empty(other.Commands);
+        Assert.Empty(fixture.Ble.ConnectAttempts);
+        model.CancelRecoverySelectionCommand.Execute(null);
+        await detection.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(model.IsRecoverySelectionVisible);
+        Assert.False(model.IsOperationRunning);
+        Assert.Empty(radio.Commands);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RuntimeOnlineAndReadyBothHideRecovery(bool partial)
+    {
+        await using var fixture = new PairingFixture();
+        var capabilities = ArriOpto.BLE.Agp.AgpCapabilities.OnOff |
+            ArriOpto.BLE.Agp.AgpCapabilities.SecureControl | ArriOpto.BLE.Agp.AgpCapabilities.Effects;
+        fixture.Ble.Capabilities = capabilities;
+        fixture.Repository.SetTokenAndCapabilities(fixture.Address, [1, 2, 3, 4], capabilities);
+        if (partial) fixture.Ble.EffectResult = ArriOpto.BLE.Agp.AgpResultCode.InternalError;
+        await fixture.Service.StartRuntimeAsync();
+        try { await fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(TimeSpan.FromSeconds(5)); }
+        catch (InvalidOperationException) when (partial) { }
+        Assert.Equal(partial ? DeviceRuntimeAvailability.Online : DeviceRuntimeAvailability.Ready,
+            fixture.Service.GetRuntimeSnapshot(fixture.Address)!.Availability);
+        var model = CreateModel(fixture);
+        foreach (var source in new[] { FirmwareSourceKind.Local, FirmwareSourceKind.Online })
+        {
+            model.SetCandidateForTest(Candidate(source));
+            Assert.True(model.IsDeviceOnline);
+            Assert.False(model.CanShowRecoveryControls);
+            Assert.False(model.CanCheckRecovery);
+            Assert.Equal(source == FirmwareSourceKind.Online, model.CanShowOnlineUpdateButton);
+            Assert.Equal(source == FirmwareSourceKind.Local, model.CanStartLocalUpdate);
+        }
+    }
+
+    [Fact]
+    public async Task SameVersionOnlineCandidateStillAllowsRecoveryWhileOffline()
+    {
+        await using var fixture = new PairingFixture();
+        var model = CreateModel(fixture);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Online), canUpgrade: false);
+        Assert.True(model.CanCheckRecovery);
+        Assert.False(model.CanShowOnlineUpdateButton);
+    }
+
+    [Fact]
+    public async Task ChangingTargetClosesRecoverySelectionWithoutUpgrading()
+    {
+        await using var fixture = new PairingFixture();
+        var radio = new LoaderRadio();
+        radio.Advertisements = [radio.Device];
+        var other = fixture.AddDevice();
+        var model = CreateModel(fixture, radio: radio);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local));
+        var detection = await OpenRecoverySelectionAsync(model);
+        model.SelectedRecoveryDevice = Assert.Single(model.RecoveryDevices);
+        model.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = other.Address });
+        await detection.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(model.IsRecoverySelectionVisible);
+        Assert.False(model.IsOperationRunning);
+        Assert.Empty(radio.Commands);
+    }
+
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task SameNameWithoutOtaModeOrServiceCannotStartRecovery(bool inOta, bool hasService)
+    {
+        await using var fixture = new PairingFixture();
+        var radio = new LoaderRadio { InOta = inOta, HasService = hasService };
+        radio.Advertisements = [radio.Device];
+        var model = CreateModel(fixture, radio: radio);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local, new MemoryFile()));
+        var detection = await OpenRecoverySelectionAsync(model);
+        model.SelectedRecoveryDevice = Assert.Single(model.RecoveryDevices);
+        model.ConfirmRecoverySelectionCommand.Execute(null);
+        await detection.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(model.IsRecoverySelectionVisible);
+        Assert.False(model.IsUpgradeLocked);
+        Assert.True(model.CanCheckRecovery);
+        if (hasService) Assert.Contains(AppResources.Firmware_RecoveryNotInOta, model.StatusText);
+        Assert.Empty(radio.Commands);
+        Assert.Empty(radio.PacketSizes);
+        Assert.Empty(fixture.Ble.ConnectAttempts);
+    }
+
+    [Fact]
+    public async Task EmptyScanDoesNotShowSelectionDialog()
+    {
+        await using var fixture = new PairingFixture();
+        var radio = new LoaderRadio();
+        var model = CreateModel(fixture, radio: radio);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local));
+        await model.CheckRecoveryCommand.ExecuteAsync(null);
+        Assert.False(model.IsRecoverySelectionVisible);
+        Assert.Contains(AppResources.Firmware_RecoveryNotFound, model.StatusText);
+        Assert.True(model.CanCheckRecovery);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ChangingFirmwareOrLeavingPageClosesSelectionWithoutStartingRecovery(bool leavePage)
+    {
+        await using var fixture = new PairingFixture();
+        var radio = new LoaderRadio();
+        radio.Advertisements = [radio.Device];
+        var model = CreateModel(fixture, radio: radio);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local));
+        var detection = await OpenRecoverySelectionAsync(model);
+        model.SelectedRecoveryDevice = Assert.Single(model.RecoveryDevices);
+        if (leavePage) model.OnDisappearing();
+        else model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local));
+        await detection.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(model.IsRecoverySelectionVisible);
+        Assert.False(model.IsOperationRunning);
+        Assert.Empty(radio.Commands);
+    }
+
+    [Fact]
+    public async Task BackClosesSelectionInsteadOfStartingRecovery()
+    {
+        await using var fixture = new PairingFixture();
+        var radio = new LoaderRadio();
+        radio.Advertisements = [radio.Device];
+        var model = CreateModel(fixture, radio: radio);
+        var page = new FirmwareUpdatePage(model);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local));
+        var detection = await OpenRecoverySelectionAsync(model);
+        model.SelectedRecoveryDevice = Assert.Single(model.RecoveryDevices);
+        Assert.True(page.BackForOtaTest());
+        await detection.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(model.IsRecoverySelectionVisible);
+        Assert.Empty(radio.Commands);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RecoveryRechecksModeAndNeverFallsBackToAnotherDevice(bool targetDisappears)
+    {
+        await using var fixture = new PairingFixture();
+        var radio = new LoaderRadio();
+        var other = new LoaderRadio();
+        radio.Advertisements = [radio.Device];
+        radio.OnDisconnect = () =>
+        {
+            if (targetDisappears) radio.Advertisements = [other.Device];
+            else radio.InOta = false;
+        };
+        var model = CreateModel(fixture, radio: radio);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local, new MemoryFile()));
+        var detection = await OpenRecoverySelectionAsync(model);
+        model.SelectedRecoveryDevice = Assert.Single(model.RecoveryDevices);
+        model.ConfirmRecoverySelectionCommand.Execute(null);
+        await detection.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.False(model.IsRecoverySelectionVisible);
+        Assert.True(model.CanCheckRecovery);
+        Assert.Empty(radio.Commands);
+        Assert.Empty(other.Commands);
+        Assert.Empty(radio.PacketSizes);
+        Assert.Empty(fixture.Ble.ConnectAttempts);
+        Assert.Contains(targetDisappears ? AppResources.Firmware_RecoveryTargetUnavailable
+            : AppResources.Firmware_RecoveryNotInOta, model.StatusText);
+    }
+
+    [Fact]
+    public async Task PopupRecoverStartsSelectedDeviceDirectlyWithoutSecondConfirmation()
+    {
+        await using var fixture = new PairingFixture();
+        var radio = new LoaderRadio();
+        var other = new LoaderRadio();
+        radio.Advertisements = [radio.Device, other.Device];
+        var model = CreateModel(fixture, radio: radio);
+        var page = new FirmwareUpdatePage(model);
+        model.SetCandidateForTest(Candidate(FirmwareSourceKind.Local, new MemoryFile()));
+        var detection = await OpenRecoverySelectionAsync(model);
+        model.SelectedRecoveryDevice = model.RecoveryDevices.Single(item => item.Identifier == radio.Device.Id.ToString());
+        Assert.True(model.IsRecoverySelectionVisible);
+        model.ConfirmRecoverySelectionCommand.Execute(null);
+        await detection.WaitAsync(TimeSpan.FromSeconds(3));
+        Assert.True(radio.Rebooted);
+        Assert.Equal(4000, radio.PacketSizes.Sum());
+        Assert.Empty(other.Commands);
+        Assert.Empty(page.Alerts);
+        Assert.False(model.IsRecoverySelectionVisible);
+        Assert.False(model.CanShowRecoveryControls);
+        Assert.False(model.IsUpgradeLocked);
+        Assert.Empty(fixture.Ble.ConnectAttempts);
+    }
+
+    private static async Task<Task> OpenRecoverySelectionAsync(FirmwareUpdatePageViewModel model)
+    {
+        var opened = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        void Changed(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+        {
+            if (args.PropertyName == nameof(model.IsRecoverySelectionVisible) && model.IsRecoverySelectionVisible)
+                opened.TrySetResult();
+        }
+        model.PropertyChanged += Changed;
+        var operation = model.CheckRecoveryCommand.ExecuteAsync(null);
+        try
+        {
+            await Task.WhenAny(opened.Task, operation).WaitAsync(TimeSpan.FromSeconds(3));
+            Assert.True(model.IsRecoverySelectionVisible, model.StatusText);
+            return operation;
+        }
+        finally { model.PropertyChanged -= Changed; }
+    }
+
+    private static FirmwareUpdatePageViewModel CreateModel(PairingFixture fixture, IFirmwareFilePicker? picker = null,
+        LoaderRadio? radio = null)
     {
         var diagnostics = new AppDiagnosticService();
-        var service = new FirmwareUpdateService(new HttpClient(), new PluginBleOtaClient(fixture.Ble.Adapter),
-            fixture.Connection, fixture.Service, diagnostics, new FirmwareUpdateConfiguration());
+        var configuration = new FirmwareUpdateConfiguration
+        {
+            OtaTransport = radio is null ? null : new PluginBleOtaTransport
+            {
+                NormalizeRequestedMtuResult = payload => payload + 3,
+                WriteWithoutResponseAsync = (_, _, data, token) => radio.SendData(data, token)
+            }
+        };
+        var service = new FirmwareUpdateService(new HttpClient(), new PluginBleOtaClient(radio?.Adapter ?? fixture.Ble.Adapter),
+            fixture.Connection, fixture.Service, diagnostics, configuration);
         var model = new FirmwareUpdatePageViewModel(fixture.Repository, fixture.Connection, service, diagnostics,
             new TestUiDispatcher(), new TestUserInteraction(), picker ?? new TestFirmwareFilePicker(), fixture.Service);
         model.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = fixture.Address });
@@ -260,6 +537,11 @@ public sealed class FirmwareRecoveryTests
         private int _received;
         public bool RejectCommit { get; init; }
         public bool StallCommand { get; init; }
+        public bool InOta { get; set; } = true;
+        public bool HasService { get; init; } = true;
+        public int Disconnects { get; private set; }
+        public Action? OnDisconnect { get; set; }
+        public List<byte[]> Commands { get; } = [];
         public bool Rebooted { get; private set; }
         public int PluginDataWrites { get; private set; }
         public List<int> PacketSizes { get; } = [];
@@ -271,7 +553,8 @@ public sealed class FirmwareRecoveryTests
             var id = Guid.NewGuid();
             var service = InterfaceProxy.Create<IService>((name, args) => name switch
             {
-                "GetCharacteristicAsync" => Task.FromResult(_chars.GetValueOrDefault((Guid)args[0]!)!),
+                "GetCharacteristicAsync" => Task.FromResult(
+                    (Guid)args[0]! == OtaConstants.SingleBank.Data && !InOta ? null! : _chars.GetValueOrDefault((Guid)args[0]!)!),
                 _ => throw new NotSupportedException(name)
             });
             foreach (var characteristicId in new[] { OtaConstants.SingleBank.Command, OtaConstants.SingleBank.Data, OtaConstants.SingleBank.Notify })
@@ -292,17 +575,21 @@ public sealed class FirmwareRecoveryTests
             {
                 "get_Id" => id, "get_Name" => "PPlusOTA", "get_State" => _state,
                 "RequestMtuAsync" => Task.FromResult(237),
-                "GetServiceAsync" => Task.FromResult((Guid)args[0]! == OtaConstants.SingleBank.Service ? service : null!),
+                "GetServiceAsync" => Task.FromResult(HasService && (Guid)args[0]! == OtaConstants.SingleBank.Service ? service : null!),
                 _ => throw new NotSupportedException(name)
             });
             Adapter = InterfaceProxy.Create<IAdapter>((name, _) => name switch
             {
                 "get_IsScanning" => false,
-                "DisconnectDeviceAsync" or "StopScanningForDevicesAsync" => Task.CompletedTask,
+                "DisconnectDeviceAsync" => Disconnect(),
+                "ConnectToDeviceAsync" => Connect(),
+                "StopScanningForDevicesAsync" => Task.CompletedTask,
                 "StartScanningForDevicesAsync" => Scan(),
                 _ => throw new NotSupportedException(name)
             });
         }
+        private Task Disconnect() { _state = DeviceState.Disconnected; Disconnects++; OnDisconnect?.Invoke(); return Task.CompletedTask; }
+        private Task Connect() { _state = DeviceState.Connected; return Task.CompletedTask; }
         private Task Scan()
         {
             foreach (var device in Advertisements)
@@ -311,6 +598,7 @@ public sealed class FirmwareRecoveryTests
         }
         private Task<int> SendCommand(Guid characteristic, byte[] command)
         {
+            Commands.Add(command.ToArray());
             if (characteristic == OtaConstants.SingleBank.Data) { PluginDataWrites++; throw new InvalidOperationException("Plugin data writer must be bypassed."); }
             if (StallCommand) return new TaskCompletionSource<int>().Task;
             switch (command[0])

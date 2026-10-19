@@ -56,7 +56,7 @@ namespace ArriLight
 namespace ArriLight.ViewModels
 {
     public partial class FirmwareUpdatePageViewModel
-    { internal void SetCandidateForTest(FirmwareCandidate candidate) => SetCandidate(candidate, true); }
+    { internal void SetCandidateForTest(FirmwareCandidate candidate, bool canUpgrade = true) => SetCandidate(candidate, canUpgrade); }
     public partial class MainPageViewModel
     {
         internal Task QueryForTestAsync(LightDeviceItem device, TimeSpan timeout) =>

@@ -34,4 +34,16 @@ public static class Localization
     public static string GetString(string resourceKey) => Current.GetString(resourceKey);
     public static string Format(string resourceKey, params object?[] arguments) =>
         Current.Format(resourceKey, arguments);
+
+    public static string JoinList(IEnumerable<string> items)
+    {
+        using var enumerator = items.GetEnumerator();
+        if (!enumerator.MoveNext())
+            return string.Empty;
+
+        var result = enumerator.Current;
+        while (enumerator.MoveNext())
+            result = Format(nameof(AppResources.Common_ListJoinFormat), result, enumerator.Current);
+        return result;
+    }
 }

@@ -267,6 +267,47 @@ public sealed class FirmwareUpdateService(
             file);
     }
 
+    public async Task<IDevice?> DetectRecoveryDeviceAsync(string deviceAddress,
+        Func<IReadOnlyList<IDevice>, Task<IDevice?>> selectDevice,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(selectDevice);
+        IDevice? detected = null;
+        await agpLightControlService.RunExclusiveOtaRecoveryAsync(deviceAddress, async token =>
+        {
+            var devices = await ScanRecoveryDevicesAsync(token);
+            var selected = await selectDevice(devices).WaitAsync(token);
+            token.ThrowIfCancellationRequested();
+            if (selected is null)
+                return;
+            if (!devices.Any(device => ReferenceEquals(device, selected)))
+                throw new InvalidOperationException(AppResources.Firmware_RecoveryTargetUnavailable);
+            if (!await otaClient.IsBootloaderAsync(selected, new PluginBleOtaOptions
+                {
+                    Protocol = new OtaOptions { RequestedMtu = configuration.RequestedMtu },
+                    OperationDispatcher = operation => MainThread.InvokeOnMainThreadAsync(operation),
+                    Transport = configuration.OtaTransport
+                }, token))
+                throw new InvalidOperationException(AppResources.Firmware_RecoveryNotInOta);
+            token.ThrowIfCancellationRequested();
+            detected = selected;
+            diagnostics.Information("OTA/Recovery", $"已验证 OTA 模式：id={selected.Id}，name={selected.Name}。");
+        }, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return detected;
+    }
+
+    private async Task<IReadOnlyList<IDevice>> ScanRecoveryDevicesAsync(CancellationToken token)
+    {
+        var devices = await otaClient.ScanBootloadersAsync(new PluginBleOtaOptions
+        {
+            BootloaderScanTimeout = TimeSpan.FromSeconds(5)
+        }, token);
+        if (devices.Count == 0)
+            throw new IOException(AppResources.Firmware_RecoveryNotFound);
+        return devices;
+    }
+
     public async Task UpgradeAsync(
         string deviceAddress,
         FirmwareCandidate candidate,
@@ -308,7 +349,8 @@ public sealed class FirmwareUpdateService(
                         },
                         OperationDispatcher = operation =>
                             MainThread.InvokeOnMainThreadAsync(operation),
-                        Transport = configuration.OtaTransport
+                        Transport = configuration.OtaTransport,
+                        RequireSingleBankOtaMode = selectRecoveryDevice is not null
                     };
                     var otaProgress = new InlineProgress<OtaProgress>(value =>
                     {
@@ -355,12 +397,7 @@ public sealed class FirmwareUpdateService(
                     await agpLightControlService.RunExclusiveOtaRecoveryAsync(deviceAddress, async token =>
                     {
                         progress?.Report(new(FirmwareUpdateStage.Connecting, 0, AppResources.Firmware_RecoveryScanning));
-                        var devices = await otaClient.ScanBootloadersAsync(new PluginBleOtaOptions
-                        {
-                            BootloaderScanTimeout = TimeSpan.FromSeconds(5)
-                        }, token);
-                        if (devices.Count == 0)
-                            throw new IOException(AppResources.Firmware_RecoveryNotFound);
+                        var devices = await ScanRecoveryDevicesAsync(token);
                         var selected = await selectRecoveryDevice(devices);
                         if (selected is null || !devices.Any(device => ReferenceEquals(device, selected)))
                             throw new OperationCanceledException(token);

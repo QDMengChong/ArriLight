@@ -227,10 +227,10 @@ public partial class SchedulePageViewModel : ViewModelBase
             0 => AppResources.Schedule_Once,
             1 => AppResources.Schedule_Daily,
             2 when _weeklySelections.Count > 0 =>
-                string.Join(AppResources.Common_ListSeparator, _weeklySelections.Order().Select(WeeklyLabel)),
+                Localization.JoinList(_weeklySelections.Order().Select(WeeklyLabel)),
             2 => AppResources.Schedule_ChooseWeekday,
             3 when _monthlySelections.Count > 0 =>
-                string.Join(AppResources.Common_ListSeparator, _monthlySelections.Order().Select(day => Localization.Format(nameof(AppResources.Schedule_DayNumber), day))),
+                Localization.JoinList(_monthlySelections.Order().Select(day => Localization.Format(nameof(AppResources.Schedule_DayNumber), day))),
             3 => AppResources.Schedule_ChooseDate,
             _ => AppResources.Schedule_Daily
         };
@@ -431,7 +431,7 @@ public partial class SchedulePageViewModel : ViewModelBase
         {
             AgpScheduleType.Once => Localization.Format(nameof(AppResources.Schedule_OnceDate), local),
             AgpScheduleType.Daily => AppResources.Schedule_Daily,
-            AgpScheduleType.Weekly => string.Join(AppResources.Common_ListSeparator, Enumerable.Range(0, 7)
+            AgpScheduleType.Weekly => Localization.JoinList(Enumerable.Range(0, 7)
                 .Where(day => (schedule.Selector & (1 << day)) != 0)
                 .Select(day => ((day + dayShift + 7) % 7) + 1)
                 .Order()

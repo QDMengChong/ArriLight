@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ArriOpto.BLE.Ota;
+using Plugin.BLE.Abstractions.Contracts;
 
 namespace ArriLight.ViewModels;
 
@@ -25,8 +26,17 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
     private string _progressText = string.Empty;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(IsProgressVisible))]
     private double _progressValue;
-    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanOperate)), NotifyPropertyChangedFor(nameof(CanStartUpdate)), NotifyPropertyChangedFor(nameof(CanShowOnlineUpdateButton)), NotifyPropertyChangedFor(nameof(IsProgressVisible)), NotifyPropertyChangedFor(nameof(CanCancelOperation)), NotifyPropertyChangedFor(nameof(CanRecoverUpdate)), NotifyPropertyChangedFor(nameof(CanStartLocalUpdate)), NotifyCanExecuteChangedFor(nameof(CancelCommand))]
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanOperate)), NotifyPropertyChangedFor(nameof(CanStartUpdate)), NotifyPropertyChangedFor(nameof(CanShowOnlineUpdateButton)), NotifyPropertyChangedFor(nameof(IsProgressVisible)), NotifyPropertyChangedFor(nameof(CanCancelOperation)), NotifyPropertyChangedFor(nameof(CanCheckRecovery)), NotifyPropertyChangedFor(nameof(CanStartLocalUpdate)), NotifyCanExecuteChangedFor(nameof(CancelCommand)), NotifyCanExecuteChangedFor(nameof(CheckRecoveryCommand))]
     private bool _isOperationRunning;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanShowRecoveryControls)), NotifyPropertyChangedFor(nameof(CanCheckRecovery)), NotifyPropertyChangedFor(nameof(CanStartUpdate)), NotifyPropertyChangedFor(nameof(CanShowOnlineUpdateButton)), NotifyPropertyChangedFor(nameof(CanStartLocalUpdate)), NotifyCanExecuteChangedFor(nameof(CheckRecoveryCommand))]
+    private bool _isDeviceOnline;
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(IsPageContentEnabled)), NotifyPropertyChangedFor(nameof(CanConfirmRecoverySelection)), NotifyCanExecuteChangedFor(nameof(ConfirmRecoverySelectionCommand))]
+    private bool _isRecoverySelectionVisible;
+    [ObservableProperty]
+    private IReadOnlyList<FirmwareRecoveryDeviceItem> _recoveryDevices = [];
+    [ObservableProperty, NotifyPropertyChangedFor(nameof(CanConfirmRecoverySelection)), NotifyCanExecuteChangedFor(nameof(ConfirmRecoverySelectionCommand))]
+    private FirmwareRecoveryDeviceItem? _selectedRecoveryDevice;
+    private TaskCompletionSource<IDevice?>? _recoverySelection;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanCancelOperation)), NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     private bool _isUpgradeLocked;
     private bool _isConfirmingUpdate;
@@ -60,22 +70,23 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
     }
 
     public bool CanOperate => !IsOperationRunning;
+    public bool IsPageContentEnabled => !IsRecoverySelectionVisible;
     public bool CanCancelOperation => IsOperationRunning && !IsUpgradeLocked;
-    public bool CanRecoverUpdate => _candidate?.Protocol == OtaProtocol.SingleBank &&
-        _canUseCandidate && !_isUpdateCompleted && !IsOperationRunning;
-    public bool CanStartLocalUpdate => _candidate?.SourceKind == FirmwareSourceKind.Local &&
+    public bool CanShowRecoveryControls => !IsDeviceOnline && _candidate?.Protocol == OtaProtocol.SingleBank &&
+        !_isUpdateCompleted;
+    public bool CanCheckRecovery => CanShowRecoveryControls && !IsOperationRunning;
+    public bool CanConfirmRecoverySelection => IsRecoverySelectionVisible &&
+        SelectedRecoveryDevice is { } selected && RecoveryDevices.Contains(selected);
+    public bool CanStartLocalUpdate => IsDeviceOnline && _candidate?.SourceKind == FirmwareSourceKind.Local &&
         _canUseCandidate && !_isUpdateCompleted && !IsOperationRunning;
     public bool IsFirmwareReady => _candidate is not null;
     public bool CanStartUpdate =>
+        IsDeviceOnline &&
         _candidate?.SourceKind == FirmwareSourceKind.Online &&
         _canUseCandidate &&
         !_isUpdateCompleted &&
         !IsOperationRunning;
-    public bool CanShowOnlineUpdateButton =>
-        _candidate?.SourceKind == FirmwareSourceKind.Online &&
-        _canUseCandidate &&
-        !_isUpdateCompleted &&
-        !IsOperationRunning;
+    public bool CanShowOnlineUpdateButton => CanStartUpdate;
     public bool IsProgressVisible => IsOperationRunning || ProgressValue > 0;
 
     public string CandidateTitle =>
@@ -92,12 +103,27 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
     public override void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("address", out var value) && value is not null)
-            _deviceAddress = Uri.UnescapeDataString(value.ToString()!);
+        {
+            var address = Uri.UnescapeDataString(value.ToString()!);
+            if (!string.Equals(address, _deviceAddress, StringComparison.OrdinalIgnoreCase))
+            {
+                CancelRecoverySelection();
+                _operationCancellation?.Cancel();
+            }
+            _deviceAddress = address;
+            RefreshDeviceAvailability();
+        }
     }
 
     public override Task OnAppearingAsync()
     {
+        _connectionService.StateChanged -= OnConnectionStateChanged;
         _connectionService.StateChanged += OnConnectionStateChanged;
+        if (_agpLight is not null)
+        {
+            _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
+            _agpLight.RuntimeStateChanged += OnRuntimeStateChanged;
+        }
         if (!string.IsNullOrWhiteSpace(_deviceAddress))
             ApplyConnectionSnapshot(_connectionService.GetSnapshot(_deviceAddress));
 
@@ -119,7 +145,11 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
     public override void OnDisappearing()
     {
         _connectionService.StateChanged -= OnConnectionStateChanged;
-
+        if (_agpLight is not null)
+            _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
+        CancelRecoverySelection();
+        if (!IsUpgradeLocked)
+            _operationCancellation?.Cancel();
     }
 
     private async Task RefreshConnectedVersionAsync()
@@ -230,33 +260,52 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
     private async Task StartSelectedUpdateAsync()
     {
         var candidate = _candidate;
-        if (candidate is null)
+        if (candidate is null || (!CanStartLocalUpdate && !CanStartUpdate))
             return;
 
         await StartUpdateAsync(candidate);
     }
 
-    [RelayCommand]
-    private Task StartRecoveryAsync() => CanRecoverUpdate && _candidate is { } candidate
-        ? StartUpdateAsync(candidate, recovery: true)
-        : Task.CompletedTask;
+    [RelayCommand(CanExecute = nameof(CanCheckRecovery))]
+    private async Task CheckRecoveryAsync()
+    {
+        RefreshDeviceAvailability();
+        if (!CanCheckRecovery)
+            return;
+        var candidate = _candidate!;
+        IDevice? detected = null;
+        var succeeded = await RunBusyOperationAsync(AppResources.Firmware_RecoveryScanning, async token =>
+        {
+            detected = await _firmwareUpdateService.DetectRecoveryDeviceAsync(
+                _deviceAddress, devices => SelectRecoveryDeviceAsync(devices, token), token);
+            token.ThrowIfCancellationRequested();
+            if (detected is null)
+                StatusText = AppResources.Firmware_OperationCancelled;
+        });
+        RefreshDeviceAvailability();
+        if (succeeded && detected is not null && !IsDeviceOnline && ReferenceEquals(candidate, _candidate))
+            await StartUpdateAsync(candidate, detected.Id);
+    }
 
-    private async Task StartUpdateAsync(FirmwareCandidate candidate, bool recovery = false)
+    private async Task StartUpdateAsync(FirmwareCandidate candidate, Guid? recoveryDeviceId = null)
     {
         if (IsOperationRunning || _isConfirmingUpdate)
             return;
-        _isConfirmingUpdate = true;
-        try
+        if (!recoveryDeviceId.HasValue)
         {
-            var confirmed = await _interaction.ConfirmAsync(
-                AppResources.Firmware_ConfirmUpdate,
-                Localization.Format(nameof(AppResources.Firmware_UpdateConfirmation), DeviceName,
-                    candidate.ProtocolText, candidate.FileName, candidate.ProductId ?? AppResources.Common_NotProvided),
-                AppResources.Firmware_UpdateNow, AppResources.Common_Cancel);
-            if (!confirmed)
-                return;
+            _isConfirmingUpdate = true;
+            try
+            {
+                var confirmed = await _interaction.ConfirmAsync(
+                    AppResources.Firmware_ConfirmUpdate,
+                    Localization.Format(nameof(AppResources.Firmware_UpdateConfirmation), DeviceName,
+                        candidate.ProtocolText, candidate.FileName, candidate.ProductId ?? AppResources.Common_NotProvided),
+                    AppResources.Firmware_UpdateNow, AppResources.Common_Cancel);
+                if (!confirmed)
+                    return;
+            }
+            finally { _isConfirmingUpdate = false; }
         }
-        finally { _isConfirmingUpdate = false; }
 
         // Lock before any command can switch modes or invalidate the single bank.
         IsUpgradeLocked = true;
@@ -282,7 +331,9 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
                         candidate,
                         progress,
                         token,
-                        recovery ? SelectRecoveryDeviceAsync : null);
+                        recoveryDeviceId.HasValue ? devices => Task.FromResult<IDevice?>(
+                            devices.FirstOrDefault(device => device.Id == recoveryDeviceId)
+                            ?? throw new IOException(AppResources.Firmware_RecoveryTargetUnavailable)) : null);
 
                     if (candidate.SourceKind == FirmwareSourceKind.Online)
                     {
@@ -295,8 +346,8 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
                     _isUpdateCompleted = true;
                     OnPropertyChanged(nameof(CanStartUpdate));
                     OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
-                    OnPropertyChanged(nameof(CanRecoverUpdate));
                     OnPropertyChanged(nameof(CanStartLocalUpdate));
+                    NotifyRecoveryStateChanged();
 
                     StatusText = AppResources.Firmware_UpdateSucceeded;
                     ProgressValue = 1;
@@ -308,19 +359,56 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         finally { IsUpgradeLocked = false; }
     }
 
-    private async Task<Plugin.BLE.Abstractions.Contracts.IDevice?> SelectRecoveryDeviceAsync(
-        IReadOnlyList<Plugin.BLE.Abstractions.Contracts.IDevice> devices)
+    private async Task<IDevice?> SelectRecoveryDeviceAsync(IReadOnlyList<IDevice> devices, CancellationToken token)
     {
-        // Explicit selection also covers iOS opaque UUIDs and multiple same-name loaders.
-        var labels = devices.Select((device, index) => $"{index + 1}. {device.Name} · {device.Id}").ToArray();
-        string? selected = null;
-        await _dispatcher.InvokeAsync(async () =>
+        var selection = new TaskCompletionSource<IDevice?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
         {
-            selected = await _interaction.ActionSheetAsync(AppResources.Firmware_RecoverySelect,
-                AppResources.Common_Cancel, labels);
-        });
-        var selectedIndex = Array.IndexOf(labels, selected);
-        return selectedIndex >= 0 ? devices[selectedIndex] : null;
+            await _dispatcher.InvokeAsync(() =>
+            {
+                token.ThrowIfCancellationRequested();
+                _recoverySelection = selection;
+                RecoveryDevices = devices.Select(device => new FirmwareRecoveryDeviceItem(device)).ToArray();
+                SelectedRecoveryDevice = null;
+                IsRecoverySelectionVisible = true;
+            });
+            return await selection.Task.WaitAsync(token);
+        }
+        finally
+        {
+            await _dispatcher.InvokeAsync(() =>
+            {
+                if (!ReferenceEquals(_recoverySelection, selection))
+                    return;
+                _recoverySelection = null;
+                IsRecoverySelectionVisible = false;
+                SelectedRecoveryDevice = null;
+                RecoveryDevices = [];
+            });
+        }
+    }
+
+    partial void OnSelectedRecoveryDeviceChanged(FirmwareRecoveryDeviceItem? value)
+    {
+        foreach (var device in RecoveryDevices)
+            device.IsSelected = ReferenceEquals(device, value);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanConfirmRecoverySelection))]
+    private void ConfirmRecoverySelection()
+    {
+        if (CanConfirmRecoverySelection && SelectedRecoveryDevice is { } selected && RecoveryDevices.Contains(selected))
+        {
+            _recoverySelection?.TrySetResult(selected.Device);
+            IsRecoverySelectionVisible = false;
+        }
+    }
+
+    [RelayCommand]
+    private void CancelRecoverySelection()
+    {
+        _recoverySelection?.TrySetResult(null);
+        IsRecoverySelectionVisible = false;
     }
 
     [RelayCommand(CanExecute = nameof(CanCancelOperation))]
@@ -408,8 +496,9 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         _candidate = candidate;
         _canUseCandidate = canUpgrade;
         _isUpdateCompleted = false;
+        CancelRecoverySelection();
+        NotifyRecoveryStateChanged();
         OnPropertyChanged(nameof(IsFirmwareReady));
-        OnPropertyChanged(nameof(CanRecoverUpdate));
         OnPropertyChanged(nameof(CanStartLocalUpdate));
         OnPropertyChanged(nameof(CanStartUpdate));
         OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
@@ -424,8 +513,9 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         _candidate = null;
         _canUseCandidate = false;
         _isUpdateCompleted = false;
+        CancelRecoverySelection();
+        NotifyRecoveryStateChanged();
         OnPropertyChanged(nameof(IsFirmwareReady));
-        OnPropertyChanged(nameof(CanRecoverUpdate));
         OnPropertyChanged(nameof(CanStartLocalUpdate));
         OnPropertyChanged(nameof(CanStartUpdate));
         OnPropertyChanged(nameof(CanShowOnlineUpdateButton));
@@ -433,6 +523,28 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         OnPropertyChanged(nameof(CandidateSourceText));
         OnPropertyChanged(nameof(CandidateFileName));
         OnPropertyChanged(nameof(ReleaseNotes));
+    }
+
+    private void RefreshDeviceAvailability()
+    {
+        IsDeviceOnline = _connectionService.GetSnapshot(_deviceAddress).IsConnected ||
+            _agpLight?.GetRuntimeSnapshot(_deviceAddress)?.Availability is
+                DeviceRuntimeAvailability.Online or DeviceRuntimeAvailability.Ready;
+        if (IsDeviceOnline)
+            CancelRecoverySelection();
+    }
+
+    private void OnRuntimeStateChanged(object? sender, DeviceRuntimeChange change)
+    {
+        if (string.Equals(change.Address, _deviceAddress, StringComparison.OrdinalIgnoreCase))
+            _dispatcher.Post(RefreshDeviceAvailability);
+    }
+
+    private void NotifyRecoveryStateChanged()
+    {
+        OnPropertyChanged(nameof(CanShowRecoveryControls));
+        OnPropertyChanged(nameof(CanCheckRecovery));
+        CheckRecoveryCommand.NotifyCanExecuteChanged();
     }
 
     private void OnConnectionStateChanged(
@@ -463,6 +575,7 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         }
 
         ConnectionText = snapshot.Message;
+        RefreshDeviceAvailability();
     }
 
     private static string ToOtaErrorMessage(OtaException exception) =>
@@ -470,6 +583,8 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
         {
             OtaState.ErrorNoService =>
                 AppResources.Firmware_SlbServiceMissing,
+            OtaState.ErrorServiceState =>
+                AppResources.Firmware_RecoveryNotInOta,
             OtaState.ErrorFileMismatch =>
                 AppResources.Firmware_DeviceMismatch,
             OtaState.ErrorMtuChange or OtaState.ErrorMtuMismatch =>
@@ -483,4 +598,13 @@ public partial class FirmwareUpdatePageViewModel : ViewModelBase
             _ => Localization.Format(nameof(AppResources.Firmware_OtaFailed), exception.State, exception.Message)
         };
 
+}
+
+public partial class FirmwareRecoveryDeviceItem(IDevice device) : ObservableObject
+{
+    internal IDevice Device { get; } = device;
+    public string Name => Device.Name ?? AppResources.Device_UnnamedBle;
+    public string Identifier => Device.Id.ToString();
+    [ObservableProperty]
+    private bool _isSelected;
 }

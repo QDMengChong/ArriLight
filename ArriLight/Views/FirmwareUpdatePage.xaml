@@ -10,156 +10,265 @@
     Title="{x:Static strings:AppResources.Firmware_Title}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
-    <ScrollView VerticalScrollBarVisibility="Never">
-        <VerticalStackLayout Padding="20,20,20,36" Spacing="16">
-            <Border Style="{StaticResource MenuCardStyle}">
-                <VerticalStackLayout Spacing="14">
-                    <Grid ColumnDefinitions="64,*" ColumnSpacing="14">
-                        <Border
-                            HeightRequest="64"
-                            WidthRequest="64"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
-                            StrokeThickness="0"
-                            StrokeShape="RoundRectangle 18">
-                            <Image Margin="16" Source="device_light.svg" />
-                        </Border>
-                        <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center">
+    <Grid>
+        <ScrollView IsEnabled="{Binding IsPageContentEnabled}" VerticalScrollBarVisibility="Never">
+            <VerticalStackLayout Padding="20,20,20,36" Spacing="16">
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <VerticalStackLayout Spacing="14">
+                        <Grid ColumnDefinitions="64,*" ColumnSpacing="14">
+                            <Border
+                                HeightRequest="64"
+                                WidthRequest="64"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 18">
+                                <Image Margin="16" Source="device_light.svg" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="5" VerticalOptions="Center">
+                                <Label
+                                    FontFamily="OpenSansSemibold"
+                                    FontSize="18"
+                                    Text="{Binding DeviceName}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                <Label
+                                    FontSize="12"
+                                    Text="{Binding ConnectionText}"
+                                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <BoxView
+                            HeightRequest="1"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                Text="{x:Static strings:AppResources.Firmware_CurrentVersion}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            <Label
+                                Grid.Column="1"
+                                FontFamily="OpenSansSemibold"
+                                Text="{Binding CurrentVersion}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label
+                            FontFamily="OpenSansSemibold"
+                            FontSize="16"
+                            Text="{x:Static strings:AppResources.Firmware_Check}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Button
+                                Command="{Binding OnlineCheckCommand}"
+                                IsEnabled="{Binding CanOperate}"
+                                Text="{x:Static strings:AppResources.Firmware_CheckOnline}" />
+                            <Button
+                                Grid.Column="1"
+                                Command="{Binding SelectLocalCommand}"
+                                IsEnabled="{Binding CanOperate}"
+                                Text="{x:Static strings:AppResources.Firmware_LoadLocal}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border
+                    IsVisible="{Binding IsFirmwareReady}"
+                    Style="{StaticResource MenuCardStyle}">
+                    <VerticalStackLayout Spacing="11">
+                        <Grid ColumnDefinitions="*,Auto">
                             <Label
                                 FontFamily="OpenSansSemibold"
-                                FontSize="18"
-                                Text="{Binding DeviceName}"
+                                FontSize="16"
+                                Text="{Binding CandidateTitle}"
                                 TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                            <Label
-                                FontSize="12"
-                                Text="{Binding ConnectionText}"
-                                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                        </VerticalStackLayout>
-                    </Grid>
-
-                    <BoxView
-                        HeightRequest="1"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
-
-                    <Grid ColumnDefinitions="*,Auto">
+                            <Border
+                                Grid.Column="1"
+                                Padding="9,4"
+                                BackgroundColor="{StaticResource DeviceIconBackground}"
+                                StrokeThickness="0"
+                                StrokeShape="RoundRectangle 12">
+                                <Label
+                                    FontSize="11"
+                                    Text="{Binding CandidateSourceText}"
+                                    TextColor="{StaticResource Primary}" />
+                            </Border>
+                        </Grid>
                         <Label
-                            Text="{x:Static strings:AppResources.Firmware_CurrentVersion}"
+                            FontSize="12"
+                            Text="{Binding CandidateFileName}"
                             TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                         <Label
-                            Grid.Column="1"
-                            FontFamily="OpenSansSemibold"
-                            Text="{Binding CurrentVersion}"
-                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    </Grid>
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Style="{StaticResource MenuCardStyle}">
-                <VerticalStackLayout Spacing="12">
-                    <Label
-                        FontFamily="OpenSansSemibold"
-                        FontSize="16"
-                        Text="{x:Static strings:AppResources.Firmware_Check}"
-                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                        <Button
-                            Command="{Binding OnlineCheckCommand}"
-                            IsEnabled="{Binding CanOperate}"
-                            Text="{x:Static strings:AppResources.Firmware_CheckOnline}" />
-                        <Button
-                            Grid.Column="1"
-                            Command="{Binding SelectLocalCommand}"
-                            IsEnabled="{Binding CanOperate}"
-                            Text="{x:Static strings:AppResources.Firmware_LoadLocal}" />
-                    </Grid>
-                </VerticalStackLayout>
-            </Border>
-
-            <Border
-                IsVisible="{Binding IsFirmwareReady}"
-                Style="{StaticResource MenuCardStyle}">
-                <VerticalStackLayout Spacing="11">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label
-                            FontFamily="OpenSansSemibold"
-                            FontSize="16"
-                            Text="{Binding CandidateTitle}"
-                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                        <Border
-                            Grid.Column="1"
-                            Padding="9,4"
-                            BackgroundColor="{StaticResource DeviceIconBackground}"
-                            StrokeThickness="0"
-                            StrokeShape="RoundRectangle 12">
-                            <Label
-                                FontSize="11"
-                                Text="{Binding CandidateSourceText}"
-                                TextColor="{StaticResource Primary}" />
-                        </Border>
-                    </Grid>
-                    <Label
-                        FontSize="12"
-                        Text="{Binding CandidateFileName}"
-                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                    <Label
-                        FontSize="13"
-                        LineBreakMode="WordWrap"
-                        Text="{Binding ReleaseNotes}"
-                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                </VerticalStackLayout>
-            </Border>
-
-            <Border Style="{StaticResource MenuCardStyle}">
-                <VerticalStackLayout Spacing="12">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Label
-                            FontFamily="OpenSansSemibold"
-                            FontSize="16"
-                            Text="{x:Static strings:AppResources.Firmware_Status}"
-                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
-                        <Label
-                            Grid.Column="1"
-                            FontFamily="OpenSansSemibold"
                             FontSize="13"
-                            Text="{Binding ProgressText}"
-                            TextColor="{StaticResource Primary}" />
-                    </Grid>
-                    <Label
-                        FontSize="13"
-                        Text="{Binding StatusText}"
-                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-                    <ProgressBar
-                        IsVisible="{Binding IsProgressVisible}"
-                        Progress="{Binding ProgressValue}"
-                        ProgressColor="{StaticResource Primary}" />
-                    <Button
-                        Command="{Binding StartSelectedUpdateCommand}"
-                        IsVisible="{Binding CanStartLocalUpdate}"
-                        Text="{x:Static strings:AppResources.Firmware_UpdateNow}" />
-                    <Button
-                        Command="{Binding StartRecoveryCommand}"
-                        IsVisible="{Binding CanRecoverUpdate}"
-                        Text="{x:Static strings:AppResources.Firmware_RecoveryUpdate}" />
-                    <Button
-                        Command="{Binding StartSelectedUpdateCommand}"
-                        IsEnabled="{Binding CanStartUpdate}"
-                        IsVisible="{Binding CanShowOnlineUpdateButton}"
-                        Text="{x:Static strings:AppResources.Firmware_DownloadAndUpdate}" />
-                    <Button
-                        BackgroundColor="Transparent"
-                        BorderColor="#E65B65"
-                        BorderWidth="1"
-                        Command="{Binding CancelCommand}"
-                        IsVisible="{Binding CanCancelOperation}"
-                        Text="{x:Static strings:AppResources.Firmware_CancelUpdate}"
-                        TextColor="#E65B65" />
-                </VerticalStackLayout>
-            </Border>
+                            LineBreakMode="WordWrap"
+                            Text="{Binding ReleaseNotes}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                    </VerticalStackLayout>
+                </Border>
 
-            <Label
-                FontSize="11"
-                HorizontalTextAlignment="Center"
-                Text="{x:Static strings:AppResources.Firmware_KeepPowered}"
-                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
-        </VerticalStackLayout>
-    </ScrollView>
+                <Border Style="{StaticResource MenuCardStyle}">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label
+                                FontFamily="OpenSansSemibold"
+                                FontSize="16"
+                                Text="{x:Static strings:AppResources.Firmware_Status}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                            <Label
+                                Grid.Column="1"
+                                FontFamily="OpenSansSemibold"
+                                FontSize="13"
+                                Text="{Binding ProgressText}"
+                                TextColor="{StaticResource Primary}" />
+                        </Grid>
+                        <Label
+                            FontSize="13"
+                            Text="{Binding StatusText}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        <ProgressBar
+                            IsVisible="{Binding IsProgressVisible}"
+                            Progress="{Binding ProgressValue}"
+                            ProgressColor="{StaticResource Primary}" />
+                        <Button
+                            Command="{Binding StartSelectedUpdateCommand}"
+                            IsVisible="{Binding CanStartLocalUpdate}"
+                            Text="{x:Static strings:AppResources.Firmware_UpdateNow}" />
+                        <Button
+                            Command="{Binding CheckRecoveryCommand}"
+                            IsEnabled="{Binding CanCheckRecovery}"
+                            IsVisible="{Binding CanShowRecoveryControls}"
+                            Text="{x:Static strings:AppResources.Firmware_RecoveryCheck}" />
+                        <Button
+                            Command="{Binding StartSelectedUpdateCommand}"
+                            IsEnabled="{Binding CanStartUpdate}"
+                            IsVisible="{Binding CanShowOnlineUpdateButton}"
+                            Text="{x:Static strings:AppResources.Firmware_DownloadAndUpdate}" />
+                        <Button
+                            BackgroundColor="Transparent"
+                            BorderColor="#E65B65"
+                            BorderWidth="1"
+                            Command="{Binding CancelCommand}"
+                            IsVisible="{Binding CanCancelOperation}"
+                            Text="{x:Static strings:AppResources.Firmware_CancelUpdate}"
+                            TextColor="#E65B65" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label
+                    FontSize="11"
+                    HorizontalTextAlignment="Center"
+                    Text="{x:Static strings:AppResources.Firmware_KeepPowered}"
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            </VerticalStackLayout>
+        </ScrollView>
+        <Grid
+            Padding="20"
+            BackgroundColor="#99000000"
+            IsVisible="{Binding IsRecoverySelectionVisible}"
+            ZIndex="10">
+            <ScrollView MaximumWidthRequest="440" VerticalOptions="Center" VerticalScrollBarVisibility="Never">
+                <Border
+                    Padding="20"
+                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
+                    Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                    StrokeShape="RoundRectangle 24">
+                    <VerticalStackLayout Spacing="16">
+                        <Label
+                            FontFamily="OpenSansSemibold"
+                            FontSize="19"
+                            SemanticProperties.HeadingLevel="Level1"
+                            Text="{x:Static strings:AppResources.Firmware_RecoverySelect}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        <CollectionView
+                            HeightRequest="220"
+                            ItemsSource="{Binding RecoveryDevices}"
+                            SelectedItem="{Binding SelectedRecoveryDevice, Mode=TwoWay}"
+                            SelectionMode="Single">
+                            <CollectionView.ItemsLayout>
+                                <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+                            </CollectionView.ItemsLayout>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FirmwareRecoveryDeviceItem">
+                                    <Grid BackgroundColor="Transparent">
+                                        <!-- Override native selection on the template root so it cannot show outside the rounded card. -->
+                                        <VisualStateManager.VisualStateGroups>
+                                            <VisualStateGroup x:Name="CommonStates">
+                                                <VisualState x:Name="Normal">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="Transparent" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                                <VisualState x:Name="Selected">
+                                                    <VisualState.Setters>
+                                                        <Setter Property="BackgroundColor" Value="Transparent" />
+                                                    </VisualState.Setters>
+                                                </VisualState>
+                                            </VisualStateGroup>
+                                        </VisualStateManager.VisualStateGroups>
+                                        <Border
+                                            Padding="12"
+                                            BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}"
+                                            Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
+                                            StrokeShape="RoundRectangle 14"
+                                            StrokeThickness="1">
+                                            <Border.Triggers>
+                                                <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                    <Setter Property="Stroke" Value="{StaticResource Primary}" />
+                                                    <Setter Property="StrokeThickness" Value="2" />
+                                                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}" />
+                                                </DataTrigger>
+                                            </Border.Triggers>
+                                            <Grid ColumnDefinitions="32,*" ColumnSpacing="8" InputTransparent="True">
+                                                <Grid WidthRequest="24" HeightRequest="24" VerticalOptions="Center">
+                                                    <Ellipse
+                                                        WidthRequest="22" HeightRequest="22"
+                                                        Stroke="{StaticResource Primary}" StrokeThickness="2" />
+                                                    <Ellipse
+                                                        WidthRequest="12" HeightRequest="12"
+                                                        Fill="{StaticResource Primary}"
+                                                        IsVisible="{Binding IsSelected}"
+                                                        HorizontalOptions="Center" VerticalOptions="Center" />
+                                                </Grid>
+                                                <VerticalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                                    <Label
+                                                        FontFamily="OpenSansSemibold"
+                                                        FontSize="15"
+                                                        Text="{Binding Name}"
+                                                        TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                                                    <Label
+                                                        FontSize="11"
+                                                        LineBreakMode="CharacterWrap"
+                                                        Text="{Binding Identifier}"
+                                                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                                                </VerticalStackLayout>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Label
+                            FontSize="12"
+                            Text="{x:Static strings:AppResources.Firmware_RecoveryWarning}"
+                            TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <Button
+                                Command="{Binding ConfirmRecoverySelectionCommand}"
+                                IsEnabled="{Binding CanConfirmRecoverySelection}"
+                                Text="{x:Static strings:AppResources.Firmware_RecoverSelected}" />
+                            <Button
+                                Grid.Column="1"
+                                BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkIconBackground}}"
+                                Command="{Binding CancelRecoverySelectionCommand}"
+                                Text="{x:Static strings:AppResources.Common_Cancel}"
+                                TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </ScrollView>
+        </Grid>
+    </Grid>
 </ContentPage>

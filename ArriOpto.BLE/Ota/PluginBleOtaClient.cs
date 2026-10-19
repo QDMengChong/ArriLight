@@ -207,6 +207,11 @@ public sealed class PluginBleOtaClient
                          options.Protocol.Diagnostics, options.Transport)
                      .ConfigureAwait(false))
         {
+            if (options.RequireSingleBankOtaMode && initialConnection.Mode != OtaGattMode.SingleBankOta)
+            {
+                throw new OtaException(OtaState.ErrorServiceState,
+                    "Recovery requires a device already in Single Bank OTA mode.");
+            }
             if (initialConnection.Mode == OtaGattMode.SingleBankApp)
             {
                 var appSession = new SingleBankOtaSession(
@@ -257,6 +262,19 @@ public sealed class PluginBleOtaClient
             options.Protocol,
             progress);
         await otaSession.RunOtaModeAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>验证所选设备的 GATT 模式；不发送切换、擦除或固件写入命令。</summary>
+    public async Task<bool> IsBootloaderAsync(IDevice device,
+        PluginBleOtaOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        options ??= new PluginBleOtaOptions();
+        options.Validate();
+        await using var connection = await PluginBleConnection.OpenAsync(_adapter, device,
+            options.Protocol.RequestedMtu, options.OperationDispatcher, cancellationToken,
+            options.Protocol.Diagnostics, options.Transport).ConfigureAwait(false);
+        return connection.Mode == OtaGattMode.SingleBankOta;
     }
 
     /// <summary>Scan recovery loaders without connecting to the old application identity.</summary>

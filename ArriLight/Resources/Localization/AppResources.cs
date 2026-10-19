@@ -395,7 +395,11 @@ public static class AppResources
     public static string Firmware_DownloadAndUpdate => global::ArriLight.Localization.GetString(nameof(Firmware_DownloadAndUpdate));
     public static string Firmware_CancelUpdate => global::ArriLight.Localization.GetString(nameof(Firmware_CancelUpdate));
     public static string Firmware_KeepPowered => global::ArriLight.Localization.GetString(nameof(Firmware_KeepPowered));
-    public static string Firmware_RecoveryUpdate => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryUpdate));
+    public static string Firmware_RecoverSelected => global::ArriLight.Localization.GetString(nameof(Firmware_RecoverSelected));
+    public static string Firmware_RecoveryWarning => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryWarning));
+    public static string Firmware_RecoveryCheck => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryCheck));
+    public static string Firmware_RecoveryNotInOta => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryNotInOta));
+    public static string Firmware_RecoveryTargetUnavailable => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryTargetUnavailable));
     public static string Firmware_RecoverySelect => global::ArriLight.Localization.GetString(nameof(Firmware_RecoverySelect));
     public static string Firmware_RecoveryScanning => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryScanning));
     public static string Firmware_RecoveryNotFound => global::ArriLight.Localization.GetString(nameof(Firmware_RecoveryNotFound));
@@ -460,7 +464,7 @@ public static class AppResources
     public static string Legal_AgreementContent => global::ArriLight.Localization.GetString(nameof(Legal_AgreementContent));
     public static string Legal_PrivacyContent => global::ArriLight.Localization.GetString(nameof(Legal_PrivacyContent));
     public static string Common_NotProvided => global::ArriLight.Localization.GetString(nameof(Common_NotProvided));
-    public static string Common_ListSeparator => global::ArriLight.Localization.GetString(nameof(Common_ListSeparator));
+    public static string Common_ListJoinFormat => global::ArriLight.Localization.GetString(nameof(Common_ListJoinFormat));
     public static string Settings_Language => global::ArriLight.Localization.GetString(nameof(Settings_Language));
     public static string Settings_SystemLanguageDescription => global::ArriLight.Localization.GetString(nameof(Settings_SystemLanguageDescription));
     public static string Settings_ChineseLanguage => global::ArriLight.Localization.GetString(nameof(Settings_ChineseLanguage));

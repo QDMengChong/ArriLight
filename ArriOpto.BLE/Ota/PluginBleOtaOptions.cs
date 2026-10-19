@@ -42,6 +42,9 @@ public sealed record PluginBleOtaOptions
     public Func<Func<Task>, Task>? OperationDispatcher { get; init; }
     public PluginBleOtaTransport? Transport { get; init; }
 
+    /// <summary>恢复升级要求设备已经处于 Single Bank OTA，禁止自动从应用切换。</summary>
+    public bool RequireSingleBankOtaMode { get; init; }
+
     internal void Validate()
     {
         if (BootloaderScanTimeout <= TimeSpan.Zero)

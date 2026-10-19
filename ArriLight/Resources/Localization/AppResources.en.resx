@@ -1712,8 +1712,8 @@ This is sample text for interface design. The final version should be profession
   <data name="Common_NotProvided" xml:space="preserve">
     <value>Not provided</value>
   </data>
-  <data name="Common_ListSeparator" xml:space="preserve">
-    <value>, </value>
+  <data name="Common_ListJoinFormat" xml:space="preserve">
+    <value>{0}, {1}</value>
   </data>
   <data name="Settings_Language" xml:space="preserve">
     <value>Language</value>
@@ -1846,11 +1846,15 @@ This is sample text for interface design. The final version should be profession
   <data name="Mesh_LightStateUnavailable" xml:space="preserve"><value>The Mesh light state is unknown. Refresh and try again.</value></data>
   <data name="Mesh_LightResultUnknown" xml:space="preserve"><value>The Mesh light setting has not been confirmed. Please refresh the device status.</value></data>
   <data name="Mesh_ModelUnavailable" xml:space="preserve"><value>This device does not support this light control.</value></data>
-  <data name="Firmware_RecoveryUpdate" xml:space="preserve"><value>Device already in OTA: recover update</value></data>
-  <data name="Firmware_RecoverySelect" xml:space="preserve"><value>Select the recovery device (keep only the target in OTA mode)</value></data>
+  <data name="Firmware_RecoverSelected" xml:space="preserve"><value>Recover update</value></data>
+  <data name="Firmware_RecoveryWarning" xml:space="preserve"><value>Recovery rewrites the complete firmware and cannot be cancelled once started. Power or connection loss may damage the firmware. Keep the device and phone powered, Bluetooth on, and stay on this page.</value></data>
+  <data name="Firmware_RecoveryCheck" xml:space="preserve"><value>Check OTA mode</value></data>
+  <data name="Firmware_RecoveryNotInOta" xml:space="preserve"><value>The selected device is not in OTA mode. Check the device and try again.</value></data>
+  <data name="Firmware_RecoveryTargetUnavailable" xml:space="preserve"><value>The previously confirmed OTA device was not found. Check again and select the target device.</value></data>
+  <data name="Firmware_RecoverySelect" xml:space="preserve"><value>Select an OTA device to recover</value></data>
   <data name="Firmware_RecoveryScanning" xml:space="preserve"><value>Scanning OTA devices without connecting to the old application…</value></data>
   <data name="Firmware_RecoveryNotFound" xml:space="preserve"><value>No OTA device found. Keep the device powered and nearby, check for the slow red blink, then retry.</value></data>
-  <data name="Firmware_RecoveryHint" xml:space="preserve"><value>Keep the device powered. A loader with idle recovery restarts after 60 seconds without communication, returning to a valid application or continuing OTA advertising. If the red light still blinks slowly, select the complete matching firmware and choose recovery update. Older loaders may need a power cycle.</value></data>
+  <data name="Firmware_RecoveryHint" xml:space="preserve"><value>Keep the device powered. A loader with idle recovery restarts after 60 seconds without communication, returning to a valid application or continuing OTA advertising. If the red light still blinks slowly, load the complete matching firmware, check OTA mode, select the device and choose Recover update. Older loaders may need a power cycle.</value></data>
   <data name="Firmware_RecoverySingleBankOnly" xml:space="preserve"><value>Recovery supports Single Bank firmware only. Select the complete firmware matching this device.</value></data>
   <data name="Firmware_UpdateInterrupted" xml:space="preserve"><value>The update was interrupted. Device firmware may be incomplete and require recovery.</value></data>
 </root>

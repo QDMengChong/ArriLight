@@ -194,6 +194,20 @@ public sealed class LocalizationTests : IDisposable
     public void UnknownResourceKeyHasReadableFallback() =>
         Assert.Equal("Missing_Key", new LocalizationService().GetString("Missing_Key"));
 
+    [Theory]
+    [InlineData("en", "Monday, Tuesday, Wednesday")]
+    [InlineData("zh-Hans", "Monday、Tuesday、Wednesday")]
+    public void ListFormattingKeepsLanguageSpacingWithoutResourceBoundaryWhitespace(
+        string language, string expected)
+    {
+        Localization.Current.Initialize(language, CultureInfo.GetCultureInfo("zh-CN"));
+
+        Assert.Equal(expected, Localization.JoinList(["Monday", "Tuesday", "Wednesday"]));
+        Assert.Equal(string.Empty, Localization.JoinList([]));
+        Assert.Equal("Monday", Localization.JoinList(["Monday"]));
+        Assert.Equal(AppResources.Common_ListJoinFormat.Trim(), AppResources.Common_ListJoinFormat);
+    }
+
     [Fact]
     public void LegacyUnknownFirmwareMigratesWithoutTranslatingStoredUserData()
     {

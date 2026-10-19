@@ -26,12 +26,27 @@ public partial class FirmwareUpdatePage : ContentPage, IQueryAttributable
     }
     public void ApplyQueryAttributes(IDictionary<string, object> query) => ViewModel.ApplyQueryAttributes(query);
 
-    protected override bool OnBackButtonPressed() => ViewModel.IsUpgradeLocked || base.OnBackButtonPressed();
+    protected override bool OnBackButtonPressed()
+    {
+        if (ViewModel.IsUpgradeLocked)
+            return true;
+        if (ViewModel.IsRecoverySelectionVisible)
+        {
+            ViewModel.CancelRecoverySelectionCommand.Execute(null);
+            return true;
+        }
+        return base.OnBackButtonPressed();
+    }
 
     private void OnShellNavigating(object? sender, ShellNavigatingEventArgs args)
     {
         if (ViewModel.IsUpgradeLocked && args.CanCancel)
             args.Cancel();
+        else if (ViewModel.IsRecoverySelectionVisible && args.CanCancel)
+        {
+            args.Cancel();
+            ViewModel.CancelRecoverySelectionCommand.Execute(null);
+        }
     }
 
     private void OnUpdatePropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
