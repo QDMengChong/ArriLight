@@ -6,11 +6,11 @@ namespace ArriOpto.BLE.Agp;
 
 /// <summary>把 Plugin.BLE 设备适配成 <see cref="IAgpGattConnection"/>。</summary>
 /// <remarks>
-/// <see cref="OpenAsync"/> 返回前已经连接、发现三个特征，并依次开启 Control Point
-/// Indicate 与 Light State Notify。PW01 当前要求绑定链路上的加密访问；配对 UI 和平台
+/// <see cref="OpenAsync"/> 返回前已经连接、发现必需及可选特征，并依次开启 Control Point
+/// Indicate、Light State 及可选 Color/Battery State Notify。PW01 要求部分特征加密访问；配对 UI 和平台
 /// 权限仍由宿主应用负责。本类不改变现有 Mesh 或 OTA 连接生命周期。
 /// </remarks>
-public sealed class PluginBleAgpConnection : IAgpColorGattConnection
+public sealed class PluginBleAgpConnection : IAgpColorGattConnection, IAgpBatteryGattConnection
 {
     private readonly IAdapter _adapter;
     private readonly IDevice _device;
@@ -18,11 +18,13 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
     private readonly ICharacteristic _controlPoint;
     private readonly ICharacteristic _lightState;
     private readonly ICharacteristic? _colorState;
+    private readonly ICharacteristic? _batteryState;
     private readonly Func<Func<Task>, Task> _dispatch;
     private readonly SemaphoreSlim _operationLock = new(1, 1);
     private bool _controlUpdatesStarted;
     private bool _lightUpdatesStarted;
     private bool _colorUpdatesStarted;
+    private bool _batteryUpdatesStarted;
     private bool _disconnected;
     private bool _disposed;
 
@@ -33,6 +35,7 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
         ICharacteristic controlPoint,
         ICharacteristic lightState,
         ICharacteristic? colorState,
+        ICharacteristic? batteryState,
         Func<Func<Task>, Task>? dispatcher)
     {
         _adapter = adapter;
@@ -41,16 +44,19 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
         _controlPoint = controlPoint;
         _lightState = lightState;
         _colorState = colorState;
+        _batteryState = batteryState;
         _dispatch = dispatcher ?? (operation => operation());
     }
 
     public event EventHandler<AgpPacketEventArgs>? ControlPointIndicated;
     public event EventHandler<AgpPacketEventArgs>? LightStateNotified;
     public event EventHandler<AgpPacketEventArgs>? ColorStateNotified;
+    public event EventHandler<AgpPacketEventArgs>? BatteryStateNotified;
 
     public string DeviceId => _device.Id.ToString();
     public IDevice Device => _device;
     public bool HasColorStateCharacteristic => _colorState is not null;
+    public bool HasBatteryStateCharacteristic => _batteryState is not null;
 
     public static async Task<PluginBleAgpConnection> OpenAsync(
         IAdapter adapter,
@@ -101,7 +107,13 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
                     cancellationToken)
                 .ConfigureAwait(false);
 
-            ValidateCharacteristics(capabilities, controlPoint, lightState, colorState);
+            var batteryState = await service
+                .GetCharacteristicAsync(
+                    AgpProfile.BatteryStateCharacteristicId,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            ValidateCharacteristics(capabilities, controlPoint, lightState, colorState, batteryState);
             controlPoint.WriteType = CharacteristicWriteType.WithResponse;
             var connection = new PluginBleAgpConnection(
                 adapter,
@@ -110,6 +122,7 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
                 controlPoint,
                 lightState,
                 colorState,
+                batteryState,
                 dispatcher);
             await connection.StartUpdatesAsync(cancellationToken).ConfigureAwait(false);
             return connection;
@@ -151,6 +164,18 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
         }
 
         return ReadAsync(_colorState, cancellationToken);
+    }
+
+    public Task<ReadOnlyMemory<byte>> ReadBatteryStateAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (_batteryState is null)
+        {
+            throw new NotSupportedException(
+                "This AGP device does not expose the optional Battery State characteristic.");
+        }
+
+        return ReadAsync(_batteryState, cancellationToken);
     }
 
     public async Task WriteControlPointAsync(
@@ -232,6 +257,10 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
         {
             _colorState.ValueUpdated += OnColorStateUpdated;
         }
+        if (_batteryState is not null)
+        {
+            _batteryState.ValueUpdated += OnBatteryStateUpdated;
+        }
         try
         {
             await _dispatch(() => _controlPoint.StartUpdatesAsync(cancellationToken))
@@ -246,6 +275,13 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
                     .ConfigureAwait(false);
                 _colorUpdatesStarted = true;
             }
+            if (_batteryState is not null)
+            {
+                // A failed CCC write may already have enabled updates; include it in cleanup.
+                _batteryUpdatesStarted = true;
+                await _dispatch(() => _batteryState.StartUpdatesAsync(cancellationToken))
+                    .ConfigureAwait(false);
+            }
         }
         catch
         {
@@ -256,6 +292,20 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
 
     private async Task StopUpdatesBestEffortAsync(CancellationToken cancellationToken)
     {
+        if (_batteryUpdatesStarted && _batteryState is not null)
+        {
+            _batteryUpdatesStarted = false;
+            try
+            {
+                await _dispatch(() => _batteryState.StopUpdatesAsync(cancellationToken))
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                // 设备可能已经断开或重启。
+            }
+        }
+
         if (_colorUpdatesStarted && _colorState is not null)
         {
             _colorUpdatesStarted = false;
@@ -303,6 +353,10 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
         if (_colorState is not null)
         {
             _colorState.ValueUpdated -= OnColorStateUpdated;
+        }
+        if (_batteryState is not null)
+        {
+            _batteryState.ValueUpdated -= OnBatteryStateUpdated;
         }
     }
 
@@ -356,7 +410,8 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
         ICharacteristic capabilities,
         ICharacteristic controlPoint,
         ICharacteristic lightState,
-        ICharacteristic? colorState)
+        ICharacteristic? colorState,
+        ICharacteristic? batteryState)
     {
         if (!capabilities.CanRead)
         {
@@ -379,6 +434,13 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
         {
             throw new InvalidOperationException(
                 "AGP Color State must support read and notification updates when present.");
+        }
+
+        if (batteryState is not null &&
+            (!batteryState.CanRead || (batteryState.Properties & CharacteristicPropertyType.Notify) == 0))
+        {
+            throw new InvalidOperationException(
+                "AGP Battery State must support read and notification updates when present.");
         }
     }
 
@@ -406,6 +468,15 @@ public sealed class PluginBleAgpConnection : IAgpColorGattConnection
         if (value is { Length: > 0 })
         {
             ColorStateNotified?.Invoke(this, new AgpPacketEventArgs(value.ToArray()));
+        }
+    }
+
+    private void OnBatteryStateUpdated(object? sender, CharacteristicUpdatedEventArgs args)
+    {
+        var value = args.Characteristic.Value;
+        if (value is { Length: > 0 })
+        {
+            BatteryStateNotified?.Invoke(this, new AgpPacketEventArgs(value.ToArray()));
         }
     }
 }

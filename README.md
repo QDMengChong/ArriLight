@@ -56,6 +56,12 @@ Run workflow** 中选择模式。涉及应用、协议库或测试的 Pull Reque
 分发类型和 Bundle ID，并自动选择描述文件对应的签名证书；不需要额外配置证书名称或 Profile UUID。
 iOS Bundle ID 只通过构建参数覆盖，Android 包名仍使用项目配置。
 
+签名脚本先用 OpenSSL 校验 `.p12` 与密码，再把原证书和私钥重新打包为 macOS 兼容的
+`PBE-SHA1-3DES` / `SHA1 MAC` 格式，处理 OpenSSL 3 默认 PKCS#12 格式的导入兼容问题。
+可继续使用原来的 `IOS_CERTIFICATE_BASE64` 和 `IOS_CERTIFICATE_PASSWORD`，无需手动转换。
+临时 PEM 的私钥保持加密；临时导入密码随机生成并在日志中隐藏，转换文件在导入后或失败时清理。
+日志会分别显示 OpenSSL 校验通过、兼容格式准备完成、macOS 导入通过，便于定位失败阶段。
+
 ### 版本、产物与测试者
 
 `version` 留空时使用项目的 `ApplicationDisplayVersion`（当前 `0.1.3`）。

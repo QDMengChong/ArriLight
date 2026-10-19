@@ -9,6 +9,32 @@ namespace ArriLight.Tests;
 public sealed class NativeSessionRuntimeTests
 {
     [Fact]
+    public async Task ConcurrentManualRetrySharesFailureAndCancelingOneWaitDoesNotCancelConnection()
+    {
+        await using var fixture = new PairingFixture();
+        var started = Signal();
+        var release = Signal();
+        fixture.Ble.OnConnect = async (_, token) =>
+        {
+            started.TrySetResult();
+            await release.Task.WaitAsync(token);
+            throw new IOException("offline");
+        };
+        var first = fixture.Connection.ConnectAsync(fixture.Address);
+        await started.Task;
+        var joined = fixture.Connection.ConnectAsync(fixture.Address);
+        using var cancellation = new CancellationTokenSource();
+        var pageWait = fixture.Connection.ConnectAsync(fixture.Address, cancellation.Token);
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pageWait);
+        Assert.False(first.IsCompleted);
+        release.TrySetResult();
+        await Assert.ThrowsAsync<IOException>(() => first);
+        await Assert.ThrowsAsync<IOException>(() => joined);
+        Assert.Single(fixture.Ble.ConnectAttempts);
+    }
+
+    [Fact]
     public async Task DifferentDevicesCanConnectWhileAnotherNativeConnectionIsWaiting()
     {
         await using var fixture = new PairingFixture();

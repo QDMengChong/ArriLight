@@ -42,6 +42,44 @@ public sealed record AgpModeResponse(
     AgpResultCode Result,
     AgpModeConfig? Config);
 
+/// <summary>BATTERY_GET 成功返回电池快照，失败时 State 为 null。</summary>
+public sealed record AgpBatteryResponse(
+    AgpResultCode Result,
+    AgpBatteryState? State);
+
+/// <summary>电池状态原始字段；未知电量不表示 0%，未知时间不表示 0 分钟。</summary>
+public sealed record AgpBatteryState(
+    byte Level,
+    uint TimeToDischargeMinutes,
+    uint TimeToChargeMinutes,
+    byte Flags)
+{
+    public const byte UnknownLevel = 0xFF;
+    public const uint UnknownTimeMinutes = 0xFFFFFF;
+    public const byte UnknownFlags = 0xFF;
+
+    /// <summary>0..100 的电量百分比；设备尚未获得电量时为 null。</summary>
+    public byte? LevelPercent => Level == UnknownLevel ? null : Level;
+    public uint? KnownTimeToDischargeMinutes =>
+        TimeToDischargeMinutes == UnknownTimeMinutes ? null : TimeToDischargeMinutes;
+    public uint? KnownTimeToChargeMinutes =>
+        TimeToChargeMinutes == UnknownTimeMinutes ? null : TimeToChargeMinutes;
+    public AgpBatteryFlags ParsedFlags => new(Flags);
+}
+
+/// <summary>四个 2-bit 电池状态字段，每项的 3 都表示未知。</summary>
+public readonly record struct AgpBatteryFlags(byte Raw)
+{
+    /// <summary>0 不存在，1 可拆卸，2 不可拆卸，3 未知。</summary>
+    public byte Presence => (byte)(Raw & 0x03);
+    /// <summary>0 严重低电，1 低电，2 电量良好，3 未知。</summary>
+    public byte Indicator => (byte)((Raw >> 2) & 0x03);
+    /// <summary>0 不可充电，1 未充电，2 正在充电，3 未知。</summary>
+    public byte Charging => (byte)((Raw >> 4) & 0x03);
+    /// <summary>0 保留，1 无需维护，2 需要维护，3 未知。</summary>
+    public byte Serviceability => (byte)((Raw >> 6) & 0x03);
+}
+
 public enum AgpScheduleType : byte
 {
     Once = 0,
@@ -67,6 +105,14 @@ public sealed record AgpProvisionTokenResponse(
 public sealed record AgpAuthenticationResponse(
     AgpResultCode Result);
 
+/// <summary>Light State 的业务状态位，独立于 AGP 帧头 flags。</summary>
+[Flags]
+public enum AgpLightStateFlags : byte
+{
+    None = 0,
+    Locked = 1 << 0
+}
+
 public sealed record AgpLightState(
     uint Revision,
     bool IsOn,
@@ -75,7 +121,11 @@ public sealed record AgpLightState(
     byte LastNonzeroBrightness,
     byte RemainingTime,
     AgpLightMode Mode,
-    byte StateFlags);
+    byte StateFlags)
+{
+    /// <summary>设备上报的锁定状态；旧固件该位为 0，不能据此判断是否支持锁定上报。</summary>
+    public bool IsLocked => (StateFlags & (byte)AgpLightStateFlags.Locked) != 0;
+}
 
 public sealed record AgpTimeResponse(
     AgpResultCode Result,
@@ -161,7 +211,7 @@ public sealed record AgpEffectResponse(
     AgpLightMode Mode,
     ushort PeriodMilliseconds);
 
-/// <summary>AGP 已登记模型及 PW01 灯效扩展的负载编解码。</summary>
+/// <summary>AGP 已登记模型、电池状态及 PW01 灯效扩展的负载编解码。</summary>
 public static class AgpModelCodec
 {
     public const int AuthenticationTokenLength = 4;
@@ -497,6 +547,66 @@ public static class AgpModelCodec
             payload[8],
             (AgpLightMode)payload[9],
             payload[10]);
+    }
+
+    /// <summary>解码 BATTERY_GET：成功为 result + 8 字节状态，失败仅有 result。</summary>
+    public static AgpBatteryResponse DecodeBatteryResponse(AgpMessage message)
+    {
+        ArgumentNullException.ThrowIfNull(message);
+        if (message.MessageType != AgpMessageType.Response ||
+            message.Opcode != AgpOpcode.BatteryGet || message.TransactionId == 0)
+        {
+            throw InvalidPayload("The message is not a BATTERY_GET response with a nonzero transaction ID.");
+        }
+
+        var payload = message.Payload.Span;
+        if (payload.IsEmpty)
+        {
+            throw InvalidLength("Battery response must contain a result code.");
+        }
+
+        var result = DecodeResult(payload[0]);
+        if (result != AgpResultCode.Success)
+        {
+            if (payload.Length != 1)
+            {
+                throw InvalidLength("A failed battery response must contain only its result code.");
+            }
+
+            return new AgpBatteryResponse(result, null);
+        }
+
+        if (payload.Length != 9)
+        {
+            throw InvalidLength("A successful battery response must contain result + 8-byte battery state.");
+        }
+
+        return new AgpBatteryResponse(result, DecodeBatteryFields(payload[1..]));
+    }
+
+    /// <summary>解码 Battery State Read/Notify 的 BATTERY_STATUS；无 result 前缀，TID 必须为 0。</summary>
+    public static AgpBatteryState DecodeBatteryStatus(AgpMessage message)
+    {
+        RequireMessage(message, AgpMessageType.Status, AgpOpcode.BatteryStatus, 8);
+        if (message.TransactionId != 0)
+        {
+            throw InvalidPayload("Battery Status must use transaction ID zero.");
+        }
+
+        return DecodeBatteryFields(message.Payload.Span);
+    }
+
+    private static AgpBatteryState DecodeBatteryFields(ReadOnlySpan<byte> payload)
+    {
+        if ((payload[0] > 100 && payload[0] != AgpBatteryState.UnknownLevel) ||
+            (payload[7] & 0xC0) == 0)
+        {
+            throw InvalidPayload("Battery state contains an invalid level or reserved serviceability value.");
+        }
+
+        var timeToDischarge = (uint)(payload[1] | payload[2] << 8 | payload[3] << 16);
+        var timeToCharge = (uint)(payload[4] | payload[5] << 8 | payload[6] << 16);
+        return new AgpBatteryState(payload[0], timeToDischarge, timeToCharge, payload[7]);
     }
 
     public static AgpControlResponse DecodeControlResponse(AgpMessage message)

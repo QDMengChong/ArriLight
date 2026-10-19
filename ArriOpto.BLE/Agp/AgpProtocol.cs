@@ -21,6 +21,8 @@ public static class AgpProfile
         Guid.Parse("8f092404-c433-4408-870f-fc60f806f9d7");
     public static readonly Guid ColorStateCharacteristicId =
         Guid.Parse("8f092405-c433-4408-870f-fc60f806f9d7");
+    public static readonly Guid BatteryStateCharacteristicId =
+        Guid.Parse("8f092406-c433-4408-870f-fc60f806f9d7");
 }
 
 public enum AgpMessageType : byte
@@ -82,6 +84,8 @@ public enum AgpOpcode : ushort
 
     EffectSet = 0x0501,
     EffectGet = 0x0502,
+    BatteryGet = 0x0701,
+    BatteryStatus = 0x0702,
     Lightness16Set = 0x0901,
     Lightness16Get = 0x0902,
     HslSet = 0x0911,
@@ -116,6 +120,7 @@ public enum AgpCapabilities : ulong
     Scheduler = 1UL << 8,
     Effects = 1UL << 9,
     Scenes = 1UL << 10,
+    /// <summary>支持 BATTERY_GET；Read/Notify 支持须另行发现 Battery State 特征。</summary>
     Battery = 1UL << 11,
     GroupLinkage = 1UL << 12,
     SecureControl = 1UL << 13,

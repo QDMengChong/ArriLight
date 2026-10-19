@@ -63,7 +63,7 @@ public sealed class DeviceRuntimeTests
     [InlineData(1)]
     [InlineData(3)]
     [InlineData(5)]
-    public async Task InitializationStartsAtMostTheConfiguredNumberOfDevices(int concurrency)
+    public async Task InitializationRespectsOperationBudgetAndAtMostTwoConnectionSlots(int concurrency)
     {
         await using var fixture = RuntimeFixture();
         fixture.Service.RuntimeConcurrency = concurrency;
@@ -82,7 +82,7 @@ public sealed class DeviceRuntimeTests
             radio.OnConnect = async (_, token) =>
             {
                 started.Enqueue(radio.Address);
-                if (started.Count == concurrency) entered.TrySetResult();
+                if (started.Count == Math.Min(concurrency, 2)) entered.TrySetResult();
                 await release.Task.WaitAsync(token);
             };
         }
@@ -90,10 +90,10 @@ public sealed class DeviceRuntimeTests
         {
             await fixture.Service.StartRuntimeAsync();
             await entered.Task.WaitAsync(Deadline);
-            Assert.Equal(concurrency, started.Count);
+            Assert.Equal(Math.Min(concurrency, 2), started.Count);
             release.TrySetResult();
             await Task.WhenAll(radios.Select(radio => fixture.Service.EnsureRuntimeReadyAsync(radio.Address)))
-                .WaitAsync(Deadline);
+                .WaitAsync(TimeSpan.FromSeconds(12));
             Assert.Equal(radios.Count, started.Count);
             Assert.All(radios, radio => Assert.Equal(DeviceRuntimeAvailability.Ready,
                 fixture.Service.GetRuntimeSnapshot(radio.Address)!.Availability));
@@ -627,7 +627,7 @@ public sealed class DeviceRuntimeTests
     }
 
     [Fact]
-    public async Task FailedConnectionHasBoundedRetriesAndDoesNotPreventOtherDevicesPreparing()
+    public async Task FailedConnectionContinuesFairRecoveryWithoutPreventingOtherDevicesPreparing()
     {
         await using var fixture = RuntimeFixture();
         fixture.Service.RuntimeConcurrency = 1;
@@ -647,6 +647,8 @@ public sealed class DeviceRuntimeTests
         var error = await Record.ExceptionAsync(() => failed.WaitAsync(Deadline));
         Assert.NotNull(error);
         Assert.IsNotType<TimeoutException>(error);
+        using var retryDeadline = new CancellationTokenSource(Deadline);
+        while (fixture.Ble.ConnectAttempts.Count < 2) await Task.Delay(10, retryDeadline.Token);
         Assert.Equal(2, fixture.Ble.ConnectAttempts.Count);
         Assert.Equal(DeviceRuntimeAvailability.Offline, fixture.Service.GetRuntimeSnapshot(fixture.Address)!.Availability);
         Assert.Equal(DeviceRuntimeStepStatus.Failed,

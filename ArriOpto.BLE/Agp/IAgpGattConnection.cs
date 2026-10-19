@@ -51,3 +51,15 @@ public interface IAgpColorGattConnection : IAgpGattConnection
     Task<ReadOnlyMemory<byte>> ReadColorStateAsync(
         CancellationToken cancellationToken = default);
 }
+
+/// <summary>支持可选 AGP Battery State Read/Notify 特征的 GATT 连接。</summary>
+/// <remarks>仅支持 BATTERY_GET 的旧固件也可能声明 Battery 能力位，须独立发现此特征。</remarks>
+public interface IAgpBatteryGattConnection : IAgpGattConnection
+{
+    event EventHandler<AgpPacketEventArgs>? BatteryStateNotified;
+
+    bool HasBatteryStateCharacteristic { get; }
+
+    Task<ReadOnlyMemory<byte>> ReadBatteryStateAsync(
+        CancellationToken cancellationToken = default);
+}

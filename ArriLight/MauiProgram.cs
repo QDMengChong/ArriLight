@@ -53,6 +53,7 @@ public static class MauiProgram
             _ => CrossBluetoothLE.Current.Adapter);
         builder.Services.AddSingleton<AppDiagnosticService>();
         builder.Services.AddSingleton<BluetoothDiscoveryService>();
+        builder.Services.AddSingleton<DeviceReconnectQueue>();
         builder.Services.AddSingleton<BluetoothConnectionService>();
         builder.Services.AddSingleton<AgpLightControlService>();
         builder.Services.AddSingleton<MeshNetworkManager>();

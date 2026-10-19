@@ -221,6 +221,7 @@ public partial class DeviceControlPageViewModel
     public void ApplyLightState(AgpLightState state, bool applyBrightness = true)
     {
         _pendingLightState = state; IsMasterPowerOn = state.IsOn;
+        IsLocked = state.IsLocked;
         if (applyBrightness)
             Brightness = Math.Clamp(state.IsOn && state.PresentBrightness > 0 ?
                 (int)state.PresentBrightness : state.LastNonzeroBrightness, 1, 100);
@@ -393,13 +394,15 @@ public partial class DeviceControlPageViewModel
     private void ApplyAvailableRuntimeData(DeviceRuntimeSnapshot snapshot)
     {
         if (!_isControlPageVisible) return;
+        var status = _agpLight.GetCachedDeviceStatus(DeviceAddress);
+        if (status?.LightState is { } knownState)
+            IsLocked = knownState.IsLocked;
         if (!IsDeviceOnline)
         {
             IsLocalModeSupported = false;
             return;
         }
         bool Succeeded(DeviceRuntimeStep step) => snapshot.Steps.GetValueOrDefault(step)?.Status == DeviceRuntimeStepStatus.Succeeded;
-        var status = _agpLight.GetCachedDeviceStatus(DeviceAddress);
         var applyLighting = _lightingEditVersion == _appearanceLightingEditVersion;
         if (status?.LightState is { } state && state != _pendingLightState)
             ApplyLightState(state, applyLighting);
@@ -408,6 +411,7 @@ public partial class DeviceControlPageViewModel
             var previous = _pendingControlProfile;
             HasKnownCapabilities = true;
             SupportedCapabilities = profile.Capabilities;
+            ApplyBatteryProfile(profile);
             ControlPageKind = profile.PageKind;
             if (Succeeded(DeviceRuntimeStep.CtlRange)) _ctlRange = profile.CtlRange;
             // A partial profile may retain historical color values. Use only
@@ -472,6 +476,7 @@ public partial class DeviceControlPageViewModel
     {
         HasKnownCapabilities = true;
         SupportedCapabilities = capabilities;
+        IsBatterySupported = !IsDemo && !IsMeshDevice && capabilities.HasFlag(AgpCapabilities.Battery);
         ControlPageKind = new AgpDeviceControlProfile(
             capabilities, null, _ctlRange).PageKind;
         EffectsSupported = capabilities.HasFlag(AgpCapabilities.Effects);
@@ -483,6 +488,7 @@ public partial class DeviceControlPageViewModel
     private void ApplyControlProfile(AgpDeviceControlProfile profile, bool applyLighting = true)
     {
         HasKnownCapabilities = true;
+        ApplyBatteryProfile(profile);
         _pendingControlProfile = profile;
         SupportedCapabilities = profile.Capabilities;
         ControlPageKind = profile.PageKind;
@@ -566,7 +572,12 @@ public partial class DeviceControlPageViewModel
             else
             {
                 if (status?.LightState is { } state) ApplyLightState(state);
-                if (status?.Profile is { } profile) ApplyEffectProfile(profile);
+                if (status?.Profile is { } profile)
+                {
+                    IsDeviceOnline = status.IsOnline;
+                    ApplyEffectProfile(profile);
+                    ApplyBatteryProfile(profile);
+                }
             }
         });
     }

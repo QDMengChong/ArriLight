@@ -11,7 +11,7 @@ namespace ArriLight;
 /// <summary>
 /// 在应用拥有的指定 BLE 会话上承载 AGP；每个设备地址拥有独立的通知和客户端通道。
 /// </summary>
-public sealed class AgpGattTransport : IAgpColorGattConnection
+public sealed class AgpGattTransport : IAgpColorGattConnection, IAgpBatteryGattConnection
 {
     private readonly BluetoothConnectionService _connectionService;
     private readonly string _address;
@@ -23,6 +23,7 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
     private GattServiceInfo? _service;
     private bool _lightStateSubscribed;
     private bool _colorStateSubscribed;
+    private bool _batteryStateSubscribed;
     private bool _started;
     private bool _disposed;
     private long _connectionGeneration;
@@ -38,9 +39,32 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
     public event EventHandler<AgpPacketEventArgs>? ControlPointIndicated;
     public event EventHandler<AgpPacketEventArgs>? LightStateNotified;
     public event EventHandler<AgpPacketEventArgs>? ColorStateNotified;
+    public event EventHandler<AgpPacketEventArgs>? BatteryStateNotified;
 
     public string DeviceId => _address;
     public bool HasColorStateCharacteristic { get; private set; }
+    public bool HasBatteryStateCharacteristic { get; private set; }
+
+    public async Task EnsureBatteryStateSubscriptionAsync(CancellationToken cancellationToken = default)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        await _subscriptionLock.WaitAsync(cancellationToken);
+        try
+        {
+            await StartCoreAsync(cancellationToken);
+            EnsureCurrentConnection();
+            if (_batteryStateSubscribed || !HasBatteryStateCharacteristic) return;
+            var characteristic = RequireCharacteristic(_service!, AgpProfile.BatteryStateCharacteristicId);
+            if (!characteristic.CanRead || !characteristic.CanNotify)
+                throw new InvalidOperationException("AGP Battery State 存在时必须支持 Read 和 Notify。");
+            await _connectionService.SubscribeAsync(_address, AgpProfile.ServiceId,
+                AgpProfile.BatteryStateCharacteristicId, cancellationToken, _connectionGeneration);
+            cancellationToken.ThrowIfCancellationRequested();
+            EnsureCurrentConnection();
+            _batteryStateSubscribed = true;
+        }
+        finally { _subscriptionLock.Release(); }
+    }
 
     public async Task StartAsync(
         CancellationToken cancellationToken = default,
@@ -119,6 +143,8 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
         _service = service;
         HasColorStateCharacteristic = service.Characteristics.Any(
             item => item.Id == AgpProfile.ColorStateCharacteristicId);
+        HasBatteryStateCharacteristic = service.Characteristics.Any(
+            item => item.Id == AgpProfile.BatteryStateCharacteristicId);
         _connectionGeneration = _connectionService.GetConnectionGeneration(_address);
         EnsureCurrentConnection();
         _connectionService.MessageReceived += OnMessageReceived;
@@ -216,6 +242,17 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
         return result;
     }
 
+    public async Task<ReadOnlyMemory<byte>> ReadBatteryStateAsync(CancellationToken cancellationToken = default)
+    {
+        EnsureCurrentConnection();
+        if (!HasBatteryStateCharacteristic)
+            throw new NotSupportedException("设备未提供 AGP Battery State 特征。");
+        var result = await _connectionService.ReadAsync(_address, AgpProfile.ServiceId,
+            AgpProfile.BatteryStateCharacteristicId, cancellationToken, _connectionGeneration);
+        EnsureCurrentConnection();
+        return result;
+    }
+
     public async Task WriteControlPointAsync(
         ReadOnlyMemory<byte> packet,
         CancellationToken cancellationToken = default)
@@ -287,6 +324,8 @@ public sealed class AgpGattTransport : IAgpColorGattConnection
             LightStateNotified?.Invoke(this, args);
         else if (message.CharacteristicId == AgpProfile.ColorStateCharacteristicId)
             ColorStateNotified?.Invoke(this, args);
+        else if (message.CharacteristicId == AgpProfile.BatteryStateCharacteristicId)
+            BatteryStateNotified?.Invoke(this, args);
     }
 
 #if DEBUG

@@ -1,12 +1,60 @@
 using System.Reflection;
 using Plugin.BLE.Abstractions;
 using Plugin.BLE.Abstractions.Contracts;
+using Plugin.BLE.Abstractions.EventArgs;
 using Xunit;
 
 namespace ArriLight.Tests;
 
 public sealed class DiscoveryTests
 {
+    [Theory]
+    [InlineData(AdvertisementRecordType.ServiceData128Bit, 1, true)]
+    [InlineData(AdvertisementRecordType.ServiceData, 1, true)]
+    [InlineData(AdvertisementRecordType.ServiceData128Bit, 2, false)]
+    [InlineData(AdvertisementRecordType.ServiceData, 2, false)]
+    public async Task Pw01AdvertisementIsDiscoveredWithPairingStatus(
+        AdvertisementRecordType type, byte statusByte, bool isPairingOpen)
+    {
+        var radio = new Radio();
+        var found = new List<DiscoveredBluetoothDevice>();
+        radio.Discovery.DeviceFound += (_, device) => found.Add(device);
+        using var cancellation = new CancellationTokenSource();
+        var scan = radio.Discovery.ScanAsync(cancellation.Token);
+        try
+        {
+            await radio.Started.Task.WaitAsync(TimeSpan.FromSeconds(2));
+            var data = Convert.FromHexString("D7F906F860FC0F87084433C40124098F0101");
+            data[17] = statusByte;
+            AdvertisementRecord[] records = [new(type, data)];
+            var id = Guid.Parse("16ab155d-2f1b-4578-8235-ab8926433580");
+            var device = Proxy.Create<IDevice>((name, _) => name switch
+            {
+                "get_Id" => id,
+                "get_Name" => "PhyLight-12345678",
+                "get_Rssi" => -42,
+                "get_AdvertisementRecords" => records,
+                _ => null
+            });
+
+            radio.Advertise(device);
+
+            var discovered = Assert.Single(found);
+            Assert.Equal("PhyLight-12345678", discovered.Name);
+            Assert.Equal(id.ToString("D").ToUpperInvariant(), discovered.Address);
+            Assert.Equal(-42, discovered.Rssi);
+            Assert.Equal(BluetoothDeviceProtocol.Agp, discovered.Protocol);
+            Assert.Equal(isPairingOpen, discovered.IsPairingOpen);
+            Assert.False(discovered.IsMesh);
+            Assert.Same(device, radio.Discovery.GetCachedDevice(discovered.Address));
+        }
+        finally
+        {
+            cancellation.Cancel();
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(() => scan);
+        }
+    }
+
     [Fact]
     public async Task PageCancellationStopsNativeScanAndUnsubscribesBeforeRestart()
     {
@@ -63,6 +111,9 @@ public sealed class DiscoveryTests
     {
         public bool IsScanning;
         public int Starts, Stops, AdvertisementHandlers;
+        private event EventHandler<DeviceEventArgs>? DeviceAdvertised;
+        public void Advertise(IDevice device) =>
+            DeviceAdvertised?.Invoke(this, new DeviceEventArgs { Device = device });
         public List<Guid> KnownIds { get; } = [];
         public TaskCompletionSource Started = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public IDevice Device { get; } = Proxy.Create<IDevice>((name, args) => name switch
@@ -83,8 +134,14 @@ public sealed class DiscoveryTests
             switch (name)
             {
                 case "get_IsScanning": return IsScanning;
-                case "add_DeviceAdvertised": AdvertisementHandlers++; return null;
-                case "remove_DeviceAdvertised": AdvertisementHandlers--; return null;
+                case "add_DeviceAdvertised":
+                    AdvertisementHandlers++;
+                    DeviceAdvertised += (EventHandler<DeviceEventArgs>)args[0]!;
+                    return null;
+                case "remove_DeviceAdvertised":
+                    AdvertisementHandlers--;
+                    DeviceAdvertised -= (EventHandler<DeviceEventArgs>)args[0]!;
+                    return null;
                 case "StartScanningForDevicesAsync":
                     Starts++; IsScanning = true; Started.TrySetResult();
                     return Task.Delay(Timeout.InfiniteTimeSpan, (CancellationToken)args[3]!);

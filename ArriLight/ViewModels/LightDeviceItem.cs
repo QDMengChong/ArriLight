@@ -11,6 +11,7 @@ public sealed partial class LightDeviceItem : ObservableObject
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(PowerOpacity), nameof(StatusColor))]
     private bool _isOnline;
+    [ObservableProperty] private bool _isLocked;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatusColor))]
     private bool _isReady;

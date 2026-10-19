@@ -39,6 +39,7 @@ public sealed partial class AgpClient : IAsyncDisposable
     internal static readonly TimeSpan DefaultAuthenticationTimeout = TimeSpan.FromSeconds(60);
     private readonly IAgpGattConnection _connection;
     private readonly IAgpColorGattConnection? _colorConnection;
+    private readonly IAgpBatteryGattConnection? _batteryConnection;
     private readonly SemaphoreSlim _requestLock = new(1, 1);
     private readonly CancellationTokenSource _lifetimeCancellation = new();
     private readonly object _pendingLock = new();
@@ -51,20 +52,28 @@ public sealed partial class AgpClient : IAsyncDisposable
     {
         _connection = connection ?? throw new ArgumentNullException(nameof(connection));
         _colorConnection = connection as IAgpColorGattConnection;
+        _batteryConnection = connection as IAgpBatteryGattConnection;
         _connection.ControlPointIndicated += OnControlPointIndicated;
         _connection.LightStateNotified += OnLightStateNotified;
         if (_colorConnection is not null)
         {
             _colorConnection.ColorStateNotified += OnColorStateNotified;
         }
+        if (_batteryConnection is not null)
+        {
+            _batteryConnection.BatteryStateNotified += OnBatteryStateNotified;
+        }
     }
 
     public string DeviceId => _connection.DeviceId;
     public bool HasColorStateCharacteristic =>
         _colorConnection?.HasColorStateCharacteristic == true;
+    public bool HasBatteryStateCharacteristic =>
+        _batteryConnection?.HasBatteryStateCharacteristic == true;
 
     public event EventHandler<AgpLightState>? LightStateChanged;
     public event EventHandler<AgpColorStatus>? ColorStateChanged;
+    public event EventHandler<AgpBatteryState>? BatteryStateChanged;
     public event EventHandler<AgpMessage>? UnmatchedControlMessageReceived;
     public event EventHandler<AgpInvalidPacketEventArgs>? InvalidPacketReceived;
 
@@ -84,6 +93,22 @@ public sealed partial class AgpClient : IAsyncDisposable
         var packet = await _connection.ReadLightStateAsync(cancellationToken)
             .ConfigureAwait(false);
         return AgpModelCodec.DecodeLightState(AgpCodec.Decode(packet.Span));
+    }
+
+    /// <summary>读取可选 Battery State 特征；不发送 Control Point 请求或触发状态事件。</summary>
+    public async Task<AgpBatteryState> ReadBatteryStateAsync(
+        CancellationToken cancellationToken = default)
+    {
+        ThrowIfDisposed();
+        if (_batteryConnection?.HasBatteryStateCharacteristic != true)
+        {
+            throw new NotSupportedException(
+                "This AGP connection does not expose the optional Battery State characteristic.");
+        }
+
+        var packet = await _batteryConnection.ReadBatteryStateAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return AgpModelCodec.DecodeBatteryStatus(AgpCodec.Decode(packet.Span));
     }
 
     /// <summary>
@@ -175,6 +200,16 @@ public sealed partial class AgpClient : IAsyncDisposable
         AgpModelCodec.DecodeModeResponse(
             await SendRequestAsync(
                     AgpOpcode.ModeGet,
+                    ReadOnlyMemory<byte>.Empty,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false));
+
+    /// <summary>查询电池状态；PW01 无需 Token，调用方先检查 Battery 能力位。</summary>
+    public async Task<AgpBatteryResponse> GetBatteryAsync(
+        CancellationToken cancellationToken = default) =>
+        AgpModelCodec.DecodeBatteryResponse(
+            await SendRequestAsync(
+                    AgpOpcode.BatteryGet,
                     ReadOnlyMemory<byte>.Empty,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false));
@@ -616,6 +651,10 @@ public sealed partial class AgpClient : IAsyncDisposable
         {
             _colorConnection.ColorStateNotified -= OnColorStateNotified;
         }
+        if (_batteryConnection is not null)
+        {
+            _batteryConnection.BatteryStateNotified -= OnBatteryStateNotified;
+        }
         lock (_pendingLock)
         {
             _pending?.Completion.TrySetException(
@@ -708,6 +747,21 @@ public sealed partial class AgpClient : IAsyncDisposable
         {
             var state = AgpColorModelCodec.DecodeStatus(AgpCodec.Decode(args.Data.Span));
             ColorStateChanged?.Invoke(this, state);
+        }
+        catch (Exception exception)
+        {
+            InvalidPacketReceived?.Invoke(
+                this,
+                new AgpInvalidPacketEventArgs(args.Data, exception));
+        }
+    }
+
+    private void OnBatteryStateNotified(object? sender, AgpPacketEventArgs args)
+    {
+        try
+        {
+            var state = AgpModelCodec.DecodeBatteryStatus(AgpCodec.Decode(args.Data.Span));
+            BatteryStateChanged?.Invoke(this, state);
         }
         catch (Exception exception)
         {

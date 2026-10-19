@@ -1,5 +1,6 @@
 <?xml version='1.0' encoding='utf-8'?>
 <root>
+  <data name="Control_Battery" xml:space="preserve"><value>Battery</value></data>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
   </resheader>
@@ -986,6 +987,7 @@ Keep both the light and phone powered, Bluetooth enabled and communication worki
     <value>Offline</value>
     <comment>MainPage.xaml.cs:214; MainPage.xaml.cs:239</comment>
   </data>
+  <data name="Device_Locked" xml:space="preserve"><value>Device locked</value></data>
   <data name="Device_SavedWaiting" xml:space="preserve">
     <value>Saved · Awaiting connection</value>
     <comment>MainPage.xaml.cs:240</comment>

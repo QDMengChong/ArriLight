@@ -87,6 +87,7 @@ public sealed class BluetoothConnectionService
     private readonly BluetoothDiscoveryService _discoveryService;
     private readonly AppDiagnosticService _diagnostics;
     private readonly TimeProvider _timeProvider;
+    internal DeviceReconnectQueue ReconnectQueue { get; }
     // A device's native calls are ordered, while independent devices can prepare
     // concurrently. OTA holds this same device-owned gate for its whole session.
     private readonly ConcurrentDictionary<string, ConnectionSession> _sessions =
@@ -99,12 +100,14 @@ public sealed class BluetoothConnectionService
         IAdapter adapter,
         BluetoothDiscoveryService discoveryService,
         AppDiagnosticService diagnostics,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        DeviceReconnectQueue? reconnectQueue = null)
     {
         _adapter = adapter;
         _discoveryService = discoveryService;
         _diagnostics = diagnostics;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        ReconnectQueue = reconnectQueue ?? new DeviceReconnectQueue();
         _adapter.DeviceDisconnected += OnDeviceDisconnected;
         _adapter.DeviceConnectionLost += OnDeviceConnectionLost;
         _adapter.DeviceConnectionError += OnDeviceConnectionError;
@@ -257,9 +260,22 @@ public sealed class BluetoothConnectionService
         }
     }
 
-    public async Task<IDevice> ConnectAsync(
+    public Task<IDevice> ConnectAsync(
         string address,
         CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        var session = GetOrCreateSession(address);
+        if (!ReconnectQueue.IsAutomatic) ReconnectQueue.Prioritize(address, ordinaryConnection: true);
+        lock (session.ConnectionTaskSync)
+        {
+            if (session.ConnectionTask is { IsCompleted: false } running)
+                return running.WaitAsync(cancellationToken);
+            return session.ConnectionTask = ConnectLockedAsync(address, cancellationToken);
+        }
+    }
+
+    private async Task<IDevice> ConnectLockedAsync(string address, CancellationToken cancellationToken)
     {
         CancelConnectionLease(address);
         using var timing = _diagnostics.BeginBleTiming("Connection.Connect", address);
@@ -278,6 +294,7 @@ public sealed class BluetoothConnectionService
         finally
         {
             GetOrCreateSession(address).OperationLock.Release();
+            ReconnectQueue.ClearOrdinaryRequest(address);
         }
     }
 
@@ -673,7 +690,26 @@ public sealed class BluetoothConnectionService
         cancellationToken.ThrowIfCancellationRequested();
         if (_applicationSuspended)
             throw new OperationCanceledException(AppResources.Ble_BackgroundConnectionStopped, new CancellationToken(true));
-        if (session.Device is { State: DeviceState.Connected } current)
+        if (session.Device is { State: DeviceState.Connected } current && session.Snapshot.IsConnected)
+            return current;
+        // Permissions and queue waiting are outside the native connection deadline.
+        await _discoveryService.PrepareConnectionAsync(ReconnectQueue.IsAutomatic);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!ReconnectQueue.Enabled) return await ConnectNativeAsync(address, cancellationToken);
+        return await ReconnectQueue.ConnectAsync(address,
+            token => ConnectNativeAsync(address, token), cancellationToken,
+            () => _discoveryService.PrepareConnectionAsync(automatic: true));
+    }
+
+    private async Task<IDevice> ConnectNativeAsync(
+        string address,
+        CancellationToken cancellationToken)
+    {
+        var session = GetOrCreateSession(address);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (_applicationSuspended)
+            throw new OperationCanceledException(AppResources.Ble_BackgroundConnectionStopped, new CancellationToken(true));
+        if (session.Device is { State: DeviceState.Connected } current && session.Snapshot.IsConnected)
         {
             BleTimingScope.Current?.Mark("connection=reused; nativeConnect=skipped");
             _diagnostics.Debug(
@@ -701,7 +737,7 @@ public sealed class BluetoothConnectionService
             var device = await MeasureAsync(
                 "Connection.FindDevice", address, null,
                 () => _discoveryService.FindDeviceAsync(
-                    address, cancellationToken: attemptToken),
+                    address, cancellationToken: attemptToken, readinessChecked: true),
                 value => $"found:state={value.State}");
             connectingDevice = device;
             attemptToken.ThrowIfCancellationRequested();
@@ -1323,6 +1359,8 @@ public sealed class BluetoothConnectionService
     {
         public string Address { get; } = address;
         public SemaphoreSlim OperationLock { get; } = new(1, 1);
+        public object ConnectionTaskSync { get; } = new();
+        public Task<IDevice>? ConnectionTask { get; set; }
         private readonly object _connectionSync = new();
         private long _connectionAttemptVersion;
         private CancellationTokenSource? _connectionCancellation;

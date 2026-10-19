@@ -5,6 +5,7 @@ namespace ArriLight.Resources.Localization;
 // Typed accessors for AppResources.resx. All lookups use the application language service.
 public static class AppResources
 {
+    public static string Control_Battery => global::ArriLight.Localization.GetString(nameof(Control_Battery));
     public static string Device_Ready => global::ArriLight.Localization.GetString(nameof(Device_Ready));
     public static string Settings_DevicePreparation => global::ArriLight.Localization.GetString(nameof(Settings_DevicePreparation));
     public static string Settings_DeviceConcurrency => global::ArriLight.Localization.GetString(nameof(Settings_DeviceConcurrency));
@@ -267,6 +268,7 @@ public static class AppResources
     public static string Home_DeviceCount => global::ArriLight.Localization.GetString(nameof(Home_DeviceCount));
     public static string Device_Online => global::ArriLight.Localization.GetString(nameof(Device_Online));
     public static string Device_Offline => global::ArriLight.Localization.GetString(nameof(Device_Offline));
+    public static string Device_Locked => global::ArriLight.Localization.GetString(nameof(Device_Locked));
     public static string Device_SavedWaiting => global::ArriLight.Localization.GetString(nameof(Device_SavedWaiting));
     public static string Control_SendFailed => global::ArriLight.Localization.GetString(nameof(Control_SendFailed));
     public static string Home_OpenDeviceFailed => global::ArriLight.Localization.GetString(nameof(Home_OpenDeviceFailed));
