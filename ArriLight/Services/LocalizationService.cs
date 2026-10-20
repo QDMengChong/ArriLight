@@ -7,7 +7,7 @@ public sealed class LocalizationService : ILocalizationService
     private string _appliedPreference = LanguagePreference.System;
 
     public CultureInfo Culture { get; private set; } =
-        CultureInfo.GetCultureInfo(LanguagePreference.SimplifiedChinese);
+        CultureInfo.GetCultureInfo(LanguagePreference.English);
     public string SelectedLanguage { get; private set; } = LanguagePreference.System;
     public bool RequiresRestart => SelectedLanguage != _appliedPreference;
     public event EventHandler? CultureChanged;
@@ -24,9 +24,9 @@ public sealed class LocalizationService : ILocalizationService
             ? systemCulture.TwoLetterISOLanguageName
             : SelectedLanguage;
         Culture = CultureInfo.GetCultureInfo(
-            requestedLanguage == LanguagePreference.English
-                ? LanguagePreference.English
-                : LanguagePreference.SimplifiedChinese);
+            requestedLanguage is "zh" or LanguagePreference.SimplifiedChinese
+                ? LanguagePreference.SimplifiedChinese
+                : LanguagePreference.English);
         CultureChanged?.Invoke(this, EventArgs.Empty);
     }
 

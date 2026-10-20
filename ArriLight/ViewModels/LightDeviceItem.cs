@@ -9,12 +9,15 @@ public sealed partial class LightDeviceItem : ObservableObject
     private bool _isOn;
     [ObservableProperty] private string _status;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(PowerOpacity), nameof(StatusColor))]
+    [NotifyPropertyChangedFor(nameof(IsEnabled), nameof(PowerOpacity), nameof(StatusColor), nameof(IsBatteryVisible))]
     private bool _isOnline;
     [ObservableProperty] private bool _isLocked;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StatusColor))]
+    [NotifyPropertyChangedFor(nameof(StatusColor), nameof(IsBatteryVisible))]
     private bool _isReady;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsBatteryVisible), nameof(BatteryLevelText))]
+    private byte? _batteryLevelPercent;
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsStatusBlinking), nameof(StatusColor))]
     private bool _isRuntimeBusy;
@@ -47,6 +50,10 @@ public sealed partial class LightDeviceItem : ObservableObject
     public BluetoothDeviceProtocol Protocol { get; }
 
     public bool IsMesh => Protocol == BluetoothDeviceProtocol.Mesh;
+
+    public bool IsBatteryVisible => !IsDemo && !IsMesh && IsOnline && IsReady && BatteryLevelPercent is <= 100;
+
+    public string BatteryLevelText => BatteryLevelPercent is <= 100 ? $"{BatteryLevelPercent}%" : string.Empty;
 
     public string ProtocolLabel => IsMesh
         ? AppResources.Mesh_Badge

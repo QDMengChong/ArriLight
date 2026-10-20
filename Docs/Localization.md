@@ -11,7 +11,7 @@
 Android 退出 Activity 后可能保留应用进程，因此 `App.CreateWindow` 也会在创建新界面前应用待生效的语言选择，
 让退出后再次打开应用即可生效。此时“跟随系统”仍以启动时捕获的系统语言为准。
 `LanguagePreference` 使用 `Preferences` 的 `app_language` 键，保存 `system`、`zh-Hans` 或 `en`。
-显式选择覆盖系统语言；跟随系统时，英语及其地区变体使用英语，其余系统语言回退到默认简体中文。
+显式选择覆盖系统语言；默认跟随系统时，中文及其地区变体使用简体中文，其余系统语言统一使用英语。
 不支持的旧设置也回退到“跟随系统”。
 
 `ILocalizationService` 提供资源查询、带参数的格式化、启动初始化及语言选择变化通知。
@@ -40,7 +40,7 @@ XAML 使用 `xmlns:strings="clr-namespace:ArriLight.Resources.Localization"` 和
 
 ## 平台资源与验证
 
-iOS 在 `Info.plist` 中声明 `zh-Hans`、`en`，并在对应 `.lproj/InfoPlist.strings` 中提供蓝牙、相机权限用途说明。
+iOS 在 `Info.plist` 中声明 `zh-Hans`、`en`，以英语作为默认开发语言，并在对应 `.lproj/InfoPlist.strings` 中提供蓝牙、相机权限用途说明。
 这些原生系统文案由系统语言机制选择，独立于应用内保存的语言选择。
 
 `LocalizationTests` 检查启动恢复、显式覆盖、系统回退、保存后延迟应用、格式参数、资源完整性及数据迁移。

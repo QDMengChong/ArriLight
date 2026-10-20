@@ -37,15 +37,20 @@ public sealed class LocalizationTests : IDisposable
         Assert.Equal("User guide", AppResources.Manual_Title);
     }
 
-    [Fact]
-    public void StartupWithSystemPreferenceUsesCurrentSystemUiCulture()
+    [Theory]
+    [InlineData("en-US", "Devices")]
+    [InlineData("fr-FR", "Devices")]
+    [InlineData("ja-JP", "Devices")]
+    [InlineData("zh-CN", "设备")]
+    [InlineData("zh-TW", "设备")]
+    public void StartupWithSystemPreferenceUsesCurrentSystemUiCulture(string system, string expected)
     {
-        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+        CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(system);
 
         Localization.Initialize();
 
         Assert.Equal(LanguagePreference.System, Localization.Current.SelectedLanguage);
-        Assert.Equal("Devices", AppResources.Tab_Devices);
+        Assert.Equal(expected, AppResources.Tab_Devices);
     }
 
     [Fact]
@@ -70,10 +75,19 @@ public sealed class LocalizationTests : IDisposable
     [Theory]
     [InlineData("en-US", "en")]
     [InlineData("en-GB", "en")]
+    [InlineData("", "en")]
+    [InlineData("fr-FR", "en")]
+    [InlineData("ja-JP", "en")]
+    [InlineData("de-DE", "en")]
+    [InlineData("ar-SA", "en")]
+    [InlineData("zh", "zh-Hans")]
+    [InlineData("zh-Hans", "zh-Hans")]
+    [InlineData("zh-Hant", "zh-Hans")]
     [InlineData("zh-CN", "zh-Hans")]
     [InlineData("zh-TW", "zh-Hans")]
-    [InlineData("fr-FR", "zh-Hans")]
-    public void FollowSystemUsesSupportedLanguageOrChineseFallback(string system, string expected)
+    [InlineData("zh-HK", "zh-Hans")]
+    [InlineData("zh-SG", "zh-Hans")]
+    public void FollowSystemUsesChineseForChineseCulturesAndEnglishForAllOthers(string system, string expected)
     {
         var service = new LocalizationService();
         service.Initialize(LanguagePreference.System, CultureInfo.GetCultureInfo(system));
@@ -83,15 +97,30 @@ public sealed class LocalizationTests : IDisposable
         Assert.False(service.RequiresRestart);
     }
 
+    [Fact]
+    public void NewServiceDefaultsToEnglishBeforeInitialization()
+    {
+        var service = new LocalizationService();
+
+        Assert.Equal("en", service.Culture.Name);
+        Assert.Equal("Devices", service.GetString(nameof(AppResources.Tab_Devices)));
+        Assert.Equal(LanguagePreference.System, service.SelectedLanguage);
+        Assert.False(service.RequiresRestart);
+    }
+
     [Theory]
     [InlineData("en", "zh-CN", "Devices")]
+    [InlineData("en", "zh-TW", "Devices")]
     [InlineData("zh-Hans", "en-US", "设备")]
+    [InlineData("zh-Hans", "fr-FR", "设备")]
     public void ExplicitSelectionOverridesSystem(string selected, string system, string expected)
     {
         var service = new LocalizationService();
         service.Initialize(selected, CultureInfo.GetCultureInfo(system));
 
         Assert.Equal(expected, service.GetString(nameof(AppResources.Tab_Devices)));
+        Assert.Equal(selected, service.Culture.Name);
+        Assert.Equal(selected, service.SelectedLanguage);
     }
 
     [Fact]

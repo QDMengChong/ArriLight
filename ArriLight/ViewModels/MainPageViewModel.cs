@@ -231,6 +231,7 @@ public partial class MainPageViewModel : ViewModelBase
             _ => AppResources.Device_Offline
         };
         device.IsReady = availability == DeviceRuntimeAvailability.Ready;
+        device.BatteryLevelPercent = device.IsOnline ? cachedStatus?.Profile?.BatteryState?.LevelPercent : null;
         device.IsRuntimeBusy = runtime?.IsBusy == true;
         device.HasPendingUserOperation = runtime?.HasPendingUserOperation == true;
         // Apply the latest confirmed state after the pending toggle finishes.

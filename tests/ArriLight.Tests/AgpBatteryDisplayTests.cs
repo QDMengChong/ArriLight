@@ -9,6 +9,43 @@ public sealed class AgpBatteryDisplayTests
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(5);
 
     [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task RuntimeBecomesReadyBeforeBatteryQueryCompletes(bool characteristic)
+    {
+        await using var fixture = CreateFixture(characteristic);
+        var entered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task PauseBatteryQuery()
+        {
+            entered.TrySetResult();
+            return release.Task;
+        }
+        fixture.Ble.BeforeReadAsync = id => id == AgpProfile.BatteryStateCharacteristicId
+            ? PauseBatteryQuery() : Task.CompletedTask;
+        fixture.Ble.BeforeWriteAsync = request => request.Opcode == AgpOpcode.BatteryGet
+            ? PauseBatteryQuery() : Task.CompletedTask;
+        try
+        {
+            await fixture.Service.StartRuntimeAsync();
+            await entered.Task.WaitAsync(Deadline);
+            var snapshot = fixture.Service.GetRuntimeSnapshot(fixture.Address)!;
+            Assert.Equal(DeviceRuntimeAvailability.Ready, snapshot.Availability);
+            Assert.Equal(DeviceRuntimeStepStatus.Running, snapshot.Steps[DeviceRuntimeStep.BatteryState].Status);
+            Assert.Null(fixture.Service.GetCachedDeviceStatus(fixture.Address)!.Profile!.BatteryState);
+
+            release.TrySetResult();
+            await fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
+            Assert.Equal<byte?>(80, fixture.Service.GetCachedDeviceStatus(fixture.Address)!.Profile!.BatteryState!.LevelPercent);
+            if (characteristic)
+                Assert.Single(fixture.Ble.Reads, id => id == AgpProfile.BatteryStateCharacteristicId);
+            else
+                Assert.Single(fixture.Ble.Requests, op => op == AgpOpcode.BatteryGet);
+        }
+        finally { release.TrySetResult(); }
+    }
+
+    [Theory]
     [InlineData(80, "80%")]
     [InlineData(0, "0%")]
     [InlineData(100, "100%")]
@@ -120,14 +157,16 @@ public sealed class AgpBatteryDisplayTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task FailedBatteryReadLeavesTheDeviceOnlineAndControlsUsable(bool characteristic)
+    public async Task FailedBatteryReadLeavesTheDeviceReadyAndControlsUsable(bool characteristic)
     {
         await using var fixture = CreateFixture(characteristic);
         fixture.Ble.BatteryReadFailure = new IOException("battery read failed");
         fixture.Ble.BatteryGetResult = AgpResultCode.InternalError;
         await fixture.Service.StartRuntimeAsync();
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline));
+        await fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
+        var snapshot = fixture.Service.GetRuntimeSnapshot(fixture.Address)!;
+        Assert.Equal(DeviceRuntimeAvailability.Ready, snapshot.Availability);
+        Assert.Equal(DeviceRuntimeStepStatus.Failed, snapshot.Steps[DeviceRuntimeStep.BatteryState].Status);
         var model = await CreatePage(fixture);
         try
         {
@@ -147,8 +186,10 @@ public sealed class AgpBatteryDisplayTests
         await using var fixture = CreateFixture();
         fixture.Ble.BatterySubscriptionFailure = new IOException("battery CCC failed");
         await fixture.Service.StartRuntimeAsync();
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline));
+        await fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
+        var snapshot = fixture.Service.GetRuntimeSnapshot(fixture.Address)!;
+        Assert.Equal(DeviceRuntimeAvailability.Ready, snapshot.Availability);
+        Assert.Equal(DeviceRuntimeStepStatus.Failed, snapshot.Steps[DeviceRuntimeStep.BatterySubscription].Status);
         var model = await CreatePage(fixture);
         try
         {

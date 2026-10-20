@@ -255,19 +255,6 @@ public sealed partial class AgpLightControlService
                     }
                     CacheControlState(handle);
                 }, token);
-            await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.BatterySubscription, null,
-                async (handle, operationToken) =>
-                {
-                    if (handle.Client.HasBatteryStateCharacteristic)
-                        await handle.Transport!.EnsureBatteryStateSubscriptionAsync(operationToken);
-                    else MarkRuntimeStep(entry, epoch, DeviceRuntimeStep.BatterySubscription, DeviceRuntimeStepStatus.NotApplicable);
-                }, token);
-            await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.BatteryState, null,
-                async (handle, operationToken) =>
-                {
-                    if (SupportsBattery(handle)) await ReadBatteryStateAsync(handle, operationToken);
-                    else MarkRuntimeStep(entry, epoch, DeviceRuntimeStep.BatteryState, DeviceRuntimeStepStatus.NotApplicable);
-                }, token);
             await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.Effects, AgpCapabilities.Effects,
                 async (handle, operationToken) =>
                 {
@@ -326,6 +313,21 @@ public sealed partial class AgpLightControlService
             await ReadRuntimeSchedulesAsync(entry, epoch, token);
             await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.DeviceInformation, null,
                 (handle, operationToken) => ReadRuntimeInformationAsync(entry, epoch, handle, operationToken), token);
+            // Battery data enriches an already-ready device and must not delay
+            // readiness or prevent control when this optional query fails.
+            await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.BatterySubscription, null,
+                async (handle, operationToken) =>
+                {
+                    if (handle.Client.HasBatteryStateCharacteristic)
+                        await handle.Transport!.EnsureBatteryStateSubscriptionAsync(operationToken);
+                    else MarkRuntimeStep(entry, epoch, DeviceRuntimeStep.BatterySubscription, DeviceRuntimeStepStatus.NotApplicable);
+                }, token);
+            await RuntimeStepAsync(entry, epoch, DeviceRuntimeStep.BatteryState, null,
+                async (handle, operationToken) =>
+                {
+                    if (SupportsBattery(handle)) await ReadBatteryStateAsync(handle, operationToken);
+                    else MarkRuntimeStep(entry, epoch, DeviceRuntimeStep.BatteryState, DeviceRuntimeStepStatus.NotApplicable);
+                }, token);
             MutateRuntime(entry, epoch, () => entry.Stage = null);
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested) { throw; }

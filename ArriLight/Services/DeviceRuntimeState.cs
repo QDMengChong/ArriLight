@@ -53,7 +53,8 @@ internal sealed class DeviceRuntimeEntry(string address)
     internal DeviceRuntimeSnapshot Snapshot()
     {
         var complete = Steps.Count == Enum.GetValues<DeviceRuntimeStep>().Length &&
-            Steps.Values.All(step => step.Status is DeviceRuntimeStepStatus.Succeeded or DeviceRuntimeStepStatus.NotApplicable);
+            Steps.Where(step => step.Key is not (DeviceRuntimeStep.BatterySubscription or DeviceRuntimeStep.BatteryState))
+                .All(step => step.Value.Status is DeviceRuntimeStepStatus.Succeeded or DeviceRuntimeStepStatus.NotApplicable);
         return new(Address, !Online ? DeviceRuntimeAvailability.Offline : complete
                 ? DeviceRuntimeAvailability.Ready : DeviceRuntimeAvailability.Online,
             Stage, Version, new ReadOnlyDictionary<DeviceRuntimeStep, DeviceRuntimeStepResult>(new Dictionary<DeviceRuntimeStep, DeviceRuntimeStepResult>(Steps)),

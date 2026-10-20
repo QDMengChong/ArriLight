@@ -3,16 +3,16 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
-	<string>zh-Hans</string>
+	<string>en</string>
 	<key>CFBundleLocalizations</key>
 	<array>
 		<string>zh-Hans</string>
 		<string>en</string>
 	</array>
 	<key>NSBluetoothAlwaysUsageDescription</key>
-	<string>用于搜索并连接附近的灯光设备。</string>
+	<string>Used to find and connect to nearby lighting devices.</string>
 	<key>NSCameraUsageDescription</key>
-	<string>用于扫描包含蓝牙设备地址的二维码。</string>
+	<string>Used to scan device share QR codes.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIDeviceFamily</key>
