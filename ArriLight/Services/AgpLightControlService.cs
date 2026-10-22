@@ -1202,6 +1202,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
         bool useCachedLightState = false,
         bool refreshLightState = false,
         bool skipInitialLightStateRead = false,
+        long? requiredConnectionGeneration = null,
         [CallerMemberName] string operationName = "")
     {
         if (string.IsNullOrWhiteSpace(address))
@@ -1209,7 +1210,7 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
 
         if (_runtimeStarted)
             return await ExecuteRuntimeOperationAsync(address, operation, cancellationToken,
-                skipInitialLightStateRead, refreshLightState, operationName);
+                skipInitialLightStateRead, refreshLightState, operationName, requiredConnectionGeneration);
 
         EnsureApplicationForeground();
         using var applicationCancellation = LinkApplicationCancellation(cancellationToken);
@@ -1229,8 +1230,10 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             // A lease may have claimed teardown while this operation waited.
             _connectionService.PromoteConnectionToLongLived(address);
             var previousHandle = _handles.GetValueOrDefault(address);
-            var handle = await GetOrCreateClientAsync(
-                address, cancellationToken, useCachedLightState && !refreshLightState, skipInitialLightStateRead);
+            var handle = requiredConnectionGeneration is { } generation
+                ? RequireGroupHandle(address, generation)
+                : await GetOrCreateClientAsync(
+                    address, cancellationToken, useCachedLightState && !refreshLightState, skipInitialLightStateRead);
             try
             {
                 // New clients already read state once unless explicitly seeded from cache.
@@ -1246,7 +1249,8 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             }
             catch
             {
-                await DisposeHandleAsync(address);
+                if (requiredConnectionGeneration is null || !_connectionService.IsConnected(address))
+                    await DisposeHandleAsync(address);
                 throw;
             }
         }

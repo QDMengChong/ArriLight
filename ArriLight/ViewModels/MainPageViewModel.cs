@@ -18,7 +18,7 @@ public partial class MainPageViewModel : ViewModelBase
     public MainPageViewModel(DeviceRepository repository, BluetoothDiscoveryService discoveryService,
         AgpLightControlService agpLight, BluetoothConnectionService connectionService,
         AppDiagnosticService diagnostics, IUiDispatcher dispatcher, IAppNavigator navigator,
-        IUserInteraction interaction, MeshDeviceControlService meshControl)
+        IUserInteraction interaction, MeshDeviceControlService meshControl, DeviceGroupService? groups = null)
     {
         _repository = repository;
         _discoveryService = discoveryService;
@@ -32,6 +32,7 @@ public partial class MainPageViewModel : ViewModelBase
         _selectedSortIndex = (int)_repository.GetSortOrder();
         Devices.CollectionChanged += (_, _) => OnPropertyChanged(nameof(DeviceCountText));
         ReloadDevices();
+        InitializeGroups(groups);
     }
 
     private static readonly TimeSpan StatusQueryTimeout =
@@ -87,6 +88,7 @@ public partial class MainPageViewModel : ViewModelBase
         _repository.DevicesChanged -= OnDevicesChanged;
         _repository.DevicesChanged += OnDevicesChanged;
         _isVisible = true;
+        StartGroups();
         _controlNavigationStarted = false;
         _agpLight.DeviceStatusChanged -= OnDeviceStatusChanged;
         _agpLight.DeviceStatusChanged += OnDeviceStatusChanged;
@@ -108,6 +110,7 @@ public partial class MainPageViewModel : ViewModelBase
     public override void OnDisappearing()
     {
         _isVisible = false;
+        StopGroups();
         _repository.DevicesChanged -= OnDevicesChanged;
         _agpLight.DeviceStatusChanged -= OnDeviceStatusChanged;
         _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;

@@ -5,6 +5,20 @@ using Xunit;
 
 namespace ArriLight;
 
+internal static class TestHostInitialization
+{
+    [System.Runtime.CompilerServices.ModuleInitializer]
+    internal static void Initialize()
+    {
+        // The UI host suite contains Chinese text assertions. Set its startup
+        // language explicitly instead of depending on which test runs first.
+        var culture = System.Globalization.CultureInfo.GetCultureInfo("zh-CN");
+        System.Globalization.CultureInfo.CurrentUICulture = culture;
+        System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = culture;
+        Localization.Initialize();
+    }
+}
+
 // Only platform boundaries are replaced; pairing, transport, connection handling,
 // AGP codecs/client and persistence serialization use the production sources.
 public sealed class BluetoothDiscoveryService(IDevice device)

@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="ArriLight.DeviceGroupMembersPage" x:Name="MembersPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels" xmlns:local="clr-namespace:ArriLight"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
+    x:DataType="vm:DeviceGroupMembersPageViewModel" Title="{x:Static strings:AppResources.Group_Manage}"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+    <Grid Padding="20" RowDefinitions="Auto,*,Auto" RowSpacing="14">
+        <VerticalStackLayout Spacing="10">
+            <Label Text="{Binding GroupName}" FontSize="24" Style="{StaticResource MenuTitleStyle}" />
+            <Label Text="{x:Static strings:AppResources.Group_MembersHint}" FontSize="12"
+                TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light=#B53440, Dark=#FF8990}" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Button Text="{x:Static strings:AppResources.Group_AddMember}" Command="{Binding AddCommand}" />
+                <Button Grid.Column="1" Text="{x:Static strings:AppResources.Device_Rename}" Command="{Binding RenameCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Members}" SelectionMode="None">
+            <CollectionView.EmptyView>
+                <Label Text="{x:Static strings:AppResources.Group_NoMembers}" HorizontalTextAlignment="Center" Padding="20"
+                    TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:DeviceGroupMemberItem">
+                    <Border Style="{StaticResource MenuCardStyle}" Margin="0,0,0,12">
+                        <VerticalStackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="{Binding Name}" Style="{StaticResource MenuTitleStyle}" />
+                                <Label Grid.Column="1" Text="{Binding Reference}" FontSize="12" TextColor="{AppThemeBinding Light=#2563C4, Dark=#9CC4FF}" />
+                            </Grid>
+                            <Label Text="{Binding Status}" FontSize="13" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            <Label Text="{Binding Detail}" FontSize="12" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="5">
+                                <Button Text="{x:Static strings:AppResources.Group_MoveUp}" Padding="4" FontSize="12" MinimumHeightRequest="44" IsEnabled="{Binding CanMoveUp}"
+                                    Command="{Binding ViewModel.MoveUpCommand, Source={x:Reference MembersPage}, x:DataType=local:DeviceGroupMembersPage}" CommandParameter="{Binding .}" />
+                                <Button Grid.Column="1" Text="{x:Static strings:AppResources.Group_MoveDown}" Padding="4" FontSize="12" MinimumHeightRequest="44" IsEnabled="{Binding CanMoveDown}"
+                                    Command="{Binding ViewModel.MoveDownCommand, Source={x:Reference MembersPage}, x:DataType=local:DeviceGroupMembersPage}" CommandParameter="{Binding .}" />
+                                <Button Grid.Column="2" Text="{x:Static strings:AppResources.Group_Details}" Padding="4" FontSize="12" MinimumHeightRequest="44"
+                                    Command="{Binding ViewModel.DetailsCommand, Source={x:Reference MembersPage}, x:DataType=local:DeviceGroupMembersPage}" CommandParameter="{Binding .}" />
+                                <Button Grid.Column="3" Text="{x:Static strings:AppResources.Group_RemoveMember}" Padding="4" FontSize="12" MinimumHeightRequest="44"
+                                    Command="{Binding ViewModel.RemoveCommand, Source={x:Reference MembersPage}, x:DataType=local:DeviceGroupMembersPage}" CommandParameter="{Binding .}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="10">
+            <Button Text="{x:Static strings:AppResources.Group_OpenControl}" Command="{Binding OpenControlCommand}" />
+            <Button Grid.Column="1" Text="{x:Static strings:AppResources.Group_Delete}" Command="{Binding DeleteCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>

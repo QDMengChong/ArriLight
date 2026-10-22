@@ -1857,4 +1857,64 @@ Product ID：{3}
   <data name="Firmware_RecoveryHint" xml:space="preserve"><value>请保持设备供电。支持空闲恢复的 OTA 程序在停止通信 60 秒后会重启；应用完整有效时返回应用，否则继续广播 OTA。若仍红灯慢闪，请重新选择完整固件，点击“检测 OTA 状态”，选择设备并点击“恢复升级”。旧版 OTA 程序可能需要重新上电。</value></data>
   <data name="Firmware_RecoverySingleBankOnly" xml:space="preserve"><value>恢复入口仅支持 Single Bank 固件，请选择与设备匹配的完整固件。</value></data>
   <data name="Firmware_UpdateInterrupted" xml:space="preserve"><value>升级意外中断，设备固件可能不完整，需要恢复升级。</value></data>
+  <data name="Group_Title" xml:space="preserve"><value>设备分组</value></data>
+  <data name="Group_Create" xml:space="preserve"><value>创建分组</value></data>
+  <data name="Group_NamePrompt" xml:space="preserve"><value>请输入分组或预设名称（最多 24 个字符）</value></data>
+  <data name="Group_InvalidName" xml:space="preserve"><value>名称不能为空，且不能超过 24 个字符。</value></data>
+  <data name="Group_Manage" xml:space="preserve"><value>成员管理</value></data>
+  <data name="Group_AddMember" xml:space="preserve"><value>添加设备</value></data>
+  <data name="Group_RemoveMember" xml:space="preserve"><value>移出</value></data>
+  <data name="Group_MoveUp" xml:space="preserve"><value>上移</value></data>
+  <data name="Group_MoveDown" xml:space="preserve"><value>下移</value></data>
+  <data name="Group_Details" xml:space="preserve"><value>详情</value></data>
+  <data name="Group_OpenControl" xml:space="preserve"><value>控制分组</value></data>
+  <data name="Group_Delete" xml:space="preserve"><value>删除分组</value></data>
+  <data name="Group_DeleteConfirmation" xml:space="preserve"><value>删除此分组？组内设备会保留在 App 中。</value></data>
+  <data name="Group_Reference" xml:space="preserve"><value>参考设备</value></data>
+  <data name="Group_ReferenceName" xml:space="preserve"><value>参考：{0}</value></data>
+  <data name="Group_ReferenceDisplay" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="Group_LastKnown" xml:space="preserve"><value>离线，显示最后已知状态</value></data>
+  <data name="Group_ConnectedCount" xml:space="preserve"><value>可控制 {0} / {1} 台</value></data>
+  <data name="Group_NoMembers" xml:space="preserve"><value>尚无成员，请先添加设备。</value></data>
+  <data name="Group_Removed" xml:space="preserve"><value>此分组已删除。</value></data>
+  <data name="Group_NoCandidates" xml:space="preserve"><value>没有可添加的设备，请先在首页添加设备。</value></data>
+  <data name="Group_CapabilitiesUnknown" xml:space="preserve"><value>设备能力尚未确认，请等待设备连接并完成准备。</value></data>
+  <data name="Group_Incompatible" xml:space="preserve"><value>设备不支持参考设备的全部组控制功能。</value></data>
+  <data name="Group_TemperatureRangeMismatch" xml:space="preserve"><value>设备色温范围不能覆盖参考设备的范围。</value></data>
+  <data name="Group_DemoMismatch" xml:space="preserve"><value>演示设备只能与演示设备分组。</value></data>
+  <data name="Group_Demo" xml:space="preserve"><value>演示设备，无蓝牙下发</value></data>
+  <data name="Group_NoConnectedMembers" xml:space="preserve"><value>当前没有可控制的已连接成员，请检查连接、认证或设备锁定状态。</value></data>
+  <data name="Group_SessionExpired" xml:space="preserve"><value>设备连接已变化或已移出分组，本次操作已跳过。</value></data>
+  <data name="Group_InvalidParameters" xml:space="preserve"><value>参数无效。秒数范围为 1–86400，特效周期须在设备支持范围内。</value></data>
+  <data name="Group_Submitted" xml:space="preserve"><value>已提交</value></data>
+  <data name="Group_Dispatched" xml:space="preserve"><value>已提交至 {0} 台，跳过 {1} 台</value></data>
+  <data name="Group_DeviceConfirmed" xml:space="preserve"><value>设备已确认</value></data>
+  <data name="Group_DeviceSkipped" xml:space="preserve"><value>本次操作已跳过</value></data>
+  <data name="Group_ControlHint" xml:space="preserve"><value>进入时采用参考设备状态；操作后显示组的目标值。设备通知只更新成员状态，离线成员不会补发。</value></data>
+  <data name="Group_MembersHint" xml:space="preserve"><value>排序第一台为参考设备。移出仅解除组关系；各设备的实际状态与操作结果在此独立更新。</value></data>
+  <data name="Group_Power" xml:space="preserve"><value>目标开关状态</value></data>
+  <data name="Group_AutoOff" xml:space="preserve"><value>开灯后自动关灯</value></data>
+  <data name="Group_Brightness" xml:space="preserve"><value>亮度</value></data>
+  <data name="Group_Color" xml:space="preserve"><value>颜色</value></data>
+  <data name="Group_Temperature" xml:space="preserve"><value>色温</value></data>
+  <data name="Group_Hue" xml:space="preserve"><value>色相</value></data>
+  <data name="Group_Saturation" xml:space="preserve"><value>饱和度</value></data>
+  <data name="Group_PeriodHint" xml:space="preserve"><value>特效周期（毫秒）</value></data>
+  <data name="Group_SecondsHint" xml:space="preserve"><value>秒数（1–86400）</value></data>
+  <data name="Group_Timer" xml:space="preserve"><value>倒计时</value></data>
+  <data name="Group_CancelTimer" xml:space="preserve"><value>取消该倒计时</value></data>
+  <data name="Group_LocalMode" xml:space="preserve"><value>设备本地按键模式</value></data>
+  <data name="Group_ModeNone" xml:space="preserve"><value>无延时</value></data>
+  <data name="Group_ModeDelayOn" xml:space="preserve"><value>延时开灯</value></data>
+  <data name="Group_ModeDelayOff" xml:space="preserve"><value>延时关灯</value></data>
+  <data name="Group_ModeDelayBoth" xml:space="preserve"><value>开关均延时</value></data>
+  <data name="Group_ModeOnAutoOff" xml:space="preserve"><value>开灯后自动关灯</value></data>
+  <data name="Group_ModeOffAutoOn" xml:space="preserve"><value>关灯后自动开灯</value></data>
+  <data name="Group_OnSeconds" xml:space="preserve"><value>开灯方向秒数</value></data>
+  <data name="Group_OffSeconds" xml:space="preserve"><value>关灯方向秒数</value></data>
+  <data name="Group_Presets" xml:space="preserve"><value>组预设</value></data>
+  <data name="Group_SavePreset" xml:space="preserve"><value>保存当前参数为组预设</value></data>
+  <data name="Group_PresetsFull" xml:space="preserve"><value>最多可保存 6 个组预设，请先删除一个。</value></data>
+  <data name="Group_SettingsSaved" xml:space="preserve"><value>组设置已保存</value></data>
+  <data name="Group_SettingsHint" xml:space="preserve"><value>预设、特效周期和倒计时默认值只保存到此组。定时日程、升级与分享请进入单设备。</value></data>
 </root>

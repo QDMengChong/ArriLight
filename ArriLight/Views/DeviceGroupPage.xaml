@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="ArriLight.DeviceGroupPage" x:Name="GroupPage"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:vm="clr-namespace:ArriLight.ViewModels" xmlns:local="clr-namespace:ArriLight"
+    xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
+    x:DataType="vm:DeviceGroupPageViewModel" Title="{Binding GroupName}"
+    BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Text="{x:Static strings:AppResources.Group_Manage}" Command="{Binding ManageCommand}" />
+    </ContentPage.ToolbarItems>
+    <ScrollView>
+        <VerticalStackLayout Padding="20" Spacing="16">
+            <Border Style="{StaticResource MenuCardStyle}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="{Binding AvailabilityText}" FontSize="20" FontFamily="OpenSansSemibold" Style="{StaticResource MenuTitleStyle}" />
+                    <Label Text="{Binding ReferenceText}" Style="{StaticResource MenuTitleStyle}" FontSize="13" />
+                    <Label Text="{x:Static strings:AppResources.Group_ControlHint}" FontSize="12"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                    <Label Text="{Binding OperationText}" TextColor="{AppThemeBinding Light=#237C56, Dark=#63D7A5}" FontSize="13" />
+                    <Label Text="{Binding ErrorMessage}" TextColor="{AppThemeBinding Light=#B53440, Dark=#FF8990}" FontSize="13" />
+                    <Button Text="{x:Static strings:AppResources.Group_Manage}" Command="{Binding ManageCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource MenuCardStyle}" IsVisible="{Binding SupportsPower}">
+                <VerticalStackLayout Spacing="12">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="{x:Static strings:AppResources.Group_Power}" Style="{StaticResource MenuTitleStyle}" />
+                        <Label Grid.Column="1" Text="{Binding PowerText}" Style="{StaticResource MenuTitleStyle}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" IsEnabled="{Binding CanControl}">
+                        <Button Text="{x:Static strings:AppResources.Common_TurnOn}" Command="{Binding TurnOnCommand}" />
+                        <Button Grid.Column="1" Text="{x:Static strings:AppResources.Common_TurnOff}" Command="{Binding TurnOffCommand}" />
+                    </Grid>
+                    <VerticalStackLayout IsVisible="{Binding SupportsTimer}" Spacing="6">
+                        <HorizontalStackLayout Spacing="8">
+                            <CheckBox IsChecked="{Binding AutoOffEnabled}" />
+                            <Label Text="{x:Static strings:AppResources.Group_AutoOff}" VerticalOptions="Center" Style="{StaticResource MenuTitleStyle}" FontSize="14" />
+                        </HorizontalStackLayout>
+                        <Entry Text="{Binding AutoOffSecondsText}" Keyboard="Numeric" IsEnabled="{Binding AutoOffEnabled}"
+                            Placeholder="{x:Static strings:AppResources.Group_SecondsHint}" />
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource MenuCardStyle}" IsVisible="{Binding SupportsBrightness}">
+                <VerticalStackLayout Spacing="12" IsEnabled="{Binding CanControl}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="{x:Static strings:AppResources.Group_Brightness}" Style="{StaticResource MenuTitleStyle}" />
+                        <Label Grid.Column="1" Text="{Binding BrightnessText}" Style="{StaticResource MenuTitleStyle}" />
+                    </Grid>
+                    <Slider Minimum="1" Maximum="100" Value="{Binding Brightness}" SemanticProperties.Description="{x:Static strings:AppResources.Group_Brightness}" />
+                    <Picker ItemsSource="{Binding ColorModes}" SelectedIndex="{Binding ColorModeIndex}" IsVisible="{Binding SupportsBothColors}" />
+                    <VerticalStackLayout IsVisible="{Binding ShowColor}" Spacing="8">
+                        <Label Text="{x:Static strings:AppResources.Group_Hue}" Style="{StaticResource MenuTitleStyle}" FontSize="14" />
+                        <Slider Minimum="0" Maximum="1" Value="{Binding Hue}" SemanticProperties.Description="{x:Static strings:AppResources.Group_Hue}" />
+                        <Label Text="{x:Static strings:AppResources.Group_Saturation}" Style="{StaticResource MenuTitleStyle}" FontSize="14" />
+                        <Slider Minimum="0" Maximum="1" Value="{Binding Saturation}" SemanticProperties.Description="{x:Static strings:AppResources.Group_Saturation}" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout IsVisible="{Binding ShowTemperature}" Spacing="8">
+                        <Label Text="{Binding TemperatureText}" Style="{StaticResource MenuTitleStyle}" />
+                        <Slider Minimum="0" Maximum="1" Value="{Binding TemperatureRatio}"
+                            SemanticProperties.Description="{x:Static strings:AppResources.Group_Temperature}" />
+                    </VerticalStackLayout>
+                    <Button Text="{x:Static strings:AppResources.Common_Apply}" Command="{Binding ApplyLightingCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource MenuCardStyle}" IsVisible="{Binding SupportsEffects}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{x:Static strings:AppResources.Effect_Title}" Style="{StaticResource MenuTitleStyle}" />
+                    <Picker ItemsSource="{Binding Effects}" SelectedIndex="{Binding EffectIndex}" />
+                    <Entry Text="{Binding EffectPeriodText}" Keyboard="Numeric" Placeholder="{x:Static strings:AppResources.Group_PeriodHint}" />
+                    <Button Text="{x:Static strings:AppResources.Common_Apply}" Command="{Binding ApplyEffectCommand}" IsEnabled="{Binding CanControl}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource MenuCardStyle}" IsVisible="{Binding SupportsTimer}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{x:Static strings:AppResources.Group_Timer}" Style="{StaticResource MenuTitleStyle}" />
+                    <Picker ItemsSource="{Binding TimerActions}" SelectedIndex="{Binding TimerActionIndex}" />
+                    <Entry Text="{Binding TimerSecondsText}" Keyboard="Numeric" Placeholder="{x:Static strings:AppResources.Group_SecondsHint}" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10" IsEnabled="{Binding CanControl}">
+                        <Button Text="{x:Static strings:AppResources.Common_Apply}" Command="{Binding SendTimerCommand}" />
+                        <Button Grid.Column="1" Text="{x:Static strings:AppResources.Group_CancelTimer}" Command="{Binding CancelTimerCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource MenuCardStyle}" IsVisible="{Binding SupportsLocalMode}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{x:Static strings:AppResources.Group_LocalMode}" Style="{StaticResource MenuTitleStyle}" />
+                    <Picker ItemsSource="{Binding LocalModes}" SelectedIndex="{Binding LocalModeIndex}" />
+                    <Label Text="{x:Static strings:AppResources.Group_OnSeconds}" Style="{StaticResource MenuTitleStyle}" FontSize="13" />
+                    <Entry Text="{Binding LocalOnSecondsText}" Keyboard="Numeric" />
+                    <Label Text="{x:Static strings:AppResources.Group_OffSeconds}" Style="{StaticResource MenuTitleStyle}" FontSize="13" />
+                    <Entry Text="{Binding LocalOffSecondsText}" Keyboard="Numeric" />
+                    <Button Text="{x:Static strings:AppResources.Common_Apply}" Command="{Binding ApplyLocalModeCommand}" IsEnabled="{Binding CanControl}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Style="{StaticResource MenuCardStyle}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{x:Static strings:AppResources.Group_Presets}" Style="{StaticResource MenuTitleStyle}" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding Presets}" Spacing="8">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:GroupPresetItem">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Button Text="{Binding Name}" Command="{Binding ViewModel.ApplyPresetCommand, Source={x:Reference GroupPage}, x:DataType=local:DeviceGroupPage}"
+                                        CommandParameter="{Binding .}" IsEnabled="{Binding ViewModel.CanControl, Source={x:Reference GroupPage}, x:DataType=local:DeviceGroupPage}" />
+                                    <Button Grid.Column="1" Text="{x:Static strings:AppResources.Common_Delete}"
+                                        Command="{Binding ViewModel.DeletePresetCommand, Source={x:Reference GroupPage}, x:DataType=local:DeviceGroupPage}" CommandParameter="{Binding .}" />
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <Button Text="{x:Static strings:AppResources.Group_SavePreset}" Command="{Binding SavePresetCommand}" IsEnabled="{Binding SupportsBrightness}" />
+                    <Button Text="{x:Static strings:AppResources.Common_Save}" Command="{Binding SaveGroupSettingsCommand}" />
+                    <Label Text="{x:Static strings:AppResources.Group_SettingsHint}" FontSize="12"
+                        TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

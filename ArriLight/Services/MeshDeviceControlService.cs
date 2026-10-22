@@ -291,7 +291,8 @@ public partial class MeshDeviceControlService : IAsyncDisposable
         string operationName,
         int priority,
         Func<MeshClient, MeshNode, CancellationToken, Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? requiredConnectionGeneration = null)
     {
         using var lifetime = LinkApplicationLifetime(cancellationToken);
         var operationId = BeginRuntimeOperation(
@@ -303,7 +304,7 @@ public partial class MeshDeviceControlService : IAsyncDisposable
             return await _work.Enqueue(
                 address,
                 priority,
-                token => ExecuteProxyOperationAsync(address, operationId, operation, token),
+                token => ExecuteProxyOperationAsync(address, operationId, operation, token, requiredConnectionGeneration),
                 lifetime.Token);
         }
         catch (OperationCanceledException exception)
@@ -327,7 +328,8 @@ public partial class MeshDeviceControlService : IAsyncDisposable
         string address,
         Guid operationId,
         Func<MeshClient, MeshNode, CancellationToken, Task<T>> operation,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long? requiredConnectionGeneration = null)
     {
         var network = _networkManager.FindNetworkForNode(address)
             ?? throw new InvalidOperationException("设备不在任何 Mesh 网络中。");
@@ -348,7 +350,9 @@ public partial class MeshDeviceControlService : IAsyncDisposable
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken,
                 timeout.Token);
-            var client = await EnsureProxySessionAsync(address, network, session, linked.Token);
+            var client = requiredConnectionGeneration is { } generation
+                ? RequireGroupSession(address, session, generation)
+                : await EnsureProxySessionAsync(address, network, session, linked.Token);
             MutateRuntime(address, entry =>
             {
                 entry.Availability = DeviceRuntimeAvailability.Ready;

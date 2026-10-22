@@ -1857,4 +1857,64 @@ This is sample text for interface design. The final version should be profession
   <data name="Firmware_RecoveryHint" xml:space="preserve"><value>Keep the device powered. A loader with idle recovery restarts after 60 seconds without communication, returning to a valid application or continuing OTA advertising. If the red light still blinks slowly, load the complete matching firmware, check OTA mode, select the device and choose Recover update. Older loaders may need a power cycle.</value></data>
   <data name="Firmware_RecoverySingleBankOnly" xml:space="preserve"><value>Recovery supports Single Bank firmware only. Select the complete firmware matching this device.</value></data>
   <data name="Firmware_UpdateInterrupted" xml:space="preserve"><value>The update was interrupted. Device firmware may be incomplete and require recovery.</value></data>
+  <data name="Group_Title" xml:space="preserve"><value>Device groups</value></data>
+  <data name="Group_Create" xml:space="preserve"><value>Create group</value></data>
+  <data name="Group_NamePrompt" xml:space="preserve"><value>Enter a group or preset name (up to 24 characters)</value></data>
+  <data name="Group_InvalidName" xml:space="preserve"><value>Name is required and must not exceed 24 characters.</value></data>
+  <data name="Group_Manage" xml:space="preserve"><value>Manage members</value></data>
+  <data name="Group_AddMember" xml:space="preserve"><value>Add device</value></data>
+  <data name="Group_RemoveMember" xml:space="preserve"><value>Remove</value></data>
+  <data name="Group_MoveUp" xml:space="preserve"><value>Move up</value></data>
+  <data name="Group_MoveDown" xml:space="preserve"><value>Move down</value></data>
+  <data name="Group_Details" xml:space="preserve"><value>Details</value></data>
+  <data name="Group_OpenControl" xml:space="preserve"><value>Control group</value></data>
+  <data name="Group_Delete" xml:space="preserve"><value>Delete group</value></data>
+  <data name="Group_DeleteConfirmation" xml:space="preserve"><value>Delete this group? Its devices will remain in the app.</value></data>
+  <data name="Group_Reference" xml:space="preserve"><value>Reference device</value></data>
+  <data name="Group_ReferenceName" xml:space="preserve"><value>Reference: {0}</value></data>
+  <data name="Group_ReferenceDisplay" xml:space="preserve"><value>{0} · {1}</value></data>
+  <data name="Group_LastKnown" xml:space="preserve"><value>Offline; showing last known state</value></data>
+  <data name="Group_ConnectedCount" xml:space="preserve"><value>{0} / {1} devices available</value></data>
+  <data name="Group_NoMembers" xml:space="preserve"><value>No members yet. Add a device to start.</value></data>
+  <data name="Group_Removed" xml:space="preserve"><value>This group has been deleted.</value></data>
+  <data name="Group_NoCandidates" xml:space="preserve"><value>No devices available to add. Add a device from Home first.</value></data>
+  <data name="Group_CapabilitiesUnknown" xml:space="preserve"><value>Device capabilities are not yet known. Wait for its connection and preparation.</value></data>
+  <data name="Group_Incompatible" xml:space="preserve"><value>Device does not support all group controls of the reference device.</value></data>
+  <data name="Group_TemperatureRangeMismatch" xml:space="preserve"><value>Device temperature range does not cover the reference device's range.</value></data>
+  <data name="Group_DemoMismatch" xml:space="preserve"><value>Demo devices can only be grouped with other demo devices.</value></data>
+  <data name="Group_Demo" xml:space="preserve"><value>Demo device; no Bluetooth commands</value></data>
+  <data name="Group_NoConnectedMembers" xml:space="preserve"><value>No connected members are available. Check connection, authorization and device locks.</value></data>
+  <data name="Group_SessionExpired" xml:space="preserve"><value>Connection changed or membership was removed; this operation was skipped.</value></data>
+  <data name="Group_InvalidParameters" xml:space="preserve"><value>Invalid parameters. Seconds must be 1–86400 and effect periods must be within the supported range.</value></data>
+  <data name="Group_Submitted" xml:space="preserve"><value>Submitted</value></data>
+  <data name="Group_Dispatched" xml:space="preserve"><value>Submitted to {0}; skipped {1}</value></data>
+  <data name="Group_DeviceConfirmed" xml:space="preserve"><value>Device confirmed</value></data>
+  <data name="Group_DeviceSkipped" xml:space="preserve"><value>Operation skipped</value></data>
+  <data name="Group_ControlHint" xml:space="preserve"><value>Starts from the reference device. Controls then show group targets. Notifications update members only; offline members receive no delayed replay.</value></data>
+  <data name="Group_MembersHint" xml:space="preserve"><value>The first device is the reference. Removing a member only removes its membership. Actual device states and operation results update independently here.</value></data>
+  <data name="Group_Power" xml:space="preserve"><value>Target power</value></data>
+  <data name="Group_AutoOff" xml:space="preserve"><value>Automatically turn off after switching on</value></data>
+  <data name="Group_Brightness" xml:space="preserve"><value>Brightness</value></data>
+  <data name="Group_Color" xml:space="preserve"><value>Color</value></data>
+  <data name="Group_Temperature" xml:space="preserve"><value>Color temperature</value></data>
+  <data name="Group_Hue" xml:space="preserve"><value>Hue</value></data>
+  <data name="Group_Saturation" xml:space="preserve"><value>Saturation</value></data>
+  <data name="Group_PeriodHint" xml:space="preserve"><value>Effect period (milliseconds)</value></data>
+  <data name="Group_SecondsHint" xml:space="preserve"><value>Seconds (1–86400)</value></data>
+  <data name="Group_Timer" xml:space="preserve"><value>Countdown</value></data>
+  <data name="Group_CancelTimer" xml:space="preserve"><value>Cancel countdown</value></data>
+  <data name="Group_LocalMode" xml:space="preserve"><value>Device hardware input mode</value></data>
+  <data name="Group_ModeNone" xml:space="preserve"><value>No delay</value></data>
+  <data name="Group_ModeDelayOn" xml:space="preserve"><value>Delayed on</value></data>
+  <data name="Group_ModeDelayOff" xml:space="preserve"><value>Delayed off</value></data>
+  <data name="Group_ModeDelayBoth" xml:space="preserve"><value>Delayed on and off</value></data>
+  <data name="Group_ModeOnAutoOff" xml:space="preserve"><value>On, then automatically off</value></data>
+  <data name="Group_ModeOffAutoOn" xml:space="preserve"><value>Off, then automatically on</value></data>
+  <data name="Group_OnSeconds" xml:space="preserve"><value>On delay (seconds)</value></data>
+  <data name="Group_OffSeconds" xml:space="preserve"><value>Off delay (seconds)</value></data>
+  <data name="Group_Presets" xml:space="preserve"><value>Group presets</value></data>
+  <data name="Group_SavePreset" xml:space="preserve"><value>Save current settings as a group preset</value></data>
+  <data name="Group_PresetsFull" xml:space="preserve"><value>Up to 6 group presets can be saved. Delete one first.</value></data>
+  <data name="Group_SettingsSaved" xml:space="preserve"><value>Group settings saved</value></data>
+  <data name="Group_SettingsHint" xml:space="preserve"><value>Presets, effect periods and countdown defaults are saved to this group only. Use individual devices for schedules, updates and sharing.</value></data>
 </root>

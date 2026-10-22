@@ -493,10 +493,11 @@ public sealed partial class AgpLightControlService
 
     private async Task<T> ExecuteRuntimeOperationAsync<T>(string address,
         Func<AgpClientHandle, CancellationToken, Task<T>> operation, CancellationToken callerToken,
-        bool skipInitialRead, bool refresh, string operationName)
+        bool skipInitialRead, bool refresh, string operationName, long? requiredConnectionGeneration = null)
     {
         callerToken.ThrowIfCancellationRequested(); EnsureApplicationForeground();
-        _connectionService.ReconnectQueue.Prioritize(address, ordinaryConnection: true);
+        if (requiredConnectionGeneration is null)
+            _connectionService.ReconnectQueue.Prioritize(address, ordinaryConnection: true);
         var user = operationName.StartsWith("Set", StringComparison.Ordinal) || operationName.StartsWith("Toggle", StringComparison.Ordinal) || operationName == nameof(DeleteScheduleAsync);
         var entry = _runtimeEntries.GetOrAdd(address, key => new(key));
         Guid? operationId = user ? Guid.NewGuid() : null;
@@ -525,7 +526,9 @@ public sealed partial class AgpLightControlService
             {
                 _runtimeOperationId.Value = operationId;
                 if (user) SetRuntimeOperationStage(address, DeviceRuntimeOperationStage.WaitingPrerequisites);
-                var handle = await GetOrCreateClientAsync(address, operationToken, skipInitialLightStateRead: true);
+                var handle = requiredConnectionGeneration is { } generation
+                    ? RequireGroupHandle(address, generation)
+                    : await GetOrCreateClientAsync(address, operationToken, skipInitialLightStateRead: true);
                 MutateRuntime(entry, entry.Epoch, () =>
                 {
                     entry.Online = handle.Capabilities.HasFlag(AgpCapabilities.OnOff);

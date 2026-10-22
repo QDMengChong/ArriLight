@@ -351,7 +351,7 @@ public sealed class ControlNavigationTests
         control.NavigatedForTest();
         control.Dispatcher.RunNext();
         await control.DeferredInitializationForTest!;
-        Assert.Equal("连接准备失败，请重试", control.ConnectionStatusText);
+        Assert.Equal(AppResources.Ble_PreparationFailed, control.ConnectionStatusText);
         Assert.True(control.CanConnect);
         Assert.True(control.CanRefreshStatus);
         Assert.Equal(0, control.InitializationCalls);

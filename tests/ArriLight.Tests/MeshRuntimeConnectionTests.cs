@@ -1,4 +1,5 @@
 using ArriOpto.BLE.Mesh;
+using ArriOpto.BLE.Agp;
 using ArriOpto.BLE.Mesh.Crypto;
 using ArriOpto.BLE.Mesh.Models;
 using Plugin.BLE.Abstractions;
@@ -11,6 +12,60 @@ namespace ArriLight.Tests;
 public sealed class MeshRuntimeConnectionTests
 {
     private static readonly TimeSpan Deadline = TimeSpan.FromSeconds(6);
+
+    [Fact]
+    public async Task DeviceGroupMeshCommandsReuseTheOriginalSessionAndPublishDeviceState()
+    {
+        await using var fixture = new MeshFixture();
+        await fixture.Mesh.GetControlProfileAsync(fixture.Address);
+        var generation = fixture.Mesh.GetGroupConnectionGeneration(fixture.Address)!.Value;
+        fixture.Server.Requests.Clear();
+        await fixture.Mesh.SetConnectedGroupCommandAsync(fixture.Address, generation,
+            new(DeviceGroupCommandKind.Power, IsOn: false), () => true);
+        Assert.False(fixture.Mesh.GetCachedState(fixture.Address)!.IsOn);
+        await fixture.Mesh.SetConnectedGroupCommandAsync(fixture.Address, generation,
+            new(DeviceGroupCommandKind.Lighting, Brightness: 40), () => true);
+        Assert.Equal((byte)40, fixture.Mesh.GetCachedState(fixture.Address)!.LightnessPercent);
+        Assert.Equal([MeshOpcode.GenericOnOffSet, MeshOpcode.LightLightnessSet], fixture.Server.Requests);
+        Assert.Single(fixture.Radio.ConnectAttempts);
+    }
+
+    [Fact]
+    public async Task DeviceGroupMeshNeverCreatesAConnectionForAnOldOrMissingSession()
+    {
+        await using var fixture = new MeshFixture();
+        Assert.Null(fixture.Mesh.GetGroupConnectionGeneration(fixture.Address));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Mesh.SetConnectedGroupCommandAsync(fixture.Address, 0,
+            new(DeviceGroupCommandKind.Power), () => true));
+        Assert.Empty(fixture.Radio.ConnectAttempts);
+        await fixture.Mesh.GetControlProfileAsync(fixture.Address);
+        var generation = fixture.Mesh.GetGroupConnectionGeneration(fixture.Address)!.Value;
+        fixture.Server.Requests.Clear();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Mesh.SetConnectedGroupCommandAsync(fixture.Address, generation,
+            new(DeviceGroupCommandKind.Power), () => false));
+        await fixture.Connection.DisconnectAsync(fixture.Address);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => fixture.Mesh.SetConnectedGroupCommandAsync(fixture.Address, generation,
+            new(DeviceGroupCommandKind.Power), () => true));
+        Assert.Empty(fixture.Server.Requests);
+        Assert.Single(fixture.Radio.ConnectAttempts);
+    }
+
+    [Fact]
+    public async Task DeviceGroupMeshRechecksTheCapturedConnectionAfterQueueWait()
+    {
+        var work = new DeviceWorkScheduler();
+        await using var fixture = new MeshFixture(work);
+        await fixture.Mesh.GetControlProfileAsync(fixture.Address);
+        var generation = fixture.Mesh.GetGroupConnectionGeneration(fixture.Address)!.Value;
+        fixture.Server.Requests.Clear();
+        var batch = work.BeginBatch();
+        var operation = fixture.Mesh.SetConnectedGroupCommandAsync(fixture.Address, generation,
+            new(DeviceGroupCommandKind.Power), () => true);
+        await fixture.Connection.DisconnectAsync(fixture.Address);
+        batch.Dispose();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => operation);
+        Assert.Empty(fixture.Server.Requests); Assert.Single(fixture.Radio.ConnectAttempts);
+    }
 
     [Fact]
     public async Task MeshStartupAndForegroundResumeDoNotUseTheOfflineRetryDeadline()
@@ -360,6 +415,9 @@ public sealed class MeshRuntimeConnectionTests
                 case MeshOpcode.LightLightnessGet:
                     status = MeshMessageWriter.Create(MeshOpcode.LightLightnessStatus).AddU16(lightness).ToArray();
                     break;
+                case MeshOpcode.LightLightnessSet:
+                    lightness = (ushort)(access[2] | access[3] << 8);
+                    goto case MeshOpcode.LightLightnessGet;
                 default: throw new NotSupportedException($"Mesh opcode 0x{opcode:X4}");
             }
             Reply(status, network.Dst, network.Src, appKey);

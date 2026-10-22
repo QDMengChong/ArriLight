@@ -36,6 +36,8 @@ public static class MauiProgram
         builder.Services.AddTransient<DebugConfigurationPageViewModel>();
         builder.Services.AddTransient<DeviceControlPageViewModel>();
         builder.Services.AddTransient<DeviceMorePageViewModel>();
+        builder.Services.AddTransient<DeviceGroupPageViewModel>();
+        builder.Services.AddTransient<DeviceGroupMembersPageViewModel>();
         builder.Services.AddTransient<DeviceSharePageViewModel>();
         builder.Services.AddTransient<FirmwareUpdatePageViewModel>();
         builder.Services.AddTransient<LegalDocumentPageViewModel>();
@@ -62,6 +64,9 @@ public static class MauiProgram
         // AGP Runtime 与 Mesh 控制共享一份设备操作预算/串行器。
         builder.Services.AddSingleton<DeviceWorkScheduler>();
         builder.Services.AddSingleton<DeviceRepository>();
+        builder.Services.AddSingleton<DeviceGroupRepository>();
+        builder.Services.AddSingleton<IDeviceGroupBackend, DeviceGroupBackend>();
+        builder.Services.AddSingleton<DeviceGroupService>();
         builder.Services.AddSingleton<AppSettingsService>();
         builder.Services.AddSingleton(provider => new FirmwareUpdateConfiguration(
             provider.GetRequiredService<AppSettingsService>())

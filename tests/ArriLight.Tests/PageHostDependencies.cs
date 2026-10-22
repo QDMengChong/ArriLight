@@ -97,6 +97,12 @@ public static class ServiceHelper
         // 这些用例走的是 AGP 链路；Mesh 服务只作为 DI 签名上的占位。
         if (typeof(T) == typeof(MeshDeviceControlService)) return (T)(object)new StubMeshDeviceControlService();
         if (typeof(T) == typeof(IFirmwareFilePicker)) return (T)(object)new TestFirmwareFilePicker();
+        if (typeof(T) == typeof(DeviceGroupService))
+        {
+            var devices = GetRequiredService<DeviceRepository>();
+            return (T)(object)new DeviceGroupService(new DeviceGroupRepository(devices), devices,
+                new DeviceGroupBackend(GetRequiredService<AgpLightControlService>(), GetRequiredService<MeshDeviceControlService>()));
+        }
         if (typeof(T).Namespace == "ArriLight.ViewModels")
         {
             var constructor = typeof(T).GetConstructors().Single();
