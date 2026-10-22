@@ -6,8 +6,11 @@ namespace ArriOpto.BLE.Ota.Protocol;
 internal sealed class NotificationInbox : IDisposable
 {
     private readonly IOtaGattConnection _connection;
-    private readonly Channel<ReadOnlyMemory<byte>> _channel =
-        Channel.CreateUnbounded<ReadOnlyMemory<byte>>(
+    private readonly object _gate = new();
+    private long _sequence;
+    private readonly record struct Entry(long Sequence, ReadOnlyMemory<byte> Data);
+    private readonly Channel<Entry> _channel =
+        Channel.CreateUnbounded<Entry>(
             new UnboundedChannelOptions
             {
                 SingleReader = true,
@@ -22,11 +25,32 @@ internal sealed class NotificationInbox : IDisposable
         _connection.NotificationReceived += OnNotificationReceived;
     }
 
+    // A transfer attempt may only consume notifications received after it began.
+    public long Sequence { get { lock (_gate) return _sequence; } }
+
+    public bool TryRead(
+        Func<ReadOnlyMemory<byte>, bool> predicate,
+        long afterSequence,
+        out ReadOnlyMemory<byte> data)
+    {
+        while (_channel.Reader.TryRead(out var entry))
+        {
+            if (entry.Sequence > afterSequence && predicate(entry.Data))
+            {
+                data = entry.Data;
+                return true;
+            }
+        }
+        data = default;
+        return false;
+    }
+
     public async Task<ReadOnlyMemory<byte>> WaitAsync(
         Func<ReadOnlyMemory<byte>, bool> predicate,
         TimeSpan timeout,
         string description,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long afterSequence = 0)
     {
         using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutSource.CancelAfter(timeout);
@@ -35,12 +59,9 @@ internal sealed class NotificationInbox : IDisposable
         {
             while (await _channel.Reader.WaitToReadAsync(timeoutSource.Token).ConfigureAwait(false))
             {
-                while (_channel.Reader.TryRead(out var data))
+                if (TryRead(predicate, afterSequence, out var data))
                 {
-                    if (predicate(data))
-                    {
-                        return data;
-                    }
+                    return data;
                 }
             }
         }
@@ -62,6 +83,9 @@ internal sealed class NotificationInbox : IDisposable
     private void OnNotificationReceived(object? sender, OtaNotificationEventArgs args)
     {
         // BLE 库可能复用 characteristic Value 数组，进入异步队列前必须复制。
-        _channel.Writer.TryWrite(args.Data.ToArray());
+        lock (_gate)
+        {
+            _channel.Writer.TryWrite(new Entry(++_sequence, args.Data.ToArray()));
+        }
     }
 }

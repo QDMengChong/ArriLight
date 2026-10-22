@@ -361,6 +361,9 @@
     <value>Transferring firmware… {0:0.0}%</value>
     <comment>FirmwareUpdateService.cs:553</comment>
   </data>
+  <data name="Firmware_Verifying" xml:space="preserve">
+    <value>Firmware transferred. The device is verifying it; please stay connected.</value>
+  </data>
   <data name="Firmware_WaitingForRestart" xml:space="preserve">
     <value>The device confirmed the firmware. Waiting for restart.</value>
     <comment>FirmwareUpdateService.cs:555</comment>

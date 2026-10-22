@@ -29,6 +29,12 @@ public sealed record OtaOptions
     public TimeSpan TransferAcknowledgementTimeout { get; init; } = TimeSpan.FromSeconds(15);
 
     /// <summary>
+    /// SLB 完成命令与最终校验响应的总等待预算，默认 45 秒。
+    /// 与逐窗口 ACK 超时分开，允许设备分块执行整包和分区校验。
+    /// </summary>
+    public TimeSpan SlbVerificationTimeout { get; init; } = TimeSpan.FromSeconds(45);
+
+    /// <summary>
     /// 加密固件使用的 AES-128 key，以 32 个十六进制字符表示。
     /// </summary>
     /// <remarks>
@@ -66,6 +72,11 @@ public sealed record OtaOptions
         if (TransferAcknowledgementTimeout <= TimeSpan.Zero)
         {
             throw new ArgumentOutOfRangeException(nameof(TransferAcknowledgementTimeout));
+        }
+
+        if (SlbVerificationTimeout <= TimeSpan.Zero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(SlbVerificationTimeout));
         }
 
         if (AesKeyHex is not null && !HexCodec.IsHex(AesKeyHex, 16))

@@ -361,6 +361,9 @@
     <value>正在传输固件… {0:0.0}%</value>
     <comment>FirmwareUpdateService.cs:553</comment>
   </data>
+  <data name="Firmware_Verifying" xml:space="preserve">
+    <value>固件已传输，设备正在校验，请保持连接。</value>
+  </data>
   <data name="Firmware_WaitingForRestart" xml:space="preserve">
     <value>设备已确认固件，等待重启。</value>
     <comment>FirmwareUpdateService.cs:555</comment>

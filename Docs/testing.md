@@ -1,10 +1,10 @@
 # ArriOpto.BLE 测试说明
 
-测试项目位于 `tests/ArriOpto.BLE.Tests`，目标框架为 `net10.0`，使用 xUnit。
+本仓库测试项目位于 `tests/ArriLight.Tests` 和 `tests/ArriLight.Discovery.Tests`，目标框架为 `net10.0`，使用 xUnit；应用内协议库的回归也放在前一个项目中。
 
 ```powershell
-dotnet restore ArriOpto.BLE.slnx
-dotnet test tests\ArriOpto.BLE.Tests\ArriOpto.BLE.Tests.csproj --no-restore
+dotnet test tests\ArriLight.Tests\ArriLight.Tests.csproj
+dotnet test tests\ArriLight.Discovery.Tests\ArriLight.Discovery.Tests.csproj
 ```
 
 测试覆盖 Mesh 字节向量、SIG 模型、网络与配网派生、CMAC/AES、Proxy PDU、AGP 规范向量/HSL/CTL/客户端事务、OTA 固件装载、协议帧、会话和脱敏诊断。
@@ -20,6 +20,14 @@ AGP OnOff 翻转回归对照 PW01 `fd92673`：`AgpOnOffTests` 校验 `onoff=2` �
 - 每个失败分支至少断言异常类型、状态变化或没有写入，而不只断言未崩溃。
 
 涉及真实连接时序、配网或 OTA 的变更，单元测试不能替代宿主应用中的硬件回归。
+
+## SLB 最终校验阻塞修复回归（2026-10-23，当前）
+
+协议定向测试现为22项，新增完成写回调 Timeout 时真实校验成功／拒绝／缺失响应，以及独立校验阶段不得提前成功。应用全量739项通过；SLB固件31个实际回调场景覆盖回调内无Flash扫描、每轮240字节上限、校验期间取消、30秒期限和失败通知重试。Android构建0错误、2条既有OpenJDK处理器组告警，签名验证通过。新包、哈希、串口更新顺序和待执行的实机步骤见 [SLB-OTA-Transfer.md](SLB-OTA-Transfer.md)。未执行实机最终校验，本轮未重跑无关扫描专项或iOS原生构建。
+
+## SLB 窗口与完成确认回归（2026-10-23，上一版）
+
+`SlbTransferTests.cs` 新增 18 项协议测试，覆盖日志中的 97,492 字节／407 包／末帧 52 字节、多种 MTU、原窗口尾部补发、过期／重复／部分确认、静默后补确认、非法 offset、无进展，以及最终校验与 GATT 133 不误报成功。应用全量 735 项通过，Android 完整 APK 构建为 0 错误、0 告警；安装包及实机验收方法见 [SLB-OTA-Transfer.md](SLB-OTA-Transfer.md)。未执行真实 OTA，本轮未重跑与改动无关的扫描专项或 iOS 原生构建。
 
 ## ArriLight PW01 扫描回归（2026-10-15）
 

@@ -106,7 +106,10 @@ public enum OtaState
     UpgradeFailedDisconnected = 11031,
 
     /// <summary>升级成功后连接断开。</summary>
-    UpgradeSucceededDisconnected = 11032
+    UpgradeSucceededDisconnected = 11032,
+
+    /// <summary>应用扩展状态：数据已传输，设备正在校验固件。原有状态编号不变。</summary>
+    VerifyingFirmware = 11033
 }
 
 /// <summary>

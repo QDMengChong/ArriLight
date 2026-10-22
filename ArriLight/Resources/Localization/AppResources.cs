@@ -172,6 +172,7 @@ public static class AppResources
     public static string Firmware_SingleBankReady => global::ArriLight.Localization.GetString(nameof(Firmware_SingleBankReady));
     public static string Firmware_VersionValidated => global::ArriLight.Localization.GetString(nameof(Firmware_VersionValidated));
     public static string Firmware_TransferProgress => global::ArriLight.Localization.GetString(nameof(Firmware_TransferProgress));
+    public static string Firmware_Verifying => global::ArriLight.Localization.GetString(nameof(Firmware_Verifying));
     public static string Firmware_WaitingForRestart => global::ArriLight.Localization.GetString(nameof(Firmware_WaitingForRestart));
     public static string Firmware_SupportedFormats => global::ArriLight.Localization.GetString(nameof(Firmware_SupportedFormats));
     public static string Firmware_InvalidHash => global::ArriLight.Localization.GetString(nameof(Firmware_InvalidHash));

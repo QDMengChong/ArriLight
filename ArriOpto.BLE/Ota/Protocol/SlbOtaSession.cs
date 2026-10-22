@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Diagnostics;
 using ArriOpto.BLE.Ota;
 using ArriOpto.BLE.Protocol;
 
@@ -134,36 +135,45 @@ public sealed class SlbOtaSession : OtaSessionBase
         await TransferAsync(inbox, checked((int)confirmedOffset), windowSize, cancellationToken)
             .ConfigureAwait(false);
 
+        var verificationSequence = inbox.Sequence;
+        var verificationWatch = Stopwatch.StartNew();
+        Report(OtaState.VerifyingFirmware, "Device is verifying SLB firmware.",
+            _firmware.Data.Length, _firmware.Data.Length);
+        Diagnostic(OtaDiagnosticLevel.Information, "slb.verification.start", "slb",
+            "数据已传输，等待设备完成整包及分区校验。", OtaProtocol.Slb,
+            OtaState.VerifyingFirmware, _firmware.Data.Length);
         try
         {
             await SendCommandAsync(NotifyTransferComplete, new byte[] { 0x01 }, cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (IOException exception) when (IsGatt133(exception))
+        catch (Exception exception) when (exception is TimeoutException ||
+            exception is IOException io && IsGatt133(io))
         {
-            // Some SLB bootloaders reset as soon as they accept 0x25. Android then
-            // reports GATT 133 even though all data acknowledgements were received.
-            ReportUpgradeComplete();
+            // Android may report a failed write callback after the verification
+            // notification arrived. Read that response; disconnect alone cannot
+            // prove CRC validation or persistent commit succeeded.
             Diagnostic(
                 OtaDiagnosticLevel.Warning,
-                "slb.expected-disconnect",
+                "slb.verification.write-feedback-failed",
                 "slb",
-                "The device disconnected immediately after the final SLB verification command.",
+                "SLB final write callback failed; still requiring verification response.",
                 OtaProtocol.Slb,
-                OtaState.UpgradeCompleteWaitingDisconnect,
+                OtaState.VerifyingFirmware,
                 _firmware.Data.Length,
                 properties: new Dictionary<string, string>
                 {
                     ["command"] = "25",
                     ["error"] = exception.Message
                 });
-            return;
         }
+        var remaining = Options.SlbVerificationTimeout - verificationWatch.Elapsed;
         var verification = await WaitForFrameAsync(
                 inbox,
                 ResponseVerification,
-                Options.TransferAcknowledgementTimeout,
-                cancellationToken)
+                remaining > TimeSpan.Zero ? remaining : TimeSpan.FromMilliseconds(1),
+                cancellationToken,
+                verificationSequence)
             .ConfigureAwait(false);
 
         if (verification.Payload.Length < 1 || verification.Payload.Span[0] != 1)
@@ -313,14 +323,14 @@ public sealed class SlbOtaSession : OtaSessionBase
         CancellationToken cancellationToken)
     {
         // ATT Write 占 3 字节，SLB 自身帧头再占 4 字节。
-        var payloadCapacity = Connection.Mtu - 3 - SlbFrame.HeaderLength;
+        // Official SLB accepts at most 240 bytes and uses aligned Flash writes.
+        var payloadCapacity = Math.Min(240, Connection.Mtu - 3 - SlbFrame.HeaderLength) & ~3;
         if (payloadCapacity <= 0)
         {
             throw new OtaException(OtaState.ErrorMtuChange, "Negotiated MTU is too small.");
         }
 
         var confirmed = initialOffset;
-        var stalledAcknowledgements = 0;
         while (confirmed < _firmware.Data.Length)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -329,73 +339,100 @@ public sealed class SlbOtaSession : OtaSessionBase
                 requestedWindowSize,
                 (remainingBytes + payloadCapacity - 1) / payloadCapacity);
 
-            var sendOffset = confirmed;
+            var windowStart = confirmed;
+            var frames = new byte[framesInWindow][];
+            var sendOffset = windowStart;
             for (var frameIndex = 0; frameIndex < framesInWindow; frameIndex++)
             {
                 var count = Math.Min(payloadCapacity, _firmware.Data.Length - sendOffset);
                 var data = _firmware.Data.Slice(sendOffset, count).Span;
-                var frame = _encoder.Encode(
+                frames[frameIndex] = _encoder.Encode(
                     FirmwarePacket,
                     data,
                     Connection.Mtu,
                     framesInWindow,
                     frameIndex);
-                await Connection.WriteDataAsync(frame, cancellationToken).ConfigureAwait(false);
                 sendOffset += count;
             }
-
-            var acknowledgement = await WaitForFrameAsync(
-                    inbox,
-                    ResponseDataCheck,
-                    Options.TransferAcknowledgementTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (acknowledgement.Payload.Length < 5)
+            var windowEnd = sendOffset;
+            var stalledAcknowledgements = 0;
+            while (confirmed < windowEnd)
             {
-                throw FirmwareError("SLB 0x24 response is shorter than five bytes.");
-            }
-
-            var newConfirmed = checked((int)BinaryCodec.ReadUInt32LittleEndian(
-                acknowledgement.Payload.Span[1..5]));
-            if (newConfirmed < 0 || newConfirmed > _firmware.Data.Length)
-            {
-                throw FirmwareError("The device acknowledged an invalid SLB byte offset.");
-            }
-
-            // 允许设备要求重发，但连续三次没有前进通常表示 flash 写入或协议状态
-            // 已经异常，继续无限循环只会占用连接。
-            if (newConfirmed == confirmed)
-            {
-                stalledAcknowledgements++;
-                if (stalledAcknowledgements >= 3)
+                var firstFrame = (confirmed - windowStart) / payloadCapacity;
+                // Drop queued feedback from earlier attempts, including a start-time
+                // offset-zero ACK. Keep ACKs arriving while these writes are pending.
+                var afterSequence = inbox.Sequence;
+                for (var frameIndex = firstFrame; frameIndex < framesInWindow; frameIndex++)
                 {
-                    throw FirmwareError("SLB transfer made no progress after three retries.");
+                    await Connection.WriteDataAsync(frames[frameIndex], cancellationToken)
+                        .ConfigureAwait(false);
                 }
-            }
-            else
-            {
-                stalledAcknowledgements = 0;
-            }
 
-            confirmed = newConfirmed;
-            Diagnostic(
-                OtaDiagnosticLevel.Debug,
-                "slb.offset.confirmed",
-                "slb",
-                "设备确认 SLB 数据 offset。",
-                OtaProtocol.Slb,
-                OtaState.FeedbackProgress,
-                confirmed,
-                properties: new Dictionary<string, string>
+                bool MatchesWindow(ReadOnlyMemory<byte> message)
                 {
-                    ["windowFrames"] = framesInWindow.ToString(
-                        System.Globalization.CultureInfo.InvariantCulture)
-                });
-            Report(
-                OtaState.FeedbackProgress,
-                "Transferring SLB firmware.",
-                confirmed,
-                _firmware.Data.Length);
+                    SlbFrame frame;
+                    try { frame = SlbFrame.Parse(message); }
+                    catch (InvalidDataException) { return false; }
+                    if (frame.Opcode != ResponseDataCheck) return false;
+                    if (frame.Payload.Length != 5)
+                        throw FirmwareError("SLB 0x24 response must contain five bytes.");
+                    var payload = frame.Payload.Span;
+                    var offset = BinaryCodec.ReadUInt32LittleEndian(payload[1..5]);
+                    if (offset < confirmed) return false;
+                    if (offset > windowEnd)
+                        throw FirmwareError("SLB ACK exceeds the current transmitted window.");
+                    if ((payload[0] >> 4) != framesInWindow - 1) return false;
+                    var next = ((int)offset - windowStart) / payloadCapacity;
+                    if (offset == windowEnd)
+                        return (payload[0] & 15) == framesInWindow - 1;
+                    if (((int)offset - windowStart) % payloadCapacity != 0)
+                        throw FirmwareError("SLB ACK is not on a transmitted frame boundary.");
+                    // SDK revisions report either the missing frame or the last
+                    // accepted frame. The absolute offset determines the retry.
+                    return (payload[0] & 15) == next ||
+                           (payload[0] & 15) == Math.Max(0, next - 1);
+                }
+
+                var acknowledgement = await inbox.WaitAsync(
+                        MatchesWindow, Options.TransferAcknowledgementTimeout,
+                        "SLB current-window 0x24 response", cancellationToken, afterSequence)
+                    .ConfigureAwait(false);
+                var newConfirmed = checked((int)BinaryCodec.ReadUInt32LittleEndian(
+                    SlbFrame.Parse(acknowledgement).Payload.Span[1..5]));
+                // Coalesce feedback already received during this attempt. Duplicate
+                // notifications must not become independent retry instructions.
+                while (inbox.TryRead(MatchesWindow, afterSequence, out var queued))
+                    newConfirmed = Math.Max(newConfirmed, checked((int)BinaryCodec.ReadUInt32LittleEndian(
+                        SlbFrame.Parse(queued).Payload.Span[1..5])));
+                if (newConfirmed == confirmed)
+                {
+                    if (++stalledAcknowledgements >= 3)
+                        throw FirmwareError("SLB transfer made no progress after three fresh acknowledgements.");
+                }
+                else stalledAcknowledgements = 0;
+
+                confirmed = newConfirmed;
+                Diagnostic(
+                    OtaDiagnosticLevel.Debug,
+                    "slb.offset.confirmed",
+                    "slb",
+                    "设备确认 SLB 数据 offset。",
+                    OtaProtocol.Slb,
+                    OtaState.FeedbackProgress,
+                    confirmed,
+                    properties: new Dictionary<string, string>
+                    {
+                        ["retryFromFrame"] = firstFrame.ToString(
+                            System.Globalization.CultureInfo.InvariantCulture),
+                        ["windowFrames"] = framesInWindow.ToString(
+                            System.Globalization.CultureInfo.InvariantCulture)
+                    });
+                Report(
+                    OtaState.FeedbackProgress,
+                    "Transferring SLB firmware.",
+                    confirmed,
+                    _firmware.Data.Length);
+            }
         }
     }
 
@@ -419,10 +456,10 @@ public sealed class SlbOtaSession : OtaSessionBase
         NotificationInbox inbox,
         byte opcode,
         TimeSpan timeout,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        long afterSequence = 0)
     {
-        var message = await WaitForNotificationAsync(
-                inbox,
+        var message = await inbox.WaitAsync(
                 data =>
                 {
                     try
@@ -436,7 +473,8 @@ public sealed class SlbOtaSession : OtaSessionBase
                 },
                 timeout,
                 $"SLB response 0x{opcode:X2}",
-                cancellationToken)
+                cancellationToken,
+                afterSequence)
             .ConfigureAwait(false);
         return SlbFrame.Parse(message);
     }

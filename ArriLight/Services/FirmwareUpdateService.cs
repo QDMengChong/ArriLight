@@ -355,6 +355,9 @@ public sealed class FirmwareUpdateService(
                     var otaProgress = new InlineProgress<OtaProgress>(value =>
                     {
                         var percentage = Math.Clamp(value.Percentage, 0, 100);
+                        if (candidate.Protocol == OtaProtocol.Slb &&
+                            value.State is OtaState.FeedbackProgress or OtaState.VerifyingFirmware)
+                            percentage = Math.Min(99.9, percentage);
                         if (candidate.Protocol == OtaProtocol.SingleBank &&
                             value.State == OtaState.UpgradeCompleteWaitingDisconnect &&
                             value.TotalBytes > 0 &&
@@ -368,7 +371,7 @@ public sealed class FirmwareUpdateService(
                             $"state={value.State}, progress={percentage:0.0}%, bytes={value.BytesTransferred}/{value.TotalBytes}, message={value.Message}");
                         progress?.Report(
                             new FirmwareUpdateProgress(
-                                value.State == OtaState.FeedbackProgress
+                                value.State is OtaState.FeedbackProgress or OtaState.VerifyingFirmware
                                     ? FirmwareUpdateStage.Transferring
                                     : FirmwareUpdateStage.Connecting,
                                 percentage,
@@ -593,6 +596,7 @@ public sealed class FirmwareUpdateService(
             OtaState.FeedbackBootVersion => AppResources.Firmware_VersionValidated,
             OtaState.FeedbackProgress =>
                 Localization.Format(nameof(AppResources.Firmware_TransferProgress), progress.Percentage),
+            OtaState.VerifyingFirmware => AppResources.Firmware_Verifying,
             OtaState.UpgradeCompleteWaitingDisconnect =>
                 AppResources.Firmware_WaitingForRestart,
             _ => AppResources.Firmware_OtaProcessing
