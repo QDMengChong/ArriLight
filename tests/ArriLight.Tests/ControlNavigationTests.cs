@@ -6,6 +6,21 @@ namespace ArriLight.Tests;
 public sealed class ControlNavigationTests
 {
     [Fact]
+    public async Task DeviceGroupUsesTheSameFirstFrameControlPipelineWithNoDeviceAddressOrBluetoothTeardown()
+    {
+        await using var fixture = new PairingFixture();
+        var control = new DeviceControlPage(string.Empty) { RequireFirstFrameForTest = true };
+        control.AppearConnectionForTest(fixture.Discovery, isGroup: true);
+        control.NavigatedForTest(); control.Dispatcher.RunNext();
+        Assert.False(control.ControlsStartedForTest.Task.IsCompleted);
+        control.DrawFirstFrameForTest();
+        await control.DeferredInitializationForTest!.WaitAsync(TimeSpan.FromSeconds(2));
+        Assert.True(control.ControlsStartedForTest.Task.IsCompleted);
+        Assert.Equal(1, control.InitializationCalls); Assert.Equal(0, fixture.Discovery.StopCalls);
+        Assert.Empty(fixture.Ble.ConnectAttempts);
+        control.LeaveConnectionForTest();
+    }
+    [Fact]
     public async Task SlowCancellationCallbackDoesNotBlockHomeNavigation()
     {
         await using var fixture = new PairingFixture();

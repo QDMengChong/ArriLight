@@ -21,6 +21,12 @@ public partial class DeviceControlPageViewModel
 
     private void PersistCustomPresets()
     {
+        if (IsGroup)
+        {
+            var presets = Presets.Select((preset, slot) => preset.IsSaved ? preset.ToSaved(slot) : null).OfType<SavedControlPreset>().ToArray();
+            SaveGroupSettings(group => group with { CustomPresets = presets });
+            return;
+        }
         if (string.IsNullOrWhiteSpace(DeviceAddress))
             return;
 

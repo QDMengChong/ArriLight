@@ -86,6 +86,7 @@ namespace ArriLight.ViewModels
     }
     public partial class DeviceControlPageViewModel
     {
+        internal Task FlushLightingForTestAsync() => SendLightSettingsAsync(CancellationToken.None, debounce: false);
         internal void SetEffectForTest(ArriOpto.BLE.Agp.AgpLightMode mode) => EffectMode = mode;
         internal Task LocalModeLoadForTest => _localModeLoadTask;
         internal async Task LoadModeForTestAsync()

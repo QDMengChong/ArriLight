@@ -1867,6 +1867,7 @@ This is sample text for interface design. The final version should be profession
   <data name="Group_MoveUp" xml:space="preserve"><value>Move up</value></data>
   <data name="Group_MoveDown" xml:space="preserve"><value>Move down</value></data>
   <data name="Group_Details" xml:space="preserve"><value>Details</value></data>
+  <data name="Group_ControlMember" xml:space="preserve"><value>Control</value></data>
   <data name="Group_OpenControl" xml:space="preserve"><value>Control group</value></data>
   <data name="Group_Delete" xml:space="preserve"><value>Delete group</value></data>
   <data name="Group_DeleteConfirmation" xml:space="preserve"><value>Delete this group? Its devices will remain in the app.</value></data>
@@ -1917,4 +1918,7 @@ This is sample text for interface design. The final version should be profession
   <data name="Group_PresetsFull" xml:space="preserve"><value>Up to 6 group presets can be saved. Delete one first.</value></data>
   <data name="Group_SettingsSaved" xml:space="preserve"><value>Group settings saved</value></data>
   <data name="Group_SettingsHint" xml:space="preserve"><value>Presets, effect periods and countdown defaults are saved to this group only. Use individual devices for schedules, updates and sharing.</value></data>
+  <data name="Group_Information" xml:space="preserve"><value>Group details</value></data>
+  <data name="Group_Name" xml:space="preserve"><value>Group name</value></data>
+  <data name="Group_Id" xml:space="preserve"><value>Group ID</value></data>
 </root>

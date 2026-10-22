@@ -36,7 +36,6 @@ public static class MauiProgram
         builder.Services.AddTransient<DebugConfigurationPageViewModel>();
         builder.Services.AddTransient<DeviceControlPageViewModel>();
         builder.Services.AddTransient<DeviceMorePageViewModel>();
-        builder.Services.AddTransient<DeviceGroupPageViewModel>();
         builder.Services.AddTransient<DeviceGroupMembersPageViewModel>();
         builder.Services.AddTransient<DeviceSharePageViewModel>();
         builder.Services.AddTransient<FirmwareUpdatePageViewModel>();

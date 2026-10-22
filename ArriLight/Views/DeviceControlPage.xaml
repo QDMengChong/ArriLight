@@ -44,6 +44,7 @@
             Priority="0"
             Text="{x:Static strings:AppResources.Common_Refresh}" />
         <ToolbarItem
+            x:Name="MoreToolbarItem"
             Command="{Binding MoreCommand}"
             IconImageSource="profile_settings.svg"
             Order="Primary"

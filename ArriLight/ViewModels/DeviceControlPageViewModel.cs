@@ -64,9 +64,9 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     private bool _isPowerChanging;
     [ObservableProperty, NotifyPropertyChangedFor(nameof(CanTogglePower))]
     private bool _hasPendingUserOperation;
-    public bool SupportsPower => !IsMeshDevice || !HasKnownCapabilities ||
-        SupportedCapabilities.HasFlag(AgpCapabilities.OnOff);
-    public bool CanTogglePower => SupportsPower && !IsPowerChanging && !HasPendingUserOperation;
+    public bool SupportsPower => IsGroup ? SupportedCapabilities.HasFlag(AgpCapabilities.OnOff) :
+        !IsMeshDevice || !HasKnownCapabilities || SupportedCapabilities.HasFlag(AgpCapabilities.OnOff);
+    public bool CanTogglePower => SupportsPower && !IsPowerChanging && !HasPendingUserOperation && (!IsGroup || IsDeviceOnline);
     private CancellationTokenSource? _lightSettingsCancellation;
     private Task? _lightSettingsTask;
     [ObservableProperty]
@@ -86,7 +86,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     public bool CanRefreshStatus =>
         !IsDemo && !AutomaticConnectionPending && !IsInitializingConnection &&
-        !string.IsNullOrWhiteSpace(DeviceAddress);
+        (IsGroup || !string.IsNullOrWhiteSpace(DeviceAddress));
 
     public double ControlOpacity => IsDeviceOnline ? 1 : 0.45;
 
@@ -135,12 +135,13 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     public DeviceControlPageViewModel(DeviceRepository repository, BluetoothDiscoveryService discoveryService,
         BluetoothConnectionService connectionService, AgpLightControlService agpLight,
         AppDiagnosticService diagnostics, IUiDispatcher dispatcher, IAppNavigator navigator,
-        IUserInteraction interaction, MeshDeviceControlService meshControl)
+        IUserInteraction interaction, MeshDeviceControlService meshControl, DeviceGroupService? groups = null)
     {
         _repository = repository; _discoveryService = discoveryService; _connectionService = connectionService;
         _agpLight = agpLight; _diagnostics = diagnostics; _dispatcher = dispatcher;
         _navigator = navigator; _interaction = interaction; _isReady = true;
         _meshControl = meshControl;
+        _groups = groups;
     }
 
     public void ConfigureInitialKind(AgpControlPageKind kind)
@@ -171,6 +172,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     partial void OnIsTurnOnDelayEnabledChanged(bool value)
     {
+        if (IsGroup) { SaveGroupSettings(group => group with { AutoOffEnabled = value }); return; }
         if (_isReady && !string.IsNullOrWhiteSpace(DeviceAddress))
             _repository.SetTurnOnDelayEnabled(DeviceAddress, value);
     }
@@ -182,6 +184,12 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     partial void OnTimerSecondsTextChanged(string value) => SaveTimerSeconds(value);
     private void SaveTimerSeconds(string value)
     {
+        if (IsGroup)
+        {
+            if (int.TryParse(value, out var groupSeconds) && groupSeconds is >= 1 and <= 86400)
+            { _pendingTimerSeconds = groupSeconds; SaveGroupSettings(group => group with { TimerSeconds = groupSeconds }); }
+            return;
+        }
         if (_isReady && !string.IsNullOrWhiteSpace(DeviceAddress) &&
             int.TryParse(value, out var seconds) && seconds is >= 1 and <= 86400 &&
             _repository.GetTimerSeconds(DeviceAddress) != seconds)
@@ -189,6 +197,12 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     }
     private void SaveTurnOnDelaySeconds(string value)
     {
+        if (IsGroup)
+        {
+            if (int.TryParse(value, out var groupSeconds) && groupSeconds is >= 1 and <= 86400)
+            { _pendingTurnOnDelaySeconds = groupSeconds; SaveGroupSettings(group => group with { AutoOffSeconds = groupSeconds }); }
+            return;
+        }
         if (!_isReady || string.IsNullOrWhiteSpace(DeviceAddress) ||
             !int.TryParse(value, out var seconds) || seconds is < 1 or > 86400) return;
         _pendingTurnOnDelaySeconds = seconds;
@@ -207,6 +221,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     public override Task OnAppearingAsync()
     {
+        if (IsGroup) return OnGroupAppearingAsync();
         _isControlPageVisible = true;
         IsLocked = false;
         IsBatterySupported = false;
@@ -318,6 +333,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     public override void OnDisappearing()
     {
+        if (_groups is not null) _groups.Changed -= OnGroupChanged;
         _isControlPageVisible = false;
         CancelLocalModeOperations();
         _connectionInitializationCancellation?.Cancel();
@@ -336,6 +352,8 @@ public partial class DeviceControlPageViewModel : ViewModelBase
 
     public override void ApplyQueryAttributes(IDictionary<string, object> query)
     {
+        ApplyGroupQuery(query);
+        if (IsGroup) return;
         if (query.TryGetValue("name", out var value) && value is not null)
             DeviceName = Uri.UnescapeDataString(value.ToString()!);
 
@@ -346,6 +364,11 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task MoreAsync()
     {
+        if (IsGroup)
+        {
+            await _navigator.GoToAsync($"DeviceMorePage?groupId={Uri.EscapeDataString(GroupId)}");
+            return;
+        }
         if (string.IsNullOrWhiteSpace(DeviceAddress))
             return;
 
@@ -358,6 +381,12 @@ public partial class DeviceControlPageViewModel : ViewModelBase
         bool scanAlreadyStopped = false)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (IsGroup)
+        {
+            ReloadGroup(initialize: refreshStatus || !_groupInitialized);
+            await RedirectEmptyGroupAsync();
+            return;
+        }
         if (IsInitializingConnection &&
             _connectionInitializationCancellation?.IsCancellationRequested == true &&
             _connectionInitializationTask is { } previousInitialization)
@@ -377,6 +406,7 @@ public partial class DeviceControlPageViewModel : ViewModelBase
     [RelayCommand]
     private async Task ScheduleAsync()
     {
+        if (IsGroup) return;
         if (!IsDeviceOnline || !SupportedCapabilities.HasFlag(AgpCapabilities.RtcTime))
             return;
 

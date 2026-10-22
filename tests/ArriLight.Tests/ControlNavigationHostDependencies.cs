@@ -6,6 +6,7 @@ public partial class DeviceControlPage
     // rendered controls are replaced at the MAUI boundary in these host tests.
     private BluetoothDiscoveryService _discoveryService = null!;
     private bool _isDemo;
+    private bool _isGroup;
     private readonly TestTransitionView ControlPageContent = new();
     internal TestTransitionView TransitionForTest => ControlPageContent;
     public string ConnectionStatusText { get; private set; } = "正在准备设备连接…";
@@ -20,10 +21,11 @@ public partial class DeviceControlPage
     internal Func<CancellationToken, Task>? OnInitialize { get; set; }
     internal Task? DeferredInitializationForTest => _deferredConnectionInitializationTask;
     internal Task? BlePreparationForTest => _blePreparationTask;
-    internal void AppearConnectionForTest(BluetoothDiscoveryService discovery, bool isDemo = false)
+    internal void AppearConnectionForTest(BluetoothDiscoveryService discovery, bool isDemo = false, bool isGroup = false)
     {
         _discoveryService = discovery;
         _isDemo = isDemo;
+        _isGroup = isGroup;
         BeginControlPageAppearance();
     }
     internal void NavigatedForTest() => OnNavigatedTo(new NavigatedToEventArgs());
@@ -47,6 +49,7 @@ public partial class DeviceControlPage
     private void NotifyAutomaticConnectionPending(bool pending) { }
     private async Task PrepareControlSessionAsync(CancellationToken token)
     {
+        if (_isGroup) { await EnsureConnectedAsync(false, cancellationToken: token); return; }
         await Task.Run(_discoveryService.StopAsync, token).WaitAsync(token);
         token.ThrowIfCancellationRequested();
         await EnsureConnectedAsync(false, cancellationToken: token, scanAlreadyStopped: true);

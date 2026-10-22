@@ -8,6 +8,208 @@ public sealed class DeviceGroupTests
 {
     private const AgpCapabilities Basic = AgpCapabilities.OnOff | AgpCapabilities.Lightness;
 
+    [Theory]
+    [InlineData(BluetoothDeviceProtocol.Agp, true)]
+    [InlineData(BluetoothDeviceProtocol.Agp, false)]
+    [InlineData(BluetoothDeviceProtocol.Mesh, true)]
+    [InlineData(BluetoothDeviceProtocol.Mesh, false)]
+    public async Task MemberControlOpensTheIndividualDeviceForEitherProtocolEvenWhenOffline(BluetoothDeviceProtocol protocol, bool online)
+    {
+        var f = new GroupFixture();
+        const string address = "AA:BB:CC:DD:EE:FF";
+        const string name = "摄影灯 & A=1";
+        f.Devices.TryAdd(name, address, protocol);
+        f.Backend.Snapshots[address] = new(f.Devices.GetByAddress(address)!, Basic, null, online ? 1 : null);
+        var group = f.Create(address); var navigator = new GroupNavigator();
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), navigator, new GroupInteraction());
+        members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id, ["returnToControl"] = "true" });
+        await members.OnAppearingAsync();
+        await members.ControlMemberCommand.ExecuteAsync(Assert.Single(members.Members));
+        Assert.Equal($"DeviceControlPage?name={Uri.EscapeDataString(name)}&address={Uri.EscapeDataString(address)}", Assert.Single(navigator.Routes));
+        Assert.Empty(f.Backend.Executions); Assert.Empty(f.Radio.ConnectAttempts);
+        members.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task DemoMemberControlUsesTheSameDemoPageAsHome()
+    {
+        await using var f = new PairingFixture();
+        var demo = f.Repository.GetAll().First(device => device.IsDemo);
+        var group = await RealGroup(f, [demo.Address]); var navigator = new GroupNavigator();
+        var members = new DeviceGroupMembersPageViewModel(group.Service, new ImmediateDispatcher(), navigator, new GroupInteraction());
+        members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
+        await members.OnAppearingAsync(); await members.ControlMemberCommand.ExecuteAsync(Assert.Single(members.Members));
+        Assert.Equal($"HslCtlDeviceControlPage?name={Uri.EscapeDataString(demo.DisplayName)}&address={Uri.EscapeDataString(demo.Address)}", Assert.Single(navigator.Routes));
+        Assert.Empty(f.Ble.Requests); members.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task MemberControlIgnoresRepeatedTapsUntilReturningFromTheDevice()
+    {
+        var f = new GroupFixture(); var group = f.Create("A", "B");
+        var navigator = new GroupNavigator { Release = new(TaskCreationOptions.RunContinuationsAsynchronously) };
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), navigator, new GroupInteraction());
+        members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
+        await members.OnAppearingAsync();
+        var first = members.ControlMemberCommand.ExecuteAsync(members.Members[0]);
+        await members.ControlMemberCommand.ExecuteAsync(members.Members[1]); Assert.Single(navigator.Routes);
+        navigator.Release.SetResult(); await first;
+        await members.ControlMemberCommand.ExecuteAsync(members.Members[0]); Assert.Single(navigator.Routes);
+        members.OnDisappearing(); await members.OnAppearingAsync();
+        await members.ControlMemberCommand.ExecuteAsync(members.Members[1]); Assert.Equal(2, navigator.Routes.Count);
+        Assert.EndsWith("&address=B", navigator.Routes[1]); members.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task MemberControlCanRetryAfterNavigationFailure()
+    {
+        var f = new GroupFixture(); var group = f.Create("A");
+        var navigator = new GroupNavigator { Failure = new InvalidOperationException("Navigation failed") };
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), navigator, new GroupInteraction());
+        members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
+        await members.OnAppearingAsync(); await members.ControlMemberCommand.ExecuteAsync(members.Members[0]);
+        Assert.Equal("Navigation failed", members.ErrorMessage);
+        navigator.Failure = null; await members.ControlMemberCommand.ExecuteAsync(members.Members[0]);
+        Assert.Equal(2, navigator.Routes.Count); Assert.Empty(members.ErrorMessage); members.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task RemovedMemberCannotOpenControlFromAStaleCard()
+    {
+        var f = new GroupFixture(); var group = f.Create("A"); var navigator = new GroupNavigator();
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), navigator, new GroupInteraction());
+        members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
+        await members.OnAppearingAsync(); var stale = members.Members[0]; f.Groups.RemoveMember(group.Id, "A");
+        await members.ControlMemberCommand.ExecuteAsync(stale);
+        Assert.Empty(navigator.Routes); Assert.Empty(members.Members); members.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task MemberCardsUpdateHomeStatusInPlaceAndKeepOrderButtonsAccurate()
+    {
+        var f = new GroupFixture(); var group = f.Create("A", "B");
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), new GroupNavigator(), new GroupInteraction());
+        members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
+        await members.OnAppearingAsync(); var card = members.Members[0];
+        var resets = 0; members.Members.CollectionChanged += (_, _) => resets++;
+        var runtime = new DeviceRuntimeSnapshot("A", DeviceRuntimeAvailability.Ready, null, 1,
+            new Dictionary<DeviceRuntimeStep, DeviceRuntimeStepResult>(), false, false);
+        f.Backend.Set("A", snapshot => snapshot with { Runtime = runtime, BatteryLevelPercent = 76, IsLocked = true });
+        f.Backend.Notify();
+        Assert.Same(card, members.Members[0]); Assert.Equal(0, resets);
+        Assert.True(card.Device.IsReady); Assert.True(card.Device.IsBatteryVisible);
+        Assert.Equal("76%", card.Device.BatteryLevelText); Assert.True(card.Device.IsLocked);
+        Assert.Equal(AppResources.Device_Ready, card.Device.Status);
+        f.Backend.Set("A", snapshot => snapshot with { Runtime = runtime with { Availability = DeviceRuntimeAvailability.Offline } });
+        f.Backend.Notify();
+        Assert.Same(card, members.Members[0]); Assert.False(card.Device.IsOnline); Assert.False(card.Device.IsBatteryVisible);
+        Assert.Equal(AppResources.Device_Offline, card.Device.Status);
+        members.MoveDownCommand.Execute(card);
+        Assert.Same(card, members.Members[1]); Assert.True(card.CanMoveUp); Assert.False(card.CanMoveDown); Assert.False(card.IsReference);
+        Assert.True(members.Members[0].IsReference); Assert.False(members.Members[0].CanMoveUp); Assert.True(members.Members[0].CanMoveDown);
+        members.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task EmptySharedControlRedirectsToMembersAndTheMemberPageDoesNotLoopBack()
+    {
+        var f = new GroupFixture(); var group = f.Create(); var navigator = new GroupNavigator();
+        var model = f.Model(group.Id, navigator);
+        await model.OnAppearingAsync();
+        Assert.True(model.IsGroup); Assert.False(model.IsDeviceOnline); Assert.False(model.CanTogglePower);
+        await model.PrepareControlSessionAsync(CancellationToken.None);
+        Assert.Equal($"../DeviceGroupMembersPage?groupId={group.Id}", Assert.Single(navigator.Routes));
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), navigator, new GroupInteraction());
+        members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
+        await members.OnAppearingAsync(); await members.OpenControlCommand.ExecuteAsync(null);
+        Assert.Single(navigator.Routes); Assert.Equal(AppResources.Group_NoMembers, members.ErrorMessage);
+        f.Groups.AddMember(group.Id, "A");
+        await members.OpenControlCommand.ExecuteAsync(null);
+        Assert.Equal($"../DeviceControlPage?groupId={group.Id}", navigator.Routes[1]);
+        Assert.Empty(f.Radio.ConnectAttempts);
+        members.OnDisappearing(); model.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task MemberManagementReturnsToExistingSharedControlAndMoreOpensGroupDetails()
+    {
+        var f = new GroupFixture(); var group = f.Create("A"); var navigator = new GroupNavigator();
+        var model = f.Model(group.Id, navigator); await model.OnAppearingAsync();
+        await model.ManageGroupMembersCommand.ExecuteAsync(null);
+        Assert.Equal($"DeviceGroupMembersPage?groupId={group.Id}&returnToControl=true", Assert.Single(navigator.Routes));
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), navigator, new GroupInteraction());
+        members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id, ["returnToControl"] = "true" });
+        await members.OpenControlCommand.ExecuteAsync(null);
+        Assert.Equal("..", navigator.Routes[1]);
+        await model.MoreCommand.ExecuteAsync(null);
+        Assert.Equal($"DeviceMorePage?groupId={group.Id}", navigator.Routes[2]);
+        model.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task SharedGroupControlsKeepCommandOrderAndSaveOnlyGroupConfiguration()
+    {
+        var f = new GroupFixture();
+        f.Backend.Set("A", s => s with { Capabilities = Basic | AgpCapabilities.Effects | AgpCapabilities.RelativeTimer | AgpCapabilities.LocalMode });
+        var group = f.Create("A"); var before = f.Devices.GetByAddress("A");
+        var model = f.Model(group.Id); await model.OnAppearingAsync();
+        model.IsTurnOnDelayEnabled = true; model.TurnOnDelaySecondsText = "120";
+        await model.MasterPowerCommand.ExecuteAsync(null);
+        await model.SetEffectAsync(AgpLightMode.Breathe, 600);
+        model.TimerSecondsText = "300"; model.TimerModeIndex = 1;
+        await model.TimerSendCommand.ExecuteAsync(null);
+        model.IsAlwaysOnMode = false; await model.SetLocalModeCommand.ExecuteAsync(null);
+        await model.SavePresetCommand.ExecuteAsync(null);
+        await model.ApplyPresetCommand.ExecuteAsync(model.Presets.First(p => p.IsSaved));
+        await WaitUntil(() => f.Backend.Executions.Count == 6);
+        Assert.Equal([DeviceGroupCommandKind.Power, DeviceGroupCommandKind.Effect, DeviceGroupCommandKind.Timer,
+            DeviceGroupCommandKind.LocalMode, DeviceGroupCommandKind.Lighting, DeviceGroupCommandKind.Effect],
+            f.Backend.Executions.Select(e => e.Command.Kind));
+        Assert.Equal(120, f.Backend.Executions[0].Command.Seconds);
+        Assert.Equal(300, f.Backend.Executions[2].Command.Seconds);
+        Assert.Equal(new AgpModeConfig(AgpLocalMode.OnAutoOff, OffSeconds: 120), f.Backend.Executions[3].Command.LocalMode);
+        Assert.Equal((ushort)600, f.Groups.Repository.Get(group.Id)!.BreathePeriodMilliseconds);
+        Assert.Single(f.Groups.Repository.Get(group.Id)!.CustomPresets!);
+        Assert.Equal(before, f.Devices.GetByAddress("A")); Assert.Empty(f.Radio.Requests);
+        Assert.False(model.IsBatterySupported);
+        Assert.False(model.SupportedCapabilities.HasFlag(AgpCapabilities.Scheduler));
+        model.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task SharedGroupRefreshResnapshotsTheReferenceWithoutConnectingDevices()
+    {
+        var f = new GroupFixture(); var group = f.Create("A"); var model = f.Model(group.Id);
+        await model.OnAppearingAsync(); await model.PrepareControlSessionAsync(CancellationToken.None);
+        await model.MasterPowerCommand.ExecuteAsync(null); Assert.True(model.GroupPowerState);
+        f.Backend.Set("A", s => s with { IsOn = false, Brightness = 65 }); f.Backend.Notify();
+        Assert.True(model.GroupPowerState); Assert.Equal(30, model.Brightness);
+        await model.RefreshCommand.ExecuteAsync(null);
+        Assert.False(model.GroupPowerState); Assert.Equal(65, model.Brightness);
+        Assert.Empty(f.Radio.ConnectAttempts); Assert.Empty(f.Radio.Requests);
+        model.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task GroupDetailsRenameAndDeleteOnlyTheGroupWithoutPreparingADevice()
+    {
+        await using var f = new PairingFixture(); var repository = new DeviceGroupRepository(f.Repository);
+        var group = repository.Create("Original"); repository.SetMembers(group.Id, [f.Address]);
+        var navigator = new GroupNavigator();
+        var more = new DeviceMorePageViewModel(f.Repository, f.Service, navigator, new GroupInteraction(), new ImmediateDispatcher(), repository);
+        more.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
+        await more.OnAppearingAsync();
+        Assert.True(more.IsGroup); Assert.False(more.ShowDeviceDetails); Assert.Equal(group.Id, more.DeviceId);
+        await more.RenameCommand.ExecuteAsync(null); Assert.Equal("Preset", repository.Get(group.Id)!.Name);
+        Assert.Equal("PW01", f.Repository.GetByAddress(f.Address)!.Name);
+        await more.FirmwareCommand.ExecuteAsync(null); await more.ShareCommand.ExecuteAsync(null);
+        Assert.Empty(navigator.Routes);
+        await more.UnbindCommand.ExecuteAsync(null);
+        Assert.Null(repository.Get(group.Id)); Assert.True(f.Repository.Contains(f.Address));
+        Assert.Empty(f.Ble.Requests); Assert.Empty(f.Ble.ConnectAttempts);
+        more.OnDisappearing();
+    }
+
     [Fact]
     public async Task HomeGroupEntrySharesNavigationGuardWithDevicesAndReopensAfterReturning()
     {
@@ -25,12 +227,17 @@ public sealed class DeviceGroupTests
         var first = home.OpenGroupCommand.ExecuteAsync(home.Groups[0]);
         await home.OpenControlCommand.ExecuteAsync(home.Devices.First());
         Assert.Single(navigator.Routes);
+        Assert.Equal($"DeviceGroupMembersPage?groupId={group.Id}", navigator.Routes[0]);
         navigator.Release.SetResult(); await first;
         await home.OpenGroupCommand.ExecuteAsync(home.Groups[0]);
         Assert.Single(navigator.Routes);
         home.OnDisappearing(); await home.OnAppearingAsync();
+        f.Repository.SetCapabilities(f.Address, Basic);
+        backend.Snapshots[f.Address] = new(f.Repository.GetByAddress(f.Address)!, Basic, null, null);
+        groups.AddMember(group.Id, f.Address);
         await home.OpenGroupCommand.ExecuteAsync(home.Groups[0]);
         Assert.Equal(2, navigator.Routes.Count);
+        Assert.Equal($"DeviceControlPage?groupId={group.Id}", navigator.Routes[1]);
         Assert.Empty(f.Ble.ConnectAttempts);
         home.OnDisappearing();
     }
@@ -105,7 +312,7 @@ public sealed class DeviceGroupTests
         var group = f.Create("A");
         var model = f.Model(group.Id); await model.OnAppearingAsync();
         Assert.True(model.SupportsBrightness);
-        model.ApplyLightingCommand.Execute(null);
+        await model.FlushLightingForTestAsync();
         await f.Backend.WaitForExecution("A");
         Assert.Equal(modelKind, Assert.Single(f.Backend.Executions).Command.ColorModel);
         model.OnDisappearing();
@@ -238,16 +445,16 @@ public sealed class DeviceGroupTests
         f.Backend.Set("A", s => s with { IsOn = false, Brightness = 25 });
         var model = f.Model(group.Id);
         await model.OnAppearingAsync();
-        Assert.False(model.IsOn); Assert.Equal(25, model.Brightness);
-        model.TurnOnCommand.Execute(null);
-        Assert.True(model.IsOn);
+        Assert.False(model.GroupPowerState); Assert.Equal(25, model.Brightness);
+        model.MasterPowerCommand.Execute(null);
+        Assert.True(model.GroupPowerState);
         f.Backend.Set("A", s => s with { IsOn = false, Brightness = 70 });
         f.Backend.Notify();
-        Assert.True(model.IsOn); Assert.Equal(25, model.Brightness);
-        Assert.Contains("2", model.OperationText);
+        Assert.True(model.GroupPowerState); Assert.Equal(25, model.Brightness);
+        Assert.Contains("2", model.GroupOperationText);
         model.OnDisappearing();
         var reopened = f.Model(group.Id); await reopened.OnAppearingAsync();
-        Assert.False(reopened.IsOn); Assert.Equal(70, reopened.Brightness);
+        Assert.False(reopened.GroupPowerState); Assert.Equal(70, reopened.Brightness);
         reopened.OnDisappearing();
     }
 
@@ -257,8 +464,8 @@ public sealed class DeviceGroupTests
         var f = new GroupFixture(); var group = f.Create("A", "B");
         f.Backend.Set("A", s => s with { ConnectionGeneration = null, IsOn = null, Brightness = null });
         var model = f.Model(group.Id); await model.OnAppearingAsync();
-        Assert.Null(model.IsOn); Assert.True(model.CanControl);
-        model.TurnOffCommand.Execute(null); Assert.False(model.IsOn);
+        Assert.Null(model.GroupPowerState); Assert.True(model.IsDeviceOnline);
+        model.MasterPowerCommand.Execute(null); Assert.True(model.GroupPowerState);
         await f.Backend.WaitForExecution("B");
         Assert.DoesNotContain(f.Backend.Executions, e => e.Address == "A");
         model.OnDisappearing();
@@ -274,7 +481,7 @@ public sealed class DeviceGroupTests
         members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
         await members.OnAppearingAsync();
         f.Groups.MoveMember(group.Id, "B", -1);
-        Assert.Equal(55, model.Brightness); Assert.True(model.IsOn);
+        Assert.Equal(55, model.Brightness); Assert.True(model.GroupPowerState);
         Assert.Equal("B", members.Members[0].Address);
         f.Backend.Set("B", s => s with { Brightness = 66 }); f.Backend.Notify();
         Assert.Contains("66%", members.Members[0].Detail);
@@ -288,8 +495,7 @@ public sealed class DeviceGroupTests
         var f = new GroupFixture(); var group = f.Create("A");
         var before = f.Devices.GetByAddress("A");
         var model = f.Model(group.Id); await model.OnAppearingAsync();
-        model.AutoOffEnabled = true; model.AutoOffSecondsText = "120"; model.TimerSecondsText = "300";
-        model.SaveGroupSettingsCommand.Execute(null);
+        model.IsTurnOnDelayEnabled = true; model.TurnOnDelaySecondsText = "120"; model.TimerSecondsText = "300";
         await model.SavePresetCommand.ExecuteAsync(null);
         var saved = new DeviceGroupRepository(f.Devices).Get(group.Id)!;
         Assert.True(saved.AutoOffEnabled); Assert.Equal(120, saved.AutoOffSeconds); Assert.Equal(300, saved.TimerSeconds);
@@ -373,11 +579,12 @@ public sealed class DeviceGroupTests
         f.Ble.BeforeWriteAsync = message =>
         { if (message.Opcode != AgpOpcode.OnOffSet) return Task.CompletedTask; entered.TrySetResult(); return release.Task; };
         var group = await RealGroup(f, [f.Address]);
-        var model = new DeviceGroupPageViewModel(group.Service, new ImmediateDispatcher(), new TestAppNavigator(), new GroupInteraction());
+        var model = new DeviceControlPageViewModel(f.Repository, f.Discovery, f.Connection, f.Service, new AppDiagnosticService(),
+            new ImmediateDispatcher(), new TestAppNavigator(), new GroupInteraction(), new StubMeshDeviceControlService(), group.Service);
         model.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
-        await model.OnAppearingAsync(); model.TurnOffCommand.Execute(null);
+        await model.OnAppearingAsync(); model.MasterPowerCommand.Execute(null);
         await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.False(model.IsOn); model.OnDisappearing();
+        Assert.False(model.GroupPowerState); model.OnDisappearing();
         release.SetResult();
         await WaitUntil(() => f.Service.GetRuntimeSnapshot(f.Address)?.LastOperation?.Stage == DeviceRuntimeOperationStage.Confirmed);
         Assert.False(f.Service.GetCachedDeviceStatus(f.Address)!.LightState!.IsOn);
@@ -401,7 +608,9 @@ public sealed class DeviceGroupTests
 
     private sealed class GroupFixture
     {
-        public DeviceRepository Devices { get; } = new();
+        private readonly PairingFixture _fixture = new();
+        public DeviceRepository Devices => _fixture.Repository;
+        public FakeBle Radio => _fixture.Ble;
         public GroupBackend Backend { get; } = new();
         public DeviceGroupService Groups { get; }
         public GroupFixture()
@@ -417,9 +626,10 @@ public sealed class DeviceGroupTests
         }
         public SavedDeviceGroup Create(params string[] members)
         { var group = Groups.Repository.Create("Group"); foreach (var member in members) Groups.AddMember(group.Id, member); return Groups.Repository.Get(group.Id)!; }
-        public DeviceGroupPageViewModel Model(string id)
+        public DeviceControlPageViewModel Model(string id, IAppNavigator? navigator = null)
         {
-            var model = new DeviceGroupPageViewModel(Groups, new ImmediateDispatcher(), new TestAppNavigator(), new GroupInteraction());
+            var model = new DeviceControlPageViewModel(Devices, _fixture.Discovery, _fixture.Connection, _fixture.Service, new AppDiagnosticService(),
+                new ImmediateDispatcher(), navigator ?? new TestAppNavigator(), new GroupInteraction(), new StubMeshDeviceControlService(), Groups);
             model.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = id }); return model;
         }
     }
@@ -473,6 +683,8 @@ public sealed class DeviceGroupTests
     {
         public List<string> Routes { get; } = [];
         public TaskCompletionSource? Release { get; set; }
-        public Task GoToAsync(string route, bool animate = true) { Routes.Add(route); return Release?.Task ?? Task.CompletedTask; }
+        public Exception? Failure { get; set; }
+        public Task GoToAsync(string route, bool animate = true)
+        { Routes.Add(route); return Failure is { } failure ? Task.FromException(failure) : Release?.Task ?? Task.CompletedTask; }
     }
 }

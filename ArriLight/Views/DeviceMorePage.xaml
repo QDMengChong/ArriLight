@@ -7,7 +7,7 @@
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     xmlns:local="clr-namespace:ArriLight"
     x:DataType="vm:DeviceMorePageViewModel"
-    Title="{x:Static strings:AppResources.Device_Information}"
+    Title="{Binding PageTitle}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
 
     <Grid RowDefinitions="*,Auto">
@@ -43,7 +43,7 @@
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding RenameCommand}" />
                             </Grid.GestureRecognizers>
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_Name}" VerticalTextAlignment="Center" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{Binding NameFieldText}" VerticalTextAlignment="Center" />
                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
                                 <Label
                                     FontSize="14"
@@ -60,13 +60,13 @@
                         </Grid>
                         <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
-                            <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_Id}" VerticalTextAlignment="Center" />
+                            <Label Style="{StaticResource MenuTitleStyle}" Text="{Binding IdFieldText}" VerticalTextAlignment="Center" />
                             <Label Grid.Column="1" FontSize="13" Text="{Binding DeviceId}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
                         </Grid>
                     </VerticalStackLayout>
                 </Border>
 
-                <Border Style="{StaticResource MenuCardStyle}" Padding="0">
+                <Border Style="{StaticResource MenuCardStyle}" Padding="0" IsVisible="{Binding ShowDeviceDetails}">
                     <VerticalStackLayout Spacing="0">
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
                             <Grid.GestureRecognizers>
@@ -128,7 +128,7 @@
                 Command="{Binding UnbindCommand}"
                 CornerRadius="24"
                 HeightRequest="50"
-                Text="{x:Static strings:AppResources.Device_Unbind}"
+                Text="{Binding RemovalText}"
                 TextColor="#E65B65" />
         </Border>
     </Grid>

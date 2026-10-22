@@ -5,6 +5,9 @@ namespace ArriLight.Resources.Localization;
 // Typed accessors for AppResources.resx. All lookups use the application language service.
 public static class AppResources
 {
+    public static string Group_Information => global::ArriLight.Localization.GetString(nameof(Group_Information));
+    public static string Group_Name => global::ArriLight.Localization.GetString(nameof(Group_Name));
+    public static string Group_Id => global::ArriLight.Localization.GetString(nameof(Group_Id));
     public static string Group_Title => global::ArriLight.Localization.GetString(nameof(Group_Title));
     public static string Group_Create => global::ArriLight.Localization.GetString(nameof(Group_Create));
     public static string Group_NamePrompt => global::ArriLight.Localization.GetString(nameof(Group_NamePrompt));
@@ -15,6 +18,7 @@ public static class AppResources
     public static string Group_MoveUp => global::ArriLight.Localization.GetString(nameof(Group_MoveUp));
     public static string Group_MoveDown => global::ArriLight.Localization.GetString(nameof(Group_MoveDown));
     public static string Group_Details => global::ArriLight.Localization.GetString(nameof(Group_Details));
+    public static string Group_ControlMember => global::ArriLight.Localization.GetString(nameof(Group_ControlMember));
     public static string Group_OpenControl => global::ArriLight.Localization.GetString(nameof(Group_OpenControl));
     public static string Group_Delete => global::ArriLight.Localization.GetString(nameof(Group_Delete));
     public static string Group_DeleteConfirmation => global::ArriLight.Localization.GetString(nameof(Group_DeleteConfirmation));

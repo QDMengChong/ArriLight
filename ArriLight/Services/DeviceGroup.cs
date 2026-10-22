@@ -59,7 +59,8 @@ public sealed record DeviceGroupMemberSnapshot(
     double? Hue = null, double? Saturation = null, ushort? TemperatureKelvin = null,
     AgpColorModel ColorModel = AgpColorModel.None, AgpLightMode Effect = AgpLightMode.Steady,
     ushort? EffectPeriodMilliseconds = null, AgpModeConfig? LocalMode = null,
-    bool IsLocked = false, string? Detail = null);
+    bool IsLocked = false, string? Detail = null,
+    DeviceRuntimeSnapshot? Runtime = null, byte? BatteryLevelPercent = null);
 
 public interface IDeviceGroupBackend
 {

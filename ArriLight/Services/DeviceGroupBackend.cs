@@ -30,13 +30,15 @@ public sealed class DeviceGroupBackend : IDeviceGroupBackend
         {
             var profile = _mesh.GetCachedControlProfile(device.Address);
             var state = _mesh.GetCachedState(device.Address);
+            var runtime = _mesh.GetRuntimeSnapshot(device.Address);
             return new(device, profile?.Capabilities ?? device.Capabilities, profile?.CtlRange,
                 _mesh.GetGroupConnectionGeneration(device.Address), state?.IsOn, state?.LightnessPercent,
                 state?.Hue / (double)ushort.MaxValue, state?.Saturation / (double)ushort.MaxValue,
                 state?.TemperatureKelvin, state?.ActiveColorModel ?? AgpColorModel.None,
-                Detail: _mesh.GetRuntimeSnapshot(device.Address)?.Error);
+                Detail: runtime?.Error, Runtime: runtime);
         }
         var status = _agp.GetCachedDeviceStatus(device.Address);
+        var agpRuntime = _agp.GetRuntimeSnapshot(device.Address);
         var agpProfile = status?.Profile;
         double? hue = null, saturation = null; ushort? temperature = null;
         var color = AgpColorModel.None;
@@ -57,7 +59,7 @@ public sealed class DeviceGroupBackend : IDeviceGroupBackend
             _agp.GetGroupConnectionGeneration(device.Address), status?.LightState?.IsOn, brightness,
             hue, saturation, temperature, color, agpProfile?.EffectMode ?? AgpLightMode.Steady,
             agpProfile?.EffectPeriodMilliseconds, _agp.GetCachedLocalMode(device.Address), status?.LightState?.IsLocked == true,
-            _agp.GetRuntimeSnapshot(device.Address)?.Error);
+            agpRuntime?.Error, Runtime: agpRuntime, BatteryLevelPercent: agpProfile?.BatteryState?.LevelPercent);
     }
 
     public Task ExecuteAsync(DeviceGroupMemberSnapshot member, DeviceGroupCommand command,

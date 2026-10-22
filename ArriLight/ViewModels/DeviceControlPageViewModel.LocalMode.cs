@@ -130,6 +130,12 @@ public partial class DeviceControlPageViewModel
         var configuration = IsAlwaysOnMode
             ? new AgpModeConfig(AgpLocalMode.DelayNone)
             : new AgpModeConfig(AgpLocalMode.OnAutoOff, OffSeconds: seconds);
+        if (IsGroup)
+        {
+            if (SubmitGroupCommand(new(DeviceGroupCommandKind.LocalMode, LocalMode: configuration)))
+                ApplyLocalModeConfiguration(configuration, updateSeconds: false);
+            return;
+        }
         var secondsVersion = _delaySecondsEditVersion;
         var token = cancellation.Token;
         IsLocalModeBusy = true;

@@ -9,6 +9,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
 {
     private const int LongPressMilliseconds = 650;
     private readonly AppDiagnosticService _diagnostics;
+    private readonly ToolbarItem _groupMembersToolbar;
     private Task? _capabilityViewsTask;
     private bool _capabilityViewsReloadRequested;
     private bool _isApplyingControlState;
@@ -21,6 +22,7 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     private bool _suppressEffectClick;
     public DeviceControlPageViewModel ViewModel { get; }
     private bool _isDemo => ViewModel.IsDemo;
+    private bool _isGroup => ViewModel.IsGroup;
     private bool _isMasterPowerOn => ViewModel.IsMasterPowerOn;
     private bool _hasKnownCapabilities => ViewModel.HasKnownCapabilities;
     private bool _effectsSupported => ViewModel.EffectsSupported;
@@ -92,6 +94,16 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
         using var timing = _diagnostics.BeginBleTiming("UI.Control.CreateViews");
         InitializeComponent();
         BindingContext = ViewModel;
+        _groupMembersToolbar = new ToolbarItem
+        {
+            Text = AppResources.Group_Manage, IconImageSource = "action_group.svg", Order = ToolbarItemOrder.Primary,
+            Priority = 1, Command = ViewModel.ManageGroupMembersCommand
+        };
+        ViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(ViewModel.IsGroup)) SyncGroupToolbar();
+        };
+        SyncGroupToolbar();
         ViewModel.RenderRequested += RenderControlState;
         ViewModel.CapabilityViewsRetryRequested += () =>
         {
@@ -131,6 +143,13 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
     }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query) => ViewModel.ApplyQueryAttributes(query);
+
+    private void SyncGroupToolbar()
+    {
+        MoreToolbarItem.Priority = ViewModel.IsGroup ? 2 : 1;
+        if (ViewModel.IsGroup && !ToolbarItems.Contains(_groupMembersToolbar)) ToolbarItems.Insert(1, _groupMembersToolbar);
+        else if (!ViewModel.IsGroup) ToolbarItems.Remove(_groupMembersToolbar);
+    }
 
     private void NotifyAutomaticConnectionPending(bool pending) => ViewModel.AutomaticConnectionPending = pending;
     private Task PrepareControlSessionAsync(CancellationToken token) => ViewModel.PrepareControlSessionAsync(token);
@@ -505,6 +524,9 @@ public partial class DeviceControlPage : ContentPage, IQueryAttributable
             PresetControlLazyView.IsVisible = hasPresetSupport;
             CustomPresetSection.IsVisible = hasPresetSupport;
         }
+        if (HasEffectView) EffectControlLazyView.IsVisible = SupportsEffect;
+        if (TurnOnDelayControlLazyView.HasLazyViewLoaded)
+            TurnOnDelayControlLazyView.IsVisible = ViewModel.SupportsTurnOnDelay || ViewModel.SupportsLocalMode;
         BrightnessEffectSeparator.IsVisible = supportsBrightness && SupportsEffect;
 
         LightControlDescription.Text = _controlPageKind switch

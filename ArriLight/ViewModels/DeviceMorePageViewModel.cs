@@ -8,6 +8,14 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     private readonly DeviceRepository _repository;
     private readonly AgpLightControlService _agpLight;
     private readonly IUiDispatcher? _dispatcher;
+    private readonly DeviceGroupRepository? _groups;
+    private string _groupId = string.Empty;
+    public bool IsGroup => !string.IsNullOrWhiteSpace(_groupId);
+    public bool ShowDeviceDetails => !IsGroup;
+    public string PageTitle => IsGroup ? AppResources.Group_Information : AppResources.Device_Information;
+    public string NameFieldText => IsGroup ? AppResources.Group_Name : AppResources.Device_Name;
+    public string IdFieldText => IsGroup ? AppResources.Group_Id : AppResources.Device_Id;
+    public string RemovalText => IsGroup ? AppResources.Group_Delete : AppResources.Device_Unbind;
     private bool _isVisible;
     private CancellationTokenSource? _runtimeWait;
     internal Task RuntimePreparationTask { get; private set; } = Task.CompletedTask;
@@ -38,12 +46,17 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     private readonly IAppNavigator _navigator;
     private readonly IUserInteraction _interaction;
     public DeviceMorePageViewModel(DeviceRepository repository, AgpLightControlService agpLight,
-        IAppNavigator navigator, IUserInteraction interaction, IUiDispatcher? dispatcher = null)
+        IAppNavigator navigator, IUserInteraction interaction, IUiDispatcher? dispatcher = null, DeviceGroupRepository? groups = null)
     { _repository = repository; _agpLight = agpLight; _navigator = navigator; _interaction = interaction;
-        _dispatcher = dispatcher; }
+        _dispatcher = dispatcher; _groups = groups; }
 
     public override void ApplyQueryAttributes(IDictionary<string, object> query)
     {
+        _groupId = query.TryGetValue("groupId", out var group) ? Uri.UnescapeDataString(group?.ToString() ?? "") : string.Empty;
+        OnPropertyChanged(nameof(IsGroup)); OnPropertyChanged(nameof(ShowDeviceDetails));
+        OnPropertyChanged(nameof(PageTitle)); OnPropertyChanged(nameof(RemovalText));
+        OnPropertyChanged(nameof(NameFieldText)); OnPropertyChanged(nameof(IdFieldText));
+        if (IsGroup) { DeviceId = _groupId; return; }
         if (query.TryGetValue("address", out var value) && value is not null)
             DeviceId = Uri.UnescapeDataString(value.ToString()!);
     }
@@ -51,6 +64,12 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     public override Task OnAppearingAsync()
     {
         _isVisible = true;
+        if (IsGroup)
+        {
+            if (_groups is not null) { _groups.GroupsChanged -= OnDeviceRecordsChanged; _groups.GroupsChanged += OnDeviceRecordsChanged; }
+            ReloadDevice();
+            return Task.CompletedTask;
+        }
         _repository.DevicesChanged -= OnDeviceRecordsChanged;
         _repository.DevicesChanged += OnDeviceRecordsChanged;
         _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
@@ -68,6 +87,7 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     public override void OnDisappearing()
     {
         _isVisible = false;
+        if (_groups is not null) _groups.GroupsChanged -= OnDeviceRecordsChanged;
         CancelRuntimeWait();
         _repository.DevicesChanged -= OnDeviceRecordsChanged;
         _agpLight.RuntimeStateChanged -= OnRuntimeStateChanged;
@@ -105,6 +125,13 @@ public partial class DeviceMorePageViewModel : ViewModelBase
 
     private void ReloadDevice()
     {
+        if (IsGroup)
+        {
+            if (_groups?.Get(_groupId) is { } group)
+            { DeviceName = group.Name; AddedAtText = group.AddedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm"); }
+            else ErrorMessage = AppResources.Group_Removed;
+            return;
+        }
         if (_repository.GetByAddress(DeviceId) is not { } device)
             return;
 
@@ -130,28 +157,26 @@ public partial class DeviceMorePageViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(name))
             return;
 
-        if (_repository.Rename(DeviceId, name))
+        if (IsGroup ? _groups?.Rename(_groupId, name) == true : _repository.Rename(DeviceId, name))
             DeviceName = name.Trim();
     }
 
     [RelayCommand]
-    private async Task ManualAsync() =>
-        await _navigator.GoToAsync("DeviceManualPage");
+    private async Task ManualAsync()
+    { if (!IsGroup) await _navigator.GoToAsync("DeviceManualPage"); }
 
     [RelayCommand]
-    private async Task FirmwareAsync() =>
-        await _navigator.GoToAsync(
-            $"FirmwareUpdatePage?address={Uri.EscapeDataString(DeviceId)}");
+    private async Task FirmwareAsync()
+    { if (!IsGroup) await _navigator.GoToAsync($"FirmwareUpdatePage?address={Uri.EscapeDataString(DeviceId)}"); }
 
     [RelayCommand]
-    private async Task ShareAsync() =>
-        await _navigator.GoToAsync(
-            $"DeviceSharePage?address={Uri.EscapeDataString(DeviceId)}");
+    private async Task ShareAsync()
+    { if (!IsGroup) await _navigator.GoToAsync($"DeviceSharePage?address={Uri.EscapeDataString(DeviceId)}"); }
 
     [RelayCommand]
     private void SetPinned(bool value)
     {
-        if (_isLoading)
+        if (_isLoading || IsGroup)
             return;
 
         if (_repository.SetPinned(DeviceId, value))
@@ -167,6 +192,16 @@ public partial class DeviceMorePageViewModel : ViewModelBase
         _isUnbinding = true;
         try
         {
+            if (IsGroup)
+            {
+                if (await _interaction.ConfirmAsync(AppResources.Group_Delete, AppResources.Group_DeleteConfirmation,
+                    AppResources.Common_Delete, AppResources.Common_Cancel))
+                {
+                    _groups?.Delete(_groupId);
+                    await _navigator.GoToAsync("//DevicesPage");
+                }
+                return;
+            }
             var confirmed = await _interaction.ConfirmAsync(
                 AppResources.Device_Unbind,
                 Localization.Format(nameof(AppResources.Device_RemoveConfirmation), DeviceName),

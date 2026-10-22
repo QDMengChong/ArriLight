@@ -31,11 +31,12 @@ public partial class DeviceControlPageViewModel
                 exception);
         }
 
-        _interaction.ShowToast(sent ? AppResources.Timer_SendSucceeded : AppResources.Timer_SendFailed);
+        if (!IsGroup) _interaction.ShowToast(sent ? AppResources.Timer_SendSucceeded : AppResources.Timer_SendFailed);
     }
 
     private async Task<bool> SendTimerCommandAsync(string timerMode, int seconds)
     {
+        if (IsGroup) return SubmitGroupCommand(new(DeviceGroupCommandKind.Timer, IsOn: timerMode == "TimedOn", Seconds: seconds));
         if (IsDemo || string.IsNullOrWhiteSpace(DeviceAddress))
             return false;
 
@@ -62,6 +63,14 @@ public partial class DeviceControlPageViewModel
         var delaySeconds = 0;
         if (!TryGetTurnOnDelaySeconds(out delaySeconds))
             return;
+        if (IsGroup)
+        {
+            desiredOn = GroupPowerState is not { } known || !known;
+            if (SubmitGroupCommand(new(DeviceGroupCommandKind.Power, IsOn: desiredOn, Seconds: desiredOn ? delaySeconds : 0)))
+                SetGroupPowerState(desiredOn);
+            timing.SetResult("group-submitted");
+            return;
+        }
         var commandVersion = ++_powerCommandVersion;
         var previousPower = IsMasterPowerOn;
         var previousMode = EffectMode;

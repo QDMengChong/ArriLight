@@ -48,8 +48,12 @@ public partial class MainPageViewModel
         }
         catch (Exception exception) { ErrorMessage = exception.Message; }
     }
-    [RelayCommand] private async Task OpenGroupAsync(DeviceGroupListItem item) =>
-        await NavigateGroupAsync($"DeviceGroupPage?groupId={Uri.EscapeDataString(item.Id)}");
+    [RelayCommand] private async Task OpenGroupAsync(DeviceGroupListItem item)
+    {
+        if (_groups?.Repository.Get(item.Id) is not { } group) return;
+        var route = group.Members.Count == 0 ? "DeviceGroupMembersPage" : "DeviceControlPage";
+        await NavigateGroupAsync($"{route}?groupId={Uri.EscapeDataString(item.Id)}");
+    }
 
     private async Task NavigateGroupAsync(string route)
     {

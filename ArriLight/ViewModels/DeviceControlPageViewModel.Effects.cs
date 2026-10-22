@@ -14,6 +14,16 @@ public partial class DeviceControlPageViewModel
         using var timing = _diagnostics.BeginBleTiming(
             "UI.Control.Effect", DeviceAddress,
             $"mode={mode}; periodMs={periodMilliseconds}; initializing={IsInitializingConnection}; isDemo={IsDemo}");
+        if (IsGroup)
+        {
+            if (!TryGetTurnOnDelaySeconds(out var groupDelay)) return;
+            var groupPeriod = mode == AgpLightMode.Steady ? (ushort)0 : periodMilliseconds;
+            if (SubmitGroupCommand(new(DeviceGroupCommandKind.Effect, Effect: mode, PeriodMilliseconds: groupPeriod, Seconds: groupDelay)))
+            {
+                EffectMode = mode; SetGroupPowerState(true); RememberEffectPeriod(mode, groupPeriod); UpdateEffectVisual();
+            }
+            return;
+        }
         if (IsDemo || string.IsNullOrWhiteSpace(DeviceAddress))
         {
             timing.SetResult("skipped");
@@ -95,11 +105,13 @@ public partial class DeviceControlPageViewModel
         {
             case AgpLightMode.Blink:
                 _blinkEffectParameters = _blinkEffectParameters with { PeriodMilliseconds = period };
-                _repository.SetBlinkEffectParameters(DeviceAddress, _blinkEffectParameters);
+                if (IsGroup) SaveGroupSettings(group => group with { BlinkPeriodMilliseconds = period });
+                else _repository.SetBlinkEffectParameters(DeviceAddress, _blinkEffectParameters);
                 break;
             case AgpLightMode.Breathe:
                 _breatheEffectParameters = _breatheEffectParameters with { PeriodMilliseconds = period };
-                _repository.SetBreatheEffectParameters(DeviceAddress, _breatheEffectParameters);
+                if (IsGroup) SaveGroupSettings(group => group with { BreathePeriodMilliseconds = period });
+                else _repository.SetBreatheEffectParameters(DeviceAddress, _breatheEffectParameters);
                 break;
         }
     }

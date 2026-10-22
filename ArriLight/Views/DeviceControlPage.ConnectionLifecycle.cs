@@ -48,7 +48,7 @@ public partial class DeviceControlPage
 #if DEBUG && ANDROID
         _navigationTiming?.Mark("NavigatedTo.AfterBase");
 #endif
-        if (string.IsNullOrWhiteSpace(DeviceAddress) ||
+        if ((!_isGroup && string.IsNullOrWhiteSpace(DeviceAddress)) ||
             _controlPageAppearanceCancellation is null || _controlInitializationScheduled)
             return;
 

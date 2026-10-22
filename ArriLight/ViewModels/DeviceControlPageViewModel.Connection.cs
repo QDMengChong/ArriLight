@@ -8,6 +8,7 @@ public partial class DeviceControlPageViewModel
     public async Task PrepareControlSessionAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (IsGroup) { await RedirectEmptyGroupAsync(); return; }
         if (IsDemo)
             return;
         await Task.Run(_discoveryService.StopAsync, cancellationToken).WaitAsync(cancellationToken);

@@ -10,7 +10,7 @@ public partial class DeviceControlPageViewModel
         if (!_isReady || _isApplyingControlState || !IsDeviceOnline)
             return;
 
-        if (IsDemo || string.IsNullOrWhiteSpace(DeviceAddress))
+        if (!IsGroup && (IsDemo || string.IsNullOrWhiteSpace(DeviceAddress)))
             return;
 
         _lightSettingsCancellation?.Cancel();
@@ -70,7 +70,14 @@ public partial class DeviceControlPageViewModel
         timing.Mark($"提交灯光设置; brightnessPercent={brightnessPercent}");
         try
         {
-            if (IsMeshDevice)
+            if (IsGroup)
+            {
+                SubmitGroupCommand(new(DeviceGroupCommandKind.Lighting, Brightness: brightnessPercent,
+                    ColorModel: SupportsTemperature && (!SupportsColor || _activeColorModel == AgpColorModel.Ctl)
+                        ? AgpColorModel.Ctl : SupportsColor ? AgpColorModel.Hsl : AgpColorModel.None,
+                    Hue: Hue, Saturation: Saturation, TemperatureKelvin: TemperatureRatioToKelvin(Temperature)), showToast: false);
+            }
+            else if (IsMeshDevice)
             {
                 if (!_hasPendingColorInput && SupportsBrightness)
                     await _meshControl.SetLightnessAsync(DeviceAddress, brightnessPercent, cancellationToken);
