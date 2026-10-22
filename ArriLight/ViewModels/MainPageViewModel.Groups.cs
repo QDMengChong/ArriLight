@@ -22,7 +22,8 @@ public partial class MainPageViewModel
     private void ReloadGroups()
     {
         if (_groups is null) return;
-        var rows = _groups.Repository.GetAll().OrderByDescending(group => group.AddedAt).Select(group =>
+        var rows = _groups.Repository.GetAll().OrderByDescending(group => group.IsPinned)
+            .ThenByDescending(group => group.AddedAt).Select(group =>
         {
             var members = _groups.GetMembers(group);
             var reference = members.FirstOrDefault();

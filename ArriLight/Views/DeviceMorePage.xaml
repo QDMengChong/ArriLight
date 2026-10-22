@@ -58,25 +58,25 @@
                             <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_AddedAt}" VerticalTextAlignment="Center" />
                             <Label Grid.Column="1" FontSize="14" Text="{Binding AddedAtText}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
                         </Grid>
-                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
-                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                        <BoxView HeightRequest="1" Margin="16,0" IsVisible="{Binding ShowDeviceDetails}" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58" IsVisible="{Binding ShowDeviceDetails}">
                             <Label Style="{StaticResource MenuTitleStyle}" Text="{Binding IdFieldText}" VerticalTextAlignment="Center" />
                             <Label Grid.Column="1" FontSize="13" Text="{Binding DeviceId}" TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" VerticalTextAlignment="Center" />
                         </Grid>
                     </VerticalStackLayout>
                 </Border>
 
-                <Border Style="{StaticResource MenuCardStyle}" Padding="0" IsVisible="{Binding ShowDeviceDetails}">
+                <Border Style="{StaticResource MenuCardStyle}" Padding="0">
                     <VerticalStackLayout Spacing="0">
-                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58" IsVisible="{Binding ShowDeviceDetails}">
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding ManualCommand}" />
                             </Grid.GestureRecognizers>
                             <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Manual_Title}" VerticalTextAlignment="Center" />
                             <Image Grid.Column="1" Style="{StaticResource MenuChevronStyle}" />
                         </Grid>
-                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
-                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                        <BoxView HeightRequest="1" Margin="16,0" IsVisible="{Binding ShowDeviceDetails}" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58" IsVisible="{Binding ShowDeviceDetails}">
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding FirmwareCommand}" />
                             </Grid.GestureRecognizers>
@@ -86,8 +86,8 @@
                                 <Image Style="{StaticResource MenuChevronStyle}" />
                             </HorizontalStackLayout>
                         </Grid>
-                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
-                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
+                        <BoxView HeightRequest="1" Margin="16,0" IsVisible="{Binding ShowDeviceDetails}" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58" IsVisible="{Binding ShowDeviceDetails}">
                             <Grid.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding ShareCommand}" />
                             </Grid.GestureRecognizers>
@@ -97,11 +97,11 @@
                                 <Image Style="{StaticResource MenuChevronStyle}" />
                             </HorizontalStackLayout>
                         </Grid>
-                        <BoxView HeightRequest="1" Margin="16,0" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
+                        <BoxView HeightRequest="1" Margin="16,0" IsVisible="{Binding ShowDeviceDetails}" BackgroundColor="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}" />
                         <Grid Padding="16" ColumnDefinitions="*,Auto" MinimumHeightRequest="58">
                             <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                 <Label Style="{StaticResource MenuTitleStyle}" Text="{x:Static strings:AppResources.Device_Pin}" />
-                                <Label Style="{StaticResource MenuDescriptionStyle}" Text="{x:Static strings:AppResources.Device_PinDescription}" />
+                                <Label Style="{StaticResource MenuDescriptionStyle}" Text="{Binding PinDescriptionText}" />
                             </VerticalStackLayout>
                             <Switch
                                 x:Name="PinnedSwitch"

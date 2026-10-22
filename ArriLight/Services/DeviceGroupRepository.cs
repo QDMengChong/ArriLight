@@ -47,6 +47,7 @@ public sealed class DeviceGroupRepository
     }
 
     public bool Rename(string id, string name) => Update(id, group => group with { Name = ValidateName(name) });
+    public bool SetPinned(string id, bool value) => Update(id, group => group with { IsPinned = value });
     public bool SetMembers(string id, IEnumerable<string> addresses)
     {
         var members = addresses.Select(address => address.Trim().ToUpperInvariant())

@@ -1921,4 +1921,5 @@ This is sample text for interface design. The final version should be profession
   <data name="Group_Information" xml:space="preserve"><value>Group details</value></data>
   <data name="Group_Name" xml:space="preserve"><value>Group name</value></data>
   <data name="Group_Id" xml:space="preserve"><value>Group ID</value></data>
+  <data name="Group_PinDescription" xml:space="preserve"><value>Show first in the home group list</value></data>
 </root>

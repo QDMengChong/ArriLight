@@ -144,17 +144,26 @@
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:DeviceGroupListItem">
                                     <Border Style="{StaticResource MenuCardStyle}" Padding="16">
+                                        <Border.Shadow>
+                                            <Shadow Brush="#120B2A5B" Offset="0,4" Opacity="0.18" Radius="12" />
+                                        </Border.Shadow>
                                         <Border.GestureRecognizers>
                                             <TapGestureRecognizer Command="{Binding ViewModel.OpenGroupCommand, Source={x:Reference HomePage}, x:DataType=local:MainPage}" CommandParameter="{Binding .}" />
                                         </Border.GestureRecognizers>
-                                        <Grid ColumnDefinitions="*,24" ColumnSpacing="12">
-                                            <VerticalStackLayout Spacing="6">
+                                        <Grid ColumnDefinitions="64,*,24" ColumnSpacing="12" MinimumHeightRequest="64" InputTransparent="True">
+                                            <Border HeightRequest="64" WidthRequest="64" StrokeThickness="0" StrokeShape="RoundRectangle 18"
+                                                BackgroundColor="{AppThemeBinding Light={StaticResource DeviceIconBackground}, Dark={StaticResource DarkIconBackground}}">
+                                                <Image Margin="16" Source="action_group.svg"
+                                                    SemanticProperties.Description="{x:Static strings:AppResources.Group_Title}" />
+                                            </Border>
+                                            <VerticalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
                                                 <Label Text="{Binding Name}" FontSize="17" FontFamily="OpenSansSemibold"
+                                                    LineBreakMode="TailTruncation"
                                                     TextColor="{AppThemeBinding Light={StaticResource TextPrimary}, Dark={StaticResource DarkTextPrimary}}" />
                                                 <Label Text="{Binding Summary}" FontSize="12"
                                                     TextColor="{AppThemeBinding Light={StaticResource TextSecondary}, Dark={StaticResource DarkTextSecondary}}" />
                                             </VerticalStackLayout>
-                                            <Image Grid.Column="1" Source="chevron_right.svg" WidthRequest="18" HeightRequest="18" />
+                                            <Image Grid.Column="2" Source="chevron_right.svg" WidthRequest="18" HeightRequest="18" Opacity="0.55" />
                                         </Grid>
                                     </Border>
                                 </DataTemplate>

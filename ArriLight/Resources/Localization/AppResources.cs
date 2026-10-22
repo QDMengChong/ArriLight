@@ -8,6 +8,7 @@ public static class AppResources
     public static string Group_Information => global::ArriLight.Localization.GetString(nameof(Group_Information));
     public static string Group_Name => global::ArriLight.Localization.GetString(nameof(Group_Name));
     public static string Group_Id => global::ArriLight.Localization.GetString(nameof(Group_Id));
+    public static string Group_PinDescription => global::ArriLight.Localization.GetString(nameof(Group_PinDescription));
     public static string Group_Title => global::ArriLight.Localization.GetString(nameof(Group_Title));
     public static string Group_Create => global::ArriLight.Localization.GetString(nameof(Group_Create));
     public static string Group_NamePrompt => global::ArriLight.Localization.GetString(nameof(Group_NamePrompt));

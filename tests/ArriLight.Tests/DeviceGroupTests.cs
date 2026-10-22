@@ -8,6 +8,95 @@ public sealed class DeviceGroupTests
 {
     private const AgpCapabilities Basic = AgpCapabilities.OnOff | AgpCapabilities.Lightness;
 
+    [Fact]
+    public void GroupsSavedBeforePinningWasAddedDefaultToUnpinned()
+    {
+        var f = new GroupFixture();
+        Preferences.Default.Set("saved_device_groups_v1",
+            """[{"Id":"legacy","Name":"Studio","Members":["A"],"AddedAt":"2026-10-01T00:00:00Z"}]""");
+        var group = f.Groups.Repository.Get("legacy")!;
+        Assert.False(group.IsPinned); Assert.Equal("A", Assert.Single(group.Members));
+        Assert.True(f.Groups.Repository.SetPinned(group.Id, true));
+        Assert.True(new DeviceGroupRepository(f.Devices).Get(group.Id)!.IsPinned);
+    }
+
+    [Fact]
+    public async Task PinningPersistsThroughSettingsChangesAndDoesNotInvalidatePendingMemberCommands()
+    {
+        var f = new GroupFixture(); var group = f.Create("A");
+        f.Devices.SetToken("A", [1, 2, 3, 4]);
+        var version = f.Groups.Repository.GetMembershipVersion(group.Id, "A");
+        using var batch = f.Backend.Work.BeginBatch();
+        var dispatch = f.Groups.Submit(group.Id, new(DeviceGroupCommandKind.Power, IsOn: true));
+        Assert.True(f.Groups.Repository.SetPinned(group.Id, true));
+        f.Groups.Repository.SaveSettings(group.Id, group with { AutoOffEnabled = true, AutoOffSeconds = 120 });
+        var restored = new DeviceGroupRepository(f.Devices).Get(group.Id)!;
+        Assert.True(restored.IsPinned); Assert.True(restored.AutoOffEnabled); Assert.Equal(120, restored.AutoOffSeconds);
+        Assert.Equal("A", Assert.Single(restored.Members)); Assert.Equal("01020304", f.Devices.GetToken("A"));
+        Assert.Equal(version, f.Groups.Repository.GetMembershipVersion(group.Id, "A"));
+        batch.Dispose(); await dispatch.Completion;
+        Assert.Equal("A", Assert.Single(f.Backend.Executions).Address);
+        Assert.True(f.Groups.Repository.SetPinned(group.Id, false));
+        Assert.False(new DeviceGroupRepository(f.Devices).Get(group.Id)!.IsPinned);
+    }
+
+    [Fact]
+    public async Task GroupDetailsPinningUpdatesHomeOrderAndRestoresTheSavedSwitchWithoutWritingOnLoad()
+    {
+        await using var f = new PairingFixture();
+        var date = DateTimeOffset.Parse("2026-10-01T00:00:00Z");
+        SavedDeviceGroup[] records = [new("old", "Old group", [], date),
+            new("middle", "Middle group", [], date.AddDays(1)), new("new", "New group", [], date.AddDays(2))];
+        Preferences.Default.Set("saved_device_groups_v1", System.Text.Json.JsonSerializer.Serialize(records));
+        var repository = new DeviceGroupRepository(f.Repository);
+        var groups = new DeviceGroupService(repository, f.Repository, new GroupBackend());
+        await using var mesh = new MeshDeviceControlService(f.Connection, new MeshNetworkManager(), new AppDiagnosticService(), repository: f.Repository);
+        var home = new MainPageViewModel(f.Repository, f.Discovery, f.Service, f.Connection, new AppDiagnosticService(),
+            new ImmediateDispatcher(), new GroupNavigator(), new GroupInteraction(), mesh, groups);
+        var more = new DeviceMorePageViewModel(f.Repository, f.Service, new GroupNavigator(), new GroupInteraction(), new ImmediateDispatcher(), repository);
+        more.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = "old" });
+        await home.OnAppearingAsync(); await more.OnAppearingAsync();
+        Assert.Equal(["new", "middle", "old"], home.Groups.Select(group => group.Id));
+        Assert.False(more.IsPinned); Assert.Equal(AppResources.Group_PinDescription, more.PinDescriptionText);
+        more.SetPinnedCommand.Execute(true);
+        Assert.True(more.IsPinned); Assert.True(new DeviceGroupRepository(f.Repository).Get("old")!.IsPinned);
+        Assert.Equal(["old", "new", "middle"], home.Groups.Select(group => group.Id));
+        repository.SetPinned("middle", true);
+        Assert.Equal(["middle", "old", "new"], home.Groups.Select(group => group.Id));
+        more.SetPinnedCommand.Execute(false);
+        Assert.Equal(["middle", "new", "old"], home.Groups.Select(group => group.Id));
+        repository.SetPinned("old", true); Assert.True(more.IsPinned);
+        repository.SetPinned("old", false); Assert.False(more.IsPinned);
+        more.OnDisappearing(); home.OnDisappearing();
+
+        var saved = new DeviceGroupRepository(f.Repository);
+        var reopened = new DeviceMorePageViewModel(f.Repository, f.Service, new GroupNavigator(), new GroupInteraction(), new ImmediateDispatcher(), saved);
+        reopened.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = "middle" });
+        var writes = 0; saved.GroupsChanged += (_, _) => writes++;
+        // Loading a bound switch raises Toggled; it must not write the value back while loading.
+        reopened.PropertyChanged += (_, args) =>
+        { if (args.PropertyName == nameof(reopened.IsPinned)) reopened.SetPinnedCommand.Execute(reopened.IsPinned); };
+        await reopened.OnAppearingAsync();
+        Assert.True(reopened.IsPinned); Assert.Equal(0, writes);
+        Assert.False(f.Repository.GetByAddress(f.Address)!.IsPinned); Assert.Empty(f.Ble.Requests);
+        reopened.OnDisappearing();
+    }
+
+    [Fact]
+    public async Task DeviceDetailsPinningStillUpdatesOnlyTheDevice()
+    {
+        await using var f = new PairingFixture(); var repository = new DeviceGroupRepository(f.Repository);
+        var group = repository.Create("Group");
+        var more = new DeviceMorePageViewModel(f.Repository, f.Service, new GroupNavigator(), new GroupInteraction(), new ImmediateDispatcher(), repository);
+        more.ApplyQueryAttributes(new Dictionary<string, object> { ["address"] = f.Address });
+        await more.OnAppearingAsync(); more.SetPinnedCommand.Execute(true);
+        Assert.True(more.ShowDeviceDetails); Assert.True(more.IsPinned);
+        Assert.Equal(AppResources.Device_PinDescription, more.PinDescriptionText);
+        Assert.True(f.Repository.GetByAddress(f.Address)!.IsPinned); Assert.False(repository.Get(group.Id)!.IsPinned);
+        f.Repository.SetPinned(f.Address, false); Assert.False(more.IsPinned);
+        more.OnDisappearing();
+    }
+
     [Theory]
     [InlineData(BluetoothDeviceProtocol.Agp, true)]
     [InlineData(BluetoothDeviceProtocol.Agp, false)]

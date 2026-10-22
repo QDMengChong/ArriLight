@@ -16,6 +16,7 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     public string NameFieldText => IsGroup ? AppResources.Group_Name : AppResources.Device_Name;
     public string IdFieldText => IsGroup ? AppResources.Group_Id : AppResources.Device_Id;
     public string RemovalText => IsGroup ? AppResources.Group_Delete : AppResources.Device_Unbind;
+    public string PinDescriptionText => IsGroup ? AppResources.Group_PinDescription : AppResources.Device_PinDescription;
     private bool _isVisible;
     private CancellationTokenSource? _runtimeWait;
     internal Task RuntimePreparationTask { get; private set; } = Task.CompletedTask;
@@ -56,6 +57,7 @@ public partial class DeviceMorePageViewModel : ViewModelBase
         OnPropertyChanged(nameof(IsGroup)); OnPropertyChanged(nameof(ShowDeviceDetails));
         OnPropertyChanged(nameof(PageTitle)); OnPropertyChanged(nameof(RemovalText));
         OnPropertyChanged(nameof(NameFieldText)); OnPropertyChanged(nameof(IdFieldText));
+        OnPropertyChanged(nameof(PinDescriptionText));
         if (IsGroup) { DeviceId = _groupId; return; }
         if (query.TryGetValue("address", out var value) && value is not null)
             DeviceId = Uri.UnescapeDataString(value.ToString()!);
@@ -128,7 +130,16 @@ public partial class DeviceMorePageViewModel : ViewModelBase
         if (IsGroup)
         {
             if (_groups?.Get(_groupId) is { } group)
-            { DeviceName = group.Name; AddedAtText = group.AddedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm"); }
+            {
+                _isLoading = true;
+                try
+                {
+                    DeviceName = group.Name;
+                    AddedAtText = group.AddedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm");
+                    IsPinned = group.IsPinned;
+                }
+                finally { _isLoading = false; }
+            }
             else ErrorMessage = AppResources.Group_Removed;
             return;
         }
@@ -176,10 +187,10 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     [RelayCommand]
     private void SetPinned(bool value)
     {
-        if (_isLoading || IsGroup)
+        if (_isLoading)
             return;
 
-        if (_repository.SetPinned(DeviceId, value))
+        if (IsGroup ? _groups?.SetPinned(_groupId, value) == true : _repository.SetPinned(DeviceId, value))
             IsPinned = value;
     }
 

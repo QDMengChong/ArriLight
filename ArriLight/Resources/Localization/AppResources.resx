@@ -1921,4 +1921,5 @@ Product ID：{3}
   <data name="Group_Information" xml:space="preserve"><value>分组详情</value></data>
   <data name="Group_Name" xml:space="preserve"><value>分组名称</value></data>
   <data name="Group_Id" xml:space="preserve"><value>分组 ID</value></data>
+  <data name="Group_PinDescription" xml:space="preserve"><value>在首页分组列表中优先显示</value></data>
 </root>

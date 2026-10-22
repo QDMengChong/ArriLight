@@ -7,7 +7,8 @@ public sealed record SavedDeviceGroup(
     string Id, string Name, IReadOnlyList<string> Members, DateTimeOffset AddedAt,
     IReadOnlyList<SavedControlPreset>? CustomPresets = null,
     ushort BlinkPeriodMilliseconds = 1000, ushort BreathePeriodMilliseconds = 2000,
-    int TimerSeconds = 60, bool AutoOffEnabled = false, int AutoOffSeconds = 60);
+    int TimerSeconds = 60, bool AutoOffEnabled = false, int AutoOffSeconds = 60,
+    bool IsPinned = false);
 
 public enum DeviceGroupCommandKind { Power, Lighting, Effect, Timer, LocalMode }
 
