@@ -274,7 +274,7 @@
     <comment>FirmwareUpdateService.cs:199</comment>
   </data>
   <data name="Firmware_InvalidOnlineExtension" xml:space="preserve">
-    <value>The firmware list Worker returned a file that is not a .hex16 file.</value>
+    <value>The firmware list Worker returned an unsupported format. Only .bin (SLB) and .hex16 (Single Bank) are supported.</value>
     <comment>FirmwareUpdateService.cs:215</comment>
   </data>
   <data name="Firmware_InvalidOnlineVersion" xml:space="preserve">

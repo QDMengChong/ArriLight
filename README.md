@@ -102,11 +102,12 @@ dotnet publish -c Release -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="C:\
 在线升级通过 Cloudflare Python Workers 访问 R2。部署文件、API 契约、R2 目录和
 `uv run pywrangler deploy` 步骤见
 [`cloudflare-workers/README.md`](cloudflare-workers/README.md)。列表 Worker 接收
-硬件版本（例如 `PW01-A1`）和本地固件版本，下载 Worker 返回匹配的 `.hex16` 文件。
+硬件版本（例如 `PW01-A1`）和本地固件版本，支持 `.hex16`（Single Bank）和 `.bin`（SLB）文件。
 
 两个 Worker 的默认地址在 `ArriLight/Resources/Raw/appsettings.json` 中。首次读取时，APP
 将它复制到应用数据目录；之后使用该目录中保存的配置。检测到更新后，APP 下载文件到缓存目录，沿用现有
-Single Bank OTA 流程校验并升级设备。若 R2 对象设置了 `sha256` 自定义元数据，APP 会在
+对应协议的 OTA 流程校验并升级设备；设备 OTA 服务与固件协议不匹配时会在发送升级命令及
+固件数据前拒绝升级。若 R2 对象设置了 `sha256` 自定义元数据，APP 会在
 下载后执行 SHA-256 校验；没有该元数据时会记录未校验提示。
 
 调试模式默认关闭。在“我的 → 应用版本”页面连续点击版本号 5 次，相邻点击间隔不超过

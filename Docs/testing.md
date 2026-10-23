@@ -21,6 +21,21 @@ AGP OnOff 翻转回归对照 PW01 `fd92673`：`AgpOnOffTests` 校验 `onoff=2` �
 
 涉及真实连接时序、配网或 OTA 的变更，单元测试不能替代宿主应用中的硬件回归。
 
+## 在线 SLB 固件检测回归（2026-10-23）
+
+在线链路的 App、列表 Worker 和下载 Worker 均支持 `.bin`（SLB）和 `.hex16`（Single Bank）。
+`FirmwareOnlineTests` 与 `FirmwareProtocolTests` 共 14 项通过，覆盖 `PW01_A2/1.1.1.bin`
+相对 `1.1.0` 的更新检测、大小写后缀、版本比较、下载地址与 SHA-256，以及 SLB 固件发往
+Single Bank APP／OTA、Single Bank 固件发往 SLB 时在任何升级命令或数据写入前拒绝。
+应用全量 751 项通过，日志为 `tests/ArriLight.Tests/online-bin-test-results.log`。
+Android Debug 构建通过（0 错误、2 条既有 OpenJDK 处理器组警告），日志为
+`ArriLight/obj/online-bin-android-build.log`。
+
+`python -m unittest discover -s cloudflare-workers/tests -v` 的 8 项 Worker 测试通过，
+覆盖两类文件的列表与原样下载、R2 分页、版本排序、无更新及不支持文件的处理。
+测试使用内存 R2 和 GATT 替身，未执行线上 Worker 部署或真机升级；上线需同时更新 App
+并重新部署两个 Worker，详见 [Worker 说明](../cloudflare-workers/README.md)。
+
 ## SLB 最终校验阻塞修复回归（2026-10-23，当前）
 
 协议定向测试现为22项，新增完成写回调 Timeout 时真实校验成功／拒绝／缺失响应，以及独立校验阶段不得提前成功。应用全量739项通过；SLB固件31个实际回调场景覆盖回调内无Flash扫描、每轮240字节上限、校验期间取消、30秒期限和失败通知重试。Android构建0错误、2条既有OpenJDK处理器组告警，签名验证通过。新包、哈希、串口更新顺序和待执行的实机步骤见 [SLB-OTA-Transfer.md](SLB-OTA-Transfer.md)。未执行实机最终校验，本轮未重跑无关扫描专项或iOS原生构建。

@@ -112,7 +112,10 @@ class Default(WorkerEntrypoint):
         candidates = []
         for obj in objects:
             key = str(obj.key)
-            if not key.lower().endswith(".hex16") or not key.startswith(prefix):
+            if not key.lower().endswith((".hex16", ".bin")) or not key.startswith(prefix):
+                continue
+            # 下载接口只接受硬件目录下的直接子文件，避免返回无法下载的嵌套对象。
+            if "/" in key[len(prefix):]:
                 continue
             parsed = object_version(key)
             if parsed is None or parsed <= current_parts:

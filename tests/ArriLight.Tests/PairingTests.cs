@@ -412,6 +412,7 @@ internal sealed class FakeBle
         _radios = parent?._radios ?? [];
         Adapter = parent?.Adapter ?? InterfaceProxy.Create<IAdapter>((name, args) => name switch
         {
+            "get_IsScanning" => false,
             "ConnectToDeviceAsync" => _radios[((IDevice)args[0]!).Id].ConnectAsync((CancellationToken)args[2]!),
             "DisconnectDeviceAsync" => _radios[((IDevice)args[0]!).Id].DisconnectAsync(),
             _ => throw new NotSupportedException(name)

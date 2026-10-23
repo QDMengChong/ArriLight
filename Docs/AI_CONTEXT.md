@@ -1,5 +1,11 @@
 # AI_CONTEXT
 
+## Online SLB firmware detection (2026-10-23)
+
+- Fixed three independent `.hex16`-only filters: app `FirmwareUpdateService.CheckOnlineAsync`, Python list Worker and get Worker. Online accepts `.bin` (SLB) and `.hex16` (Single Bank), case insensitive; list ignores nested keys unsupported by get. Local firmware formats unchanged.
+- Protocol selection remains file based; existing GATT mode guards reject cross-protocol transfers before upgrade command/data writes. New real PluginBleOtaClient regression covers BIN -> SingleBankApp/SingleBankOta and HEX16 -> Slb, asserting ErrorFileMismatch and zero writes including native transport. List API still selects by hardware/version, so publish files matching the hardware's OTA protocol.
+- Focused14 and full application751 tests pass; Python Worker8 tests pass using in-memory R2. Android Debug build0 errors/2 existing OpenJDK warnings; logs `tests/ArriLight.Tests/online-bin-test-results.log`, `ArriLight/obj/online-bin-android-build.log`. No cloud deployment, phone install or real OTA performed. Both Workers must be redeployed and app updated for online BIN support; see `cloudflare-workers/README.md`. APK hashes in earlier sections are historical.
+
 ## Deferred SLB final verification (2026-10-23, current)
 
 - Follow-up log `41eb01d1-10de-4a44-8c19-408cca02a1a7`:100340 bytes,419 data writes/27 ACKs;11.464 first write/19.226 fullACK (~7.8s), then0225000101 GATT write timed out10565ms, zero0x26. PW01 still did whole CRC/layout scans inside ATT callback. Fix is paired async receiver verification, not declaring success at100% or simply enlarging GATT write timeout.

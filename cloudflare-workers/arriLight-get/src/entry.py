@@ -6,7 +6,7 @@ from workers import Response, WorkerEntrypoint
 
 
 KEY_PATTERN = re.compile(
-    r"^[A-Za-z0-9][A-Za-z0-9._-]*/[^/]+\.hex16$",
+    r"^[A-Za-z0-9][A-Za-z0-9._-]*/[^/]+\.(?:hex16|bin)$",
     re.IGNORECASE,
 )
 VERSION_PATTERN = re.compile(r"(?<!\d)v?(\d+(?:\.\d+){1,3})(?!\d)", re.IGNORECASE)

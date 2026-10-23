@@ -8,11 +8,18 @@ R2 对象目录格式如下：
 
 ```text
 PW01_A1/<固件文件>.hex16
-PW01_A2/<固件文件>.hex16
+PW01_A2/<固件文件>.bin
 ```
 
-文件名必须是带小数点的数字版本号，例如 `1.0.2.hex16`。列表 Worker 会将文件版本
-与请求中的本地版本比较，并返回严格高于本地版本的最新文件。
+每个硬件目录均支持 `.hex16`（Single Bank）和 `.bin`（SLB），扩展名大小写不敏感。
+文件名必须包含带小数点的数字版本号，例如 `1.0.2.hex16` 或 `1.1.1.bin`。
+列表 Worker 会将文件版本与请求中的本地版本比较，并返回严格高于本地版本的最新文件。
+文件应直接放在硬件目录下，不支持额外的子目录。
+
+`.bin` 只进入 SLB 状态机，`.hex16` 只进入 Single Bank 状态机。App 在发送升级命令和
+固件数据前检查设备的实际 OTA 服务；协议不匹配时拒绝升级，不会切换协议重试或转换文件。
+列表接口根据硬件版本和固件版本选文件，不探测设备协议，因此每个目录发布的固件应与该
+硬件使用的 OTA 协议一致；不要通过改后缀名混用两种固件。
 
 ## 接口说明
 
@@ -36,7 +43,7 @@ GET https://<列表 Worker 地址>?hardwareVersion=PW01-A1&currentVersion=1.0.1
 `fileName` 是 R2 对象键。返回完整对象键而不是只有文件名，可以避免不同硬件目录
 中的同名文件产生歧义。
 
-目录不存在、目录中没有 `.hex16` 文件，或没有高于本地版本的文件时返回：
+目录不存在、目录中没有 `.hex16` 或 `.bin` 文件，或没有高于本地版本的文件时返回：
 
 ```json
 {
@@ -51,6 +58,7 @@ GET https://<列表 Worker 地址>?hardwareVersion=PW01-A1&currentVersion=1.0.1
 
 ```text
 GET https://<下载 Worker 地址>?fileName=PW01_A1%2F1.0.2.hex16
+GET https://<下载 Worker 地址>?fileName=PW01_A2%2F1.1.1.bin
 ```
 
 响应正文就是 R2 对象内容。Worker 还会返回以下响应头：
@@ -59,7 +67,22 @@ GET https://<下载 Worker 地址>?fileName=PW01_A1%2F1.0.2.hex16
 - `X-Hardware-Version`：硬件版本。
 - `X-Firmware-SHA256`：对象设置了 `sha256` 自定义元数据时返回。
 
+## 回归测试
+
+无需 Cloudflare 登录或 `workers-py`，在仓库根目录执行：
+
+```powershell
+python -m unittest discover -s cloudflare-workers/tests -v
+dotnet test tests\ArriLight.Tests\ArriLight.Tests.csproj --filter "FullyQualifiedName~FirmwareOnlineTests|FullyQualifiedName~FirmwareProtocolTests"
+```
+
+Worker 测试使用内存 R2 替身覆盖两种扩展名、版本比较、分页、下载内容和无效文件；
+App 测试覆盖在线候选与 SLB／Single Bank APP／Single Bank OTA 的跨协议零写入拒绝。
+
 ## 部署
+
+此次 `.bin` 支持需要同时更新 App、重新部署列表 Worker 和下载 Worker。
+只上传 `.bin` 文件或只部署其中一个 Worker，无法完成在线检测、下载和升级的完整流程。
 
 先安装 `uv` 和 Node.js，然后登录 Cloudflare：
 

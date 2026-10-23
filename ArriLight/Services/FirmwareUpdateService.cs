@@ -189,8 +189,9 @@ public sealed class FirmwareUpdateService(
 
         var objectKey = result.FileName.Trim();
         var fileName = Path.GetFileName(objectKey);
-        if (string.IsNullOrWhiteSpace(fileName) ||
-            !fileName.EndsWith(".hex16", StringComparison.OrdinalIgnoreCase))
+        // 在线发布支持两种协议的固件；仍由文件格式决定协议，不能互相回退。
+        var extension = Path.GetExtension(fileName).ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(fileName) || extension is not (".hex16" or ".bin"))
         {
             throw new InvalidDataException(
                 AppResources.Firmware_InvalidOnlineExtension);
@@ -221,7 +222,7 @@ public sealed class FirmwareUpdateService(
 
         diagnostics.Information(
             "OTA/Online",
-            $"固件 Worker 返回：latest={candidate.Version}，file={candidate.FileName}，update={hasUpdate}。");
+            $"固件 Worker 返回：latest={candidate.Version}，file={candidate.FileName}，protocol={candidate.ProtocolText}，update={hasUpdate}。");
         return new FirmwareCheckResult(currentVersion, candidate, hasUpdate);
     }
 

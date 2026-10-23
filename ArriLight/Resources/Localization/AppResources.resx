@@ -274,7 +274,7 @@
     <comment>FirmwareUpdateService.cs:199</comment>
   </data>
   <data name="Firmware_InvalidOnlineExtension" xml:space="preserve">
-    <value>固件列表 Worker 返回的文件名不是 .hex16 文件。</value>
+    <value>固件列表 Worker 返回了不支持的文件格式，仅支持 .bin（SLB）和 .hex16（Single Bank）。</value>
     <comment>FirmwareUpdateService.cs:215</comment>
   </data>
   <data name="Firmware_InvalidOnlineVersion" xml:space="preserve">
