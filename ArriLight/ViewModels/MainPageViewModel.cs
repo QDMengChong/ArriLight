@@ -31,7 +31,7 @@ public partial class MainPageViewModel : ViewModelBase
         _interaction = interaction;
         _selectedSortIndex = (int)_repository.GetSortOrder();
         Devices.CollectionChanged += (_, _) => OnPropertyChanged(nameof(DeviceCountText));
-        ReloadDevices();
+        ReloadDevices(applySort: true);
         InitializeGroups(groups);
     }
 
@@ -78,7 +78,7 @@ public partial class MainPageViewModel : ViewModelBase
         if (value is < 0 or > 2)
             return;
         _repository.SetSortOrder((DeviceSortOrder)value);
-        ReloadDevices();
+        ReloadDevices(applySort: true);
     }
 
     public string DeviceCountText => Localization.Format(nameof(AppResources.Home_DeviceCount), Devices.Count);
@@ -167,7 +167,7 @@ public partial class MainPageViewModel : ViewModelBase
     }
 
     private void OnDevicesChanged(object? sender, EventArgs e) =>
-        _dispatcher.Post(ReloadDevices);
+        _dispatcher.Post(() => ReloadDevices());
 
     private void OnDeviceStatusChanged(object? sender, DeviceStatusChange change) =>
         _dispatcher.Post(() =>
@@ -261,21 +261,35 @@ public partial class MainPageViewModel : ViewModelBase
             if (device is not null) ApplyCachedDeviceStatus(device);
         });
 
-    private void ReloadDevices()
+    private void ReloadDevices(bool applySort = false)
     {
         var savedDevices = _repository.GetAll();
         var previousItems = Devices.ToDictionary(item => item.Address, StringComparer.OrdinalIgnoreCase);
-        var pinned = savedDevices.OrderByDescending(device => device.IsPinned);
-        var sorted = (DeviceSortOrder)SelectedSortIndex switch
+        IEnumerable<SavedDevice> orderedDevices;
+        if (applySort)
         {
-            DeviceSortOrder.AddedAt => pinned.ThenByDescending(device => device.AddedAt),
-            DeviceSortOrder.Name => pinned.ThenBy(device => device.DisplayName, StringComparer.CurrentCultureIgnoreCase),
-            _ => pinned.ThenByDescending(device => device.LastOperatedAt ?? DateTimeOffset.MinValue)
-                .ThenByDescending(device => device.AddedAt)
-        };
+            var pinned = savedDevices.OrderByDescending(device => device.IsPinned);
+            var sorted = (DeviceSortOrder)SelectedSortIndex switch
+            {
+                DeviceSortOrder.AddedAt => pinned.ThenByDescending(device => device.AddedAt),
+                DeviceSortOrder.Name => pinned.ThenBy(device => device.DisplayName, StringComparer.CurrentCultureIgnoreCase),
+                _ => pinned.ThenByDescending(device => device.LastOperatedAt ?? DateTimeOffset.MinValue)
+                    .ThenByDescending(device => device.AddedAt)
+            };
+            orderedDevices = sorted.ThenBy(device => device.Address, StringComparer.OrdinalIgnoreCase);
+        }
+        else
+        {
+            // Attribute refreshes and returning home keep existing rows in place.
+            // Append new devices until the next explicit sort.
+            var savedByAddress = savedDevices.ToDictionary(device => device.Address, StringComparer.OrdinalIgnoreCase);
+            orderedDevices = Devices.Where(item => savedByAddress.ContainsKey(item.Address))
+                .Select(item => savedByAddress[item.Address])
+                .Concat(savedDevices.Where(device => !previousItems.ContainsKey(device.Address)));
+        }
         var items = new List<LightDeviceItem>();
 
-        foreach (var savedDevice in sorted.ThenBy(device => device.Address, StringComparer.OrdinalIgnoreCase))
+        foreach (var savedDevice in orderedDevices)
         {
             if (previousItems.TryGetValue(savedDevice.Address, out var existing) &&
                 existing.Name == savedDevice.DisplayName &&

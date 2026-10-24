@@ -10,7 +10,7 @@ public sealed class DeviceInteractionTests
     [InlineData(DeviceSortOrder.LastOperation, "P A C B D")]
     [InlineData(DeviceSortOrder.AddedAt, "A P D B C")]
     [InlineData(DeviceSortOrder.Name, "P A C B D")]
-    public async Task SortingAlwaysKeepsPinnedDevicesFirstAndPersists(DeviceSortOrder order, string expected)
+    public async Task SortingKeepsPinnedDevicesFirstAndPersists(DeviceSortOrder order, string expected)
     {
         await using var fixture = new PairingFixture();
         var at = DateTimeOffset.Parse("2026-10-01T00:00:00Z");
@@ -28,11 +28,92 @@ public sealed class DeviceInteractionTests
         home.SelectedSortIndex = (int)order;
         Assert.Equal(expected.Split(' '), home.Devices.Select(device => device.Address));
         Assert.Equal(order, new DeviceRepository().GetSortOrder());
-        Assert.Equal((int)order, Home(fixture).SelectedSortIndex);
+        var reopened = Home(fixture);
+        Assert.Equal((int)order, reopened.SelectedSortIndex);
+        Assert.Equal(expected.Split(' '), reopened.Devices.Select(device => device.Address));
+    }
+
+    [Theory]
+    [InlineData(DeviceSortOrder.LastOperation, "A B C")]
+    [InlineData(DeviceSortOrder.AddedAt, "C B A")]
+    [InlineData(DeviceSortOrder.Name, "A B C")]
+    public async Task AttributeChangesAndReturningHomeKeepOrderUntilSortChanges(DeviceSortOrder order, string expected)
+    {
+        await using var fixture = new PairingFixture();
+        var at = DateTimeOffset.Parse("2026-10-01T00:00:00Z");
+        SavedDevice[] devices =
+        [
+            new("Alpha", "A", at.AddDays(1), LastOperatedAt: at.AddDays(3)),
+            new("Bravo", "B", at.AddDays(2), LastOperatedAt: at.AddDays(2)),
+            new("Charlie", "C", at.AddDays(3), LastOperatedAt: at.AddDays(1))
+        ];
+        Preferences.Default.Set("saved_bluetooth_devices_v1", JsonSerializer.Serialize(devices));
+        fixture.Repository.SetSortOrder(order);
+        var home = Home(fixture);
+        await home.OnAppearingAsync();
+        try
+        {
+            var addresses = expected.Split(' ');
+            Assert.Equal(addresses, home.Devices.Select(device => device.Address));
+            var lastAddress = addresses[^1];
+            fixture.Repository.RecordOperation(lastAddress, at.AddDays(10));
+            Assert.Equal(addresses, home.Devices.Select(device => device.Address));
+            fixture.Repository.Rename(lastAddress, "Aardvark");
+            Assert.Equal("Aardvark", home.Devices[^1].Name);
+            Assert.Equal(addresses, home.Devices.Select(device => device.Address));
+            fixture.Repository.SetPinned(lastAddress, true);
+            Assert.Equal(addresses, home.Devices.Select(device => device.Address));
+            home.SelectedSortIndex = (int)order;
+            Assert.Equal(addresses, home.Devices.Select(device => device.Address));
+
+            home.OnDisappearing();
+            fixture.Repository.RecordOperation(lastAddress, at.AddDays(11));
+            fixture.Repository.Rename(lastAddress, "Aaron");
+            await home.OnAppearingAsync();
+            Assert.Equal("Aaron", home.Devices[^1].Name);
+            Assert.Equal(addresses, home.Devices.Select(device => device.Address));
+            Assert.Equal(lastAddress, Home(fixture).Devices[0].Address);
+
+            home.SelectedSortIndex = (int)(order == DeviceSortOrder.Name ? DeviceSortOrder.AddedAt : DeviceSortOrder.Name);
+            Assert.Equal(lastAddress, home.Devices[0].Address);
+            home.SelectedSortIndex = (int)order;
+            Assert.Equal(lastAddress, home.Devices[0].Address);
+        }
+        finally { home.OnDisappearing(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task AddingAndRemovingDevicesPreservesRemainingRowsAndAppendsNewRows(bool whileAway)
+    {
+        await using var fixture = new PairingFixture();
+        SavedDevice[] devices = [new("Bravo", "A"), new("Charlie", "B"), new("Delta", "C")];
+        Preferences.Default.Set("saved_bluetooth_devices_v1", JsonSerializer.Serialize(devices));
+        fixture.Repository.SetSortOrder(DeviceSortOrder.Name);
+        var home = Home(fixture);
+        await home.OnAppearingAsync();
+        try
+        {
+            var first = home.Devices[0];
+            var third = home.Devices[2];
+            if (whileAway) home.OnDisappearing();
+            Assert.True(fixture.Repository.TryAdd("Alpha", "D"));
+            Assert.True(fixture.Repository.Remove("B"));
+            if (whileAway) await home.OnAppearingAsync();
+
+            Assert.Equal(new[] { "A", "C", "D" }, home.Devices.Select(device => device.Address));
+            Assert.Same(first, home.Devices[0]);
+            Assert.Same(third, home.Devices[1]);
+            home.SelectedSortIndex = (int)DeviceSortOrder.AddedAt;
+            home.SelectedSortIndex = (int)DeviceSortOrder.Name;
+            Assert.Equal(new[] { "D", "A", "C" }, home.Devices.Select(device => device.Address));
+        }
+        finally { home.OnDisappearing(); }
     }
 
     [Fact]
-    public async Task SuccessfulControlReordersExistingRowsWithoutDroppingTheirBusyGuard()
+    public async Task SuccessfulControlKeepsExistingRowOrderAndBusyGuard()
     {
         await using var fixture = ToggleFixture();
         var other = fixture.AddDevice();
@@ -41,15 +122,16 @@ public sealed class DeviceInteractionTests
         try
         {
             var device = home.Devices.Single(item => item.Address == fixture.Address);
+            var initialRows = home.Devices.ToArray();
             device.IsPowerChanging = true;
             fixture.Repository.RecordOperation(fixture.Address);
-            Assert.Same(device, home.Devices[0]);
+            Assert.Equal(initialRows, home.Devices);
             Assert.True(device.IsPowerChanging);
             Assert.False(device.IsEnabled);
             device.IsPowerChanging = false;
             fixture.Repository.SetPinned(other.Address, true);
             await home.TogglePowerCommand.ExecuteAsync(device);
-            Assert.Equal(other.Address, home.Devices[0].Address);
+            Assert.Equal(initialRows, home.Devices);
             Assert.NotNull(new DeviceRepository().GetByAddress(fixture.Address)!.LastOperatedAt);
             Assert.Same(device, home.Devices.Single(item => item.Address == fixture.Address));
         }
