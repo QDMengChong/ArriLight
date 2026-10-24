@@ -9,6 +9,8 @@
 		<string>zh-Hans</string>
 		<string>en</string>
 	</array>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 	<key>NSBluetoothAlwaysUsageDescription</key>
 	<string>Used to find and connect to nearby lighting devices.</string>
 	<key>NSCameraUsageDescription</key>
