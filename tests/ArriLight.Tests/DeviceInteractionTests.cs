@@ -24,7 +24,7 @@ public sealed class DeviceInteractionTests
         ];
         Preferences.Default.Set("saved_bluetooth_devices_v1", JsonSerializer.Serialize(devices));
         var home = Home(fixture);
-        Assert.Equal(0, home.SelectedSortIndex);
+        Assert.Equal((int)DeviceSortOrder.AddedAt, home.SelectedSortIndex);
         home.SelectedSortIndex = (int)order;
         Assert.Equal(expected.Split(' '), home.Devices.Select(device => device.Address));
         Assert.Equal(order, new DeviceRepository().GetSortOrder());

@@ -12,7 +12,7 @@ public sealed class DeviceRepository
 
     public DeviceSortOrder GetSortOrder() =>
         Enum.TryParse<DeviceSortOrder>(Preferences.Default.Get("device_sort_order", string.Empty), out var order) &&
-        Enum.IsDefined(order) ? order : DeviceSortOrder.LastOperation;
+        Enum.IsDefined(order) ? order : DeviceSortOrder.AddedAt;
 
     public void SetSortOrder(DeviceSortOrder order)
     {
