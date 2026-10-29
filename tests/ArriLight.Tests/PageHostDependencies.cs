@@ -152,6 +152,13 @@ public partial class MainPage
     }
 }
 
+public partial class DeviceGroupMembersPage
+{
+    private void InitializeComponent() { }
+    internal void AppearForTest() => OnAppearing();
+    internal void DisappearForTest() => OnDisappearing();
+}
+
 public sealed class Shell
 {
     public event EventHandler<ShellNavigatingEventArgs>? Navigating;
@@ -161,7 +168,14 @@ public sealed class Shell
     public Func<string, Task>? OnNavigate { get; set; }
     public Task GoToAsync(string route, bool animate = true)
     {
-        var args = new ShellNavigatingEventArgs();
+        var source = route.StartsWith("..", StringComparison.Ordinal) ? ShellNavigationSource.Pop :
+            route.StartsWith("//", StringComparison.Ordinal) ? ShellNavigationSource.PopToRoot : ShellNavigationSource.Push;
+        return NavigateAsync(route, animate, source);
+    }
+    internal Task GoBackForTestAsync(ShellNavigationSource source) => NavigateAsync("..", true, source);
+    private Task NavigateAsync(string route, bool animate, ShellNavigationSource source)
+    {
+        var args = new ShellNavigatingEventArgs { Source = source };
         Navigating?.Invoke(this, args);
         if (args.Cancelled) return Task.CompletedTask;
         Routes.Add(route);
@@ -172,10 +186,13 @@ public sealed class Shell
 
 public sealed class ShellNavigatingEventArgs : EventArgs
 {
+    public ShellNavigationSource Source { get; init; }
     public bool CanCancel => true;
     public bool Cancelled { get; private set; }
     public void Cancel() => Cancelled = true;
 }
+
+public enum ShellNavigationSource { Push, Pop, PopToRoot }
 
 internal static class DeviceControlPageRoutes
 {

@@ -235,6 +235,87 @@ public sealed class DeviceGroupTests
         model.OnDisappearing();
     }
 
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task MemberPageBackUsesCurrentMembersAndPreservesTheExistingControlPage(bool fromControl, bool hasMembersOnReturn)
+    {
+        var f = new GroupFixture();
+        foreach (var demo in f.Devices.GetAll().Where(device => device.IsDemo)) f.Devices.Remove(demo.Address);
+        var group = fromControl ? f.Create("A") : f.Create();
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), new TestAppNavigator(), new GroupInteraction());
+        var page = new DeviceGroupMembersPage(members);
+        page.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id, ["returnToControl"] = fromControl.ToString().ToLowerInvariant() });
+        Shell.Current.Routes.Clear(); page.AppearForTest();
+        try
+        {
+            if (fromControl && !hasMembersOnReturn) members.RemoveCommand.Execute(Assert.Single(members.Members));
+            if (!fromControl && hasMembersOnReturn) await members.AddCommand.ExecuteAsync(null);
+            Assert.Equal(hasMembersOnReturn, members.Members.Count > 0);
+
+            // Returning from the only pushed page is PopToRoot in MAUI, even for a single back tap.
+            var backSource = fromControl ? ShellNavigationSource.Pop : ShellNavigationSource.PopToRoot;
+            await Shell.Current.GoBackForTestAsync(backSource);
+            await Shell.Current.GoBackForTestAsync(backSource);
+            Assert.Empty(Shell.Current.Routes); Assert.Single(page.Dispatcher.PendingActions);
+            page.Dispatcher.RunNext(); await members.BackCommand.ExecutionTask!;
+
+            var expected = !hasMembersOnReturn ? "//DevicesPage" : fromControl ? ".." : $"../DeviceControlPage?groupId={group.Id}";
+            Assert.Equal(expected, Assert.Single(Shell.Current.Routes));
+            Assert.Empty(page.Dispatcher.PendingActions); Assert.Empty(f.Radio.ConnectAttempts);
+        }
+        finally { page.DisappearForTest(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MemberPageControlButtonNavigatesWithoutBeingInterceptedAsNativeBack(bool fromControl)
+    {
+        var f = new GroupFixture(); var group = f.Create("A");
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), new TestAppNavigator(), new GroupInteraction());
+        var page = new DeviceGroupMembersPage(members);
+        page.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id, ["returnToControl"] = fromControl.ToString().ToLowerInvariant() });
+        Shell.Current.Routes.Clear(); page.AppearForTest();
+        try
+        {
+            await members.OpenControlCommand.ExecuteAsync(null);
+            Assert.Equal(fromControl ? ".." : $"../DeviceControlPage?groupId={group.Id}", Assert.Single(Shell.Current.Routes));
+            Assert.Empty(page.Dispatcher.PendingActions);
+        }
+        finally { page.DisappearForTest(); }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task MembersCanOpenGroupDetailsAndReturnWithoutTriggeringGroupControl(bool hasMembers)
+    {
+        var f = new GroupFixture(); var group = hasMembers ? f.Create("A") : f.Create();
+        var members = new DeviceGroupMembersPageViewModel(f.Groups, new ImmediateDispatcher(), new TestAppNavigator(), new GroupInteraction());
+        var page = new DeviceGroupMembersPage(members);
+        page.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
+        Shell.Current.Routes.Clear(); page.AppearForTest();
+        try
+        {
+            await members.MoreCommand.ExecuteAsync(null);
+            Assert.Equal($"DeviceMorePage?groupId={group.Id}", Assert.Single(Shell.Current.Routes));
+            Assert.Empty(page.Dispatcher.PendingActions);
+            page.DisappearForTest();
+            f.Groups.Repository.Rename(group.Id, "Renamed group");
+            await Shell.Current.GoToAsync("..");
+            Assert.Equal("..", Shell.Current.Routes[1]); Assert.Empty(page.Dispatcher.PendingActions);
+            page.AppearForTest(); Assert.Equal("Renamed group", members.GroupName);
+
+            await Shell.Current.GoToAsync(".."); page.Dispatcher.RunNext(); await members.BackCommand.ExecutionTask!;
+            Assert.Equal(hasMembers ? $"../DeviceControlPage?groupId={group.Id}" : "//DevicesPage", Shell.Current.Routes[2]);
+            Assert.Empty(f.Radio.ConnectAttempts);
+        }
+        finally { page.DisappearForTest(); }
+    }
+
     [Fact]
     public async Task SharedGroupControlsKeepCommandOrderAndSaveOnlyGroupConfiguration()
     {

@@ -1,5 +1,13 @@
 # AI_CONTEXT
 
+## Android startup resources (2026-10-29)
+
+- `JavaProxyThrowable` at `MainActivity.OnCreate` wrapped `MissingManifestResourceException`: the app DLL had zero manifest resources, so `AppShell` crashed while loading `Tab_Devices`. The source `.resx` files were present. Running only `-t:Compile` in the normal mobile output directory can leave this incomplete DLL for a later incremental deployment; it is not valid mobile build/startup verification.
+- Use a full Android `dotnet build`; recover contaminated outputs with a full `-t:Rebuild` after stopping debugging. When Visual Studio locks output assemblies, build with separate `IntermediateOutputPath` and `OutputPath`. Do not add resource-key fallbacks to hide a broken package.
+- A full build in `obj/startup-resource-fix` / `bin/startup-resource-fix` restored `ArriLight.Resources.Localization.AppResources.resources` and the English satellite resource. Verified the actual ELF assembly payloads in the signed APK for both arm64-v8a and x86_64. APK and evidence are under ignored `artifacts/android-startup-fix/`.
+- Installed using `adb install -r -t` on the connected V2337A, preserving app data. Cold start succeeded, the activity remained resumed, and the new process log had no missing-resource or unhandled startup exception. See `Docs/MVVM.md` for the build-verification requirement.
+- After the debugger released its locks, the normal Android output was also fully rebuilt with 0 warnings/errors and all four packaged-resource checks passed. The final artifact is from this normal build; the phone disconnected before reinstalling that artifact. Device startup evidence is from the separate-output build of the same sources.
+
 ## Online SLB firmware detection (2026-10-23)
 
 - Fixed three independent `.hex16`-only filters: app `FirmwareUpdateService.CheckOnlineAsync`, Python list Worker and get Worker. Online accepts `.bin` (SLB) and `.hex16` (Single Bank), case insensitive; list ignores nested keys unsupported by get. Local firmware formats unchanged.

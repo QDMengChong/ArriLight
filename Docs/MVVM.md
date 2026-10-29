@@ -82,5 +82,11 @@ dotnet test tests/ArriLight.Discovery.Tests/ArriLight.Discovery.Tests.csproj
 dotnet build ArriLight/ArriLight.csproj -f net10.0-android
 ```
 
+移动端验证使用完整 `dotnet build`，不要用 `-t:Compile` 代替。单独执行 `Compile` 可能生成没有嵌入
+本地化资源的应用程序集，后续增量部署会在创建首页时触发 `MissingManifestResourceException`。
+出现这类产物后，先停止调试，再对对应平台执行完整 `-t:Rebuild` 并重新部署；检查主程序集包含
+`ArriLight.Resources.Localization.AppResources.resources`，英语卫星程序集包含对应的英文资源。
+Visual Studio 调试器占用构建产物时，使用独立的 `IntermediateOutputPath` 和 `OutputPath` 完整构建。
+
 Android/iOS 真机仍需检查语言、开关和控制页 UI、长按/拖拽、相机与原生提示框，
 并检查真实 BLE 连接、断开、重新进入和固件升级。Windows 上的 Android 构建不等同于 iOS 编译或真机验证。

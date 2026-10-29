@@ -7,6 +7,10 @@
     xmlns:strings="clr-namespace:ArriLight.Resources.Localization"
     x:DataType="vm:DeviceGroupMembersPageViewModel" Title="{x:Static strings:AppResources.Group_Manage}"
     BackgroundColor="{AppThemeBinding Light={StaticResource PageBackground}, Dark={StaticResource DarkPageBackground}}">
+    <ContentPage.ToolbarItems>
+        <ToolbarItem Command="{Binding MoreCommand}" IconImageSource="profile_settings.svg"
+            Order="Primary" Priority="2" Text="{x:Static strings:AppResources.Common_More}" />
+    </ContentPage.ToolbarItems>
     <Grid Padding="20" RowDefinitions="Auto,*,Auto" RowSpacing="14">
         <VerticalStackLayout Spacing="10">
             <Label Text="{Binding GroupName}" FontSize="24" Style="{StaticResource MenuTitleStyle}" />

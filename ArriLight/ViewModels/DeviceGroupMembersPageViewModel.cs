@@ -53,8 +53,9 @@ public partial class DeviceGroupMembersPageViewModel : ViewModelBase
     private readonly IUserInteraction _interaction;
     private bool _visible;
     private bool _returnToControl;
-    private bool _memberNavigationStarted;
-    private bool _memberNavigationInFlight;
+    private bool _navigationStarted;
+    private bool _navigationInFlight;
+    internal bool IsNavigating => _navigationInFlight;
     public string GroupId { get; private set; } = string.Empty;
     [ObservableProperty] private string _groupName = string.Empty;
     public ObservableCollection<DeviceGroupMemberItem> Members { get; } = [];
@@ -67,7 +68,7 @@ public partial class DeviceGroupMembersPageViewModel : ViewModelBase
         _returnToControl = query.TryGetValue("returnToControl", out var returnValue) && returnValue?.ToString() == "true";
     }
     public override Task OnAppearingAsync()
-    { _visible = true; _memberNavigationStarted = false; _groups.Changed -= OnChanged; _groups.Changed += OnChanged; Reload(); return Task.CompletedTask; }
+    { _visible = true; _navigationStarted = false; _groups.Changed -= OnChanged; _groups.Changed += OnChanged; Reload(); return Task.CompletedTask; }
     public override void OnDisappearing() { _visible = false; _groups.Changed -= OnChanged; }
     private void OnChanged(object? sender, EventArgs args) => _dispatcher.Post(() => { if (_visible) Reload(); });
     private void Reload()
@@ -109,32 +110,46 @@ public partial class DeviceGroupMembersPageViewModel : ViewModelBase
     [RelayCommand] private void Remove(DeviceGroupMemberItem item) => TryChange(() => _groups.RemoveMember(GroupId, item.Address));
     [RelayCommand] private async Task ControlMemberAsync(DeviceGroupMemberItem item)
     {
-        if (!_visible || _memberNavigationInFlight || _memberNavigationStarted) return;
+        if (!_visible || _navigationInFlight || _navigationStarted) return;
         if (_groups.Repository.Get(GroupId) is not { } group) { ErrorMessage = AppResources.Group_Removed; return; }
         var member = _groups.GetMembers(group).FirstOrDefault(member =>
             string.Equals(member.Device.Address, item.Address, StringComparison.OrdinalIgnoreCase));
         if (member is null) { Reload(); return; }
-        _memberNavigationInFlight = true;
-        _memberNavigationStarted = true;
-        ErrorMessage = string.Empty;
-        try
-        {
-            var route = member.Device.IsDemo ? "HslCtlDeviceControlPage" : "DeviceControlPage";
-            await _navigator.GoToAsync($"{route}?name={Uri.EscapeDataString(member.Device.DisplayName)}" +
-                $"&address={Uri.EscapeDataString(member.Device.Address)}", animate: false);
-        }
-        catch (Exception exception)
-        {
-            _memberNavigationStarted = false;
-            ErrorMessage = exception.Message;
-        }
-        finally { _memberNavigationInFlight = false; }
+        var route = member.Device.IsDemo ? "HslCtlDeviceControlPage" : "DeviceControlPage";
+        await NavigateAsync($"{route}?name={Uri.EscapeDataString(member.Device.DisplayName)}" +
+            $"&address={Uri.EscapeDataString(member.Device.Address)}", animate: false);
     }
     [RelayCommand] private async Task OpenControlAsync()
     {
         if (_groups.Repository.Get(GroupId) is not { } group) return;
         if (group.Members.Count == 0) { ErrorMessage = AppResources.Group_NoMembers; return; }
-        await _navigator.GoToAsync(_returnToControl ? ".." : $"../DeviceControlPage?groupId={Uri.EscapeDataString(GroupId)}");
+        await NavigateAsync(_returnToControl ? ".." : $"../DeviceControlPage?groupId={Uri.EscapeDataString(GroupId)}");
+    }
+    [RelayCommand] private async Task BackAsync()
+    {
+        var group = _groups.Repository.Get(GroupId);
+        var route = group is null || group.Members.Count == 0 ? "//DevicesPage" :
+            _returnToControl ? ".." : $"../DeviceControlPage?groupId={Uri.EscapeDataString(GroupId)}";
+        await NavigateAsync(route);
+    }
+    [RelayCommand] private async Task MoreAsync()
+    {
+        if (_groups.Repository.Get(GroupId) is null) { ErrorMessage = AppResources.Group_Removed; return; }
+        await NavigateAsync($"DeviceMorePage?groupId={Uri.EscapeDataString(GroupId)}");
+    }
+    private async Task NavigateAsync(string route, bool animate = true)
+    {
+        if (_navigationInFlight || _navigationStarted) return;
+        _navigationInFlight = true;
+        _navigationStarted = true;
+        ErrorMessage = string.Empty;
+        try { await _navigator.GoToAsync(route, animate); }
+        catch (Exception exception)
+        {
+            _navigationStarted = false;
+            ErrorMessage = exception.Message;
+        }
+        finally { _navigationInFlight = false; }
     }
     [RelayCommand] private async Task RenameAsync()
     {
