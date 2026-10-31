@@ -192,15 +192,6 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
     {
         if (device.IsMesh)
         {
-            if (_repository.Contains(device.Address))
-            {
-                await _interaction.AlertAsync(
-                    AppResources.Device_AlreadyAdded,
-                    AppResources.Device_AlreadyInList,
-                    AppResources.Common_Ok);
-                return;
-            }
-
             var meshName = await _interaction.PromptAsync(
                 AppResources.Device_NamePrompt,
                 Localization.Format(nameof(AppResources.Device_AddressDisplay), device.Address),
@@ -220,14 +211,7 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
 
         var suggestedName = device.Name;
         var address = device.Address;
-        if (_repository.Contains(address))
-        {
-            await _interaction.AlertAsync(
-                AppResources.Device_AlreadyAdded,
-                AppResources.Device_AlreadyInList,
-                AppResources.Common_Ok);
-            return;
-        }
+        var isReplacing = _repository.Contains(address);
 
         var name = await _interaction.PromptAsync(
             AppResources.Device_NamePrompt,
@@ -241,7 +225,7 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
         if (string.IsNullOrWhiteSpace(name))
             return;
 
-        if (!_repository.TryAdd(
+        if (!isReplacing && !_repository.TryAdd(
                 name,
                 address,
                 BluetoothDeviceProtocol.Agp))
@@ -263,7 +247,8 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
                 address,
                 (stage, cancellationToken) => UpdateBindingProgressAsync(
                     stage, cancellationToken, bindingCancellation.Token),
-                bindingCancellation.Token);
+                bindingCancellation.Token,
+                deviceName: name.Trim());
             bindingSucceeded = true;
         }
         catch (OperationCanceledException)
@@ -295,13 +280,16 @@ public partial class BluetoothScanPageViewModel : ViewModelBase
 
         if (!bindingSucceeded)
         {
-            _repository.ClearToken(address);
-            _repository.Remove(address);
+            if (!isReplacing)
+            {
+                _repository.ClearToken(address);
+                _repository.Remove(address);
+            }
             return;
         }
 
         _interaction.ShowToastForDuration(
-            AppResources.Device_AddSucceeded,
+            isReplacing ? AppResources.Device_Replaced : AppResources.Device_AddSucceeded,
             TimeSpan.FromSeconds(1));
 
         await _discoveryService.StopAsync();

@@ -62,7 +62,14 @@ public sealed class DeviceRepository
             Capabilities: content.Capabilities,
             Protocol: BluetoothDeviceProtocol.Agp));
 
-    private bool TryAddDevice(SavedDevice device)
+    /// <summary>Save a completed binding, replacing the entire record for the same address.</summary>
+    public bool TryAddOrReplace(SavedDevice device) =>
+        TrySaveDevice(device, replaceExisting: true);
+
+    private bool TryAddDevice(SavedDevice device) =>
+        TrySaveDevice(device, replaceExisting: false);
+
+    private bool TrySaveDevice(SavedDevice device, bool replaceExisting)
     {
         ArgumentNullException.ThrowIfNull(device);
         var normalizedName = device.Name.Trim();
@@ -77,19 +84,24 @@ public sealed class DeviceRepository
         lock (_syncRoot)
         {
             var devices = ReadDevicesUnsafe().ToList();
-            if (devices.Any(device =>
-                    string.Equals(device.Address, normalizedAddress,
-                        StringComparison.OrdinalIgnoreCase)))
+            var index = devices.FindIndex(existing =>
+                string.Equals(existing.Address, normalizedAddress,
+                    StringComparison.OrdinalIgnoreCase));
+            if (index >= 0 && !replaceExisting)
             {
                 return false;
             }
 
-            devices.Add(device with
+            var saved = device with
             {
                 Name = normalizedName,
                 Address = normalizedAddress,
                 AddedAt = device.AddedAt == default ? DateTimeOffset.Now : device.AddedAt
-            });
+            };
+            if (index >= 0)
+                devices[index] = saved;
+            else
+                devices.Add(saved);
             SaveDevicesUnsafe(devices);
         }
 

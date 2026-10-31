@@ -167,12 +167,13 @@ public sealed class RuntimeExclusiveTests
         await fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
         var started = Signal();
         var release = Signal();
+        var bindingStartedAt = DateTimeOffset.Now;
         var binding = fixture.Service.BindAsync(fixture.Address, async (stage, token) =>
         {
             if (stage != AgpBindingStage.ReceivingToken) return;
             started.TrySetResult();
             await release.Task.WaitAsync(token);
-        });
+        }, deviceName: "Replacement");
         await started.Task.WaitAsync(Deadline);
         try
         {
@@ -183,9 +184,35 @@ public sealed class RuntimeExclusiveTests
         await binding.WaitAsync(Deadline);
         await fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
         Assert.Equal("A1B2C3D4", fixture.Repository.GetToken(fixture.Address));
+        var saved = fixture.Repository.GetByAddress(fixture.Address)!;
+        Assert.Equal("Replacement", saved.Name);
+        Assert.InRange(saved.AddedAt, bindingStartedAt, DateTimeOffset.Now);
         Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.AuthGetToken);
         Assert.Equal(2, fixture.Ble.Requests.Count(opcode => opcode == AgpOpcode.AuthToken));
         Assert.DoesNotContain(AgpOpcode.OnOffSet, fixture.Ble.Requests);
+    }
+
+    [Fact]
+    public async Task ExplicitRebindClearsAuthorizationBlockEvenWhenDeviceReturnsSameToken()
+    {
+        await using var fixture = CreateFixture();
+        fixture.Repository.SetToken(fixture.Address, [0xA1, 0xB2, 0xC3, 0xD4]);
+        fixture.Ble.AuthenticationResult = AgpResultCode.NotAuthorized;
+        await fixture.Service.StartRuntimeAsync();
+        await Assert.ThrowsAnyAsync<InvalidOperationException>(() =>
+            fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline));
+        Assert.Equal(DeviceRuntimeStepStatus.Failed,
+            fixture.Service.GetRuntimeSnapshot(fixture.Address)!.Steps[DeviceRuntimeStep.Authentication].Status);
+        fixture.Ble.AuthenticationResult = AgpResultCode.Success;
+
+        await fixture.Service.BindAsync(fixture.Address, bindingProgress: null,
+            deviceName: "Replacement").WaitAsync(Deadline);
+        await fixture.Service.EnsureRuntimeReadyAsync(fixture.Address).WaitAsync(Deadline);
+
+        Assert.Equal("Replacement", fixture.Repository.GetByAddress(fixture.Address)!.Name);
+        Assert.Equal(DeviceRuntimeAvailability.Ready, fixture.Service.GetRuntimeSnapshot(fixture.Address)!.Availability);
+        Assert.Single(fixture.Ble.Requests, opcode => opcode == AgpOpcode.AuthGetToken);
+        Assert.Equal(2, fixture.Ble.Requests.Count(opcode => opcode == AgpOpcode.AuthToken));
     }
 
     private static PairingFixture CreateFixture()

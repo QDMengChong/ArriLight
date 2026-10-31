@@ -499,6 +499,9 @@ Logs will be appended to:
     <value>Searching. Devices found: {0}</value>
     <comment>BluetoothScanPage.xaml.cs:190</comment>
   </data>
+  <data name="Device_Replaced" xml:space="preserve">
+    <value>Existing device replaced</value>
+  </data>
   <data name="Device_AlreadyAdded" xml:space="preserve">
     <value>Device already added</value>
     <comment>BluetoothScanPage.xaml.cs:260; QrCodeScanPage.xaml.cs:89</comment>
@@ -807,7 +810,7 @@ Logs will be appended to:
     <comment>DeviceMorePage.xaml.cs:103</comment>
   </data>
   <data name="Device_Unbind" xml:space="preserve">
-    <value>Unpair</value>
+    <value>Delete</value>
     <comment>DeviceMorePage.xaml.cs:145; DeviceMorePage.xaml.cs:147; DeviceMorePage.xaml:Text</comment>
   </data>
   <data name="Device_RemoveConfirmation" xml:space="preserve">

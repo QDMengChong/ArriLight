@@ -163,25 +163,21 @@ public partial class MeshProvisioningPage : ContentPage, IQueryAttributable
                 _cancellation.Token);
 
             SetStage(AppResources.Mesh_ProvisioningSaving, 0.92);
-            if (!_repository.Contains(_address))
+            var isReplacing = _repository.Contains(_address);
+            if (!_repository.TryAddOrReplace(new SavedDevice(
+                    DeviceName,
+                    _address,
+                    DateTimeOffset.Now,
+                    FirmwareVersion: SavedDevice.UnknownFirmwareVersion,
+                    Protocol: BluetoothDeviceProtocol.Mesh)))
             {
-                if (!_repository.TryAdd(
-                        DeviceName,
-                        _address,
-                        BluetoothDeviceProtocol.Mesh))
-                {
-                    throw new InvalidOperationException(
-                        AppResources.Common_SaveFailed);
-                }
-            }
-            else
-            {
-                _repository.Rename(_address, DeviceName);
-                _repository.SetProtocol(_address, BluetoothDeviceProtocol.Mesh);
+                throw new InvalidOperationException(AppResources.Common_SaveFailed);
             }
 
             _networkManager.SetNodeName(_address, DeviceName);
             SetStage(AppResources.Mesh_ProvisioningSucceeded, 1);
+            if (isReplacing)
+                ToastService.ShowForDuration(AppResources.Device_Replaced, TimeSpan.FromSeconds(1));
             await _meshLight.DisconnectAsync(_address, CancellationToken.None);
             await Task.Delay(350);
             await Shell.Current.GoToAsync("//DevicesPage");

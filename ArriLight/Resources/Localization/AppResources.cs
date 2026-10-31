@@ -215,6 +215,7 @@ public static class AppResources
     public static string Scan_FailedDetail => global::ArriLight.Localization.GetString(nameof(Scan_FailedDetail));
     public static string Scan_FoundCount => global::ArriLight.Localization.GetString(nameof(Scan_FoundCount));
     public static string Device_AlreadyAdded => global::ArriLight.Localization.GetString(nameof(Device_AlreadyAdded));
+    public static string Device_Replaced => global::ArriLight.Localization.GetString(nameof(Device_Replaced));
     public static string Device_AlreadyInList => global::ArriLight.Localization.GetString(nameof(Device_AlreadyInList));
     public static string Device_NamePrompt => global::ArriLight.Localization.GetString(nameof(Device_NamePrompt));
     public static string Device_AddressDisplay => global::ArriLight.Localization.GetString(nameof(Device_AddressDisplay));

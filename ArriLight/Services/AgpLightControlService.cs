@@ -410,13 +410,15 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
     /// </summary>
     public Task BindAsync(string address,
         Func<AgpBindingStage, CancellationToken, Task>? bindingProgress,
-        CancellationToken cancellationToken = default) =>
-        RunRuntimeBindingAsync(address, () => BindCoreAsync(address, bindingProgress, cancellationToken), cancellationToken);
+        CancellationToken cancellationToken = default,
+        string? deviceName = null) =>
+        RunRuntimeBindingAsync(address, () => BindCoreAsync(address, bindingProgress, cancellationToken, deviceName), cancellationToken);
 
     private async Task BindCoreAsync(
         string address,
         Func<AgpBindingStage, CancellationToken, Task>? bindingProgress,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        string? deviceName = null)
     {
         if (string.IsNullOrWhiteSpace(address))
             throw new ArgumentException(AppResources.Ble_AddressRequired, nameof(address));
@@ -494,10 +496,40 @@ public sealed partial class AgpLightControlService : IAsyncDisposable
             EnsureSuccess(provision.Result);
             if (provision.Token is not { Length: 4 } provisionedToken)
                 throw new InvalidOperationException(AppResources.Agp_InvalidToken);
-            if (!_repository.SetTokenAndCapabilities(address, provisionedToken, capabilities))
+            var saved = deviceName is null
+                ? _repository.SetTokenAndCapabilities(address, provisionedToken, capabilities)
+                : _repository.TryAddOrReplace(new SavedDevice(
+                    deviceName,
+                    address,
+                    DateTimeOffset.Now,
+                    FirmwareVersion: SavedDevice.UnknownFirmwareVersion,
+                    Token: Convert.ToHexString(provisionedToken),
+                    Capabilities: capabilities,
+                    Protocol: BluetoothDeviceProtocol.Agp));
+            if (!saved)
             {
                 throw new InvalidOperationException(
                     AppResources.Agp_PairingRecordMissing);
+            }
+
+            if (deviceName is not null)
+            {
+                // 同地址重新绑定可能对应另一台实体设备，不能沿用旧设备资料。
+                _deviceStatuses.TryRemove(address, out _);
+                _runtimeSchedules.TryRemove(address, out _);
+                _scheduleSlotCounts.TryRemove(address, out _);
+                if (_runtimeEntries.TryGetValue(address, out var entry))
+                {
+                    lock (entry.Sync)
+                    {
+                        entry.AuthorizationBlocked = false;
+                        entry.BlockedToken = null;
+                        entry.RelativeDelayOn = null;
+                        entry.RelativeDelayOff = null;
+                        entry.Clock = null;
+                        entry.Operation = null;
+                    }
+                }
             }
 
             // Token 已保存即配对成功；原连接会被设备断开，不能在这里继续
