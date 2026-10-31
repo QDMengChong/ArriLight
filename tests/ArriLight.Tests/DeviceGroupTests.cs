@@ -123,7 +123,7 @@ public sealed class DeviceGroupTests
     public async Task DemoMemberControlUsesTheSameDemoPageAsHome()
     {
         await using var f = new PairingFixture();
-        var demo = f.Repository.GetAll().First(device => device.IsDemo);
+        var demo = AddDemoDevices(f)[0];
         var group = await RealGroup(f, [demo.Address]); var navigator = new GroupNavigator();
         var members = new DeviceGroupMembersPageViewModel(group.Service, new ImmediateDispatcher(), navigator, new GroupInteraction());
         members.ApplyQueryAttributes(new Dictionary<string, object> { ["groupId"] = group.Id });
@@ -565,7 +565,7 @@ public sealed class DeviceGroupTests
     public async Task DemoGroupChangesSimulatedMembersWithoutSendingBluetoothCommands()
     {
         await using var f = new PairingFixture();
-        var demos = f.Repository.GetAll().Where(d => d.IsDemo).ToArray();
+        var demos = AddDemoDevices(f);
         var real = await RealGroup(f, demos.Select(d => d.Address).ToArray());
         await real.Service.Submit(real.Id, new(DeviceGroupCommandKind.Power, IsOn: false)).Completion;
         Assert.All(real.Service.GetMembers(real.Service.Repository.Get(real.Id)!), m => Assert.False(m.IsOn));
@@ -759,6 +759,17 @@ public sealed class DeviceGroupTests
         await WaitUntil(() => f.Service.GetRuntimeSnapshot(f.Address)?.LastOperation?.Stage == DeviceRuntimeOperationStage.Confirmed);
         Assert.False(f.Service.GetCachedDeviceStatus(f.Address)!.LightState!.IsOn);
         Assert.Single(f.Ble.Requests, opcode => opcode == AgpOpcode.OnOffSet);
+    }
+
+    private static SavedDevice[] AddDemoDevices(PairingFixture fixture)
+    {
+        SavedDevice[] demos =
+        [
+            new("First demo", "TEST-DEMO-01", IsDemo: true),
+            new("Second demo", "TEST-DEMO-02", IsDemo: true)
+        ];
+        foreach (var demo in demos) Assert.True(fixture.Repository.TryAddOrReplace(demo));
+        return demos;
     }
 
     private static Task<(DeviceGroupService Service, string Id)> RealGroup(PairingFixture fixture, string[] addresses)

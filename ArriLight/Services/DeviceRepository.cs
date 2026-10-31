@@ -316,11 +316,7 @@ public sealed class DeviceRepository
     private IReadOnlyList<SavedDevice> ReadDevicesUnsafe()
     {
         if (!Preferences.Default.ContainsKey(PreferencesKey))
-        {
-            var defaults = CreateDefaultDevices();
-            SaveDevicesUnsafe(defaults);
-            return defaults;
-        }
+            return [];
 
         var json = Preferences.Default.Get(PreferencesKey, string.Empty);
         if (string.IsNullOrWhiteSpace(json))
@@ -329,7 +325,10 @@ public sealed class DeviceRepository
         try
         {
             var devices = JsonSerializer.Deserialize<List<SavedDevice>>(json) ?? [];
-            var migrated = false;
+            // Remove the two built-in demo records left by earlier versions,
+            // including renamed demos. A real device at either address is retained.
+            var migrated = devices.RemoveAll(device => device.IsDemo &&
+                device.Address is "02:00:00:00:00:01" or "02:00:00:00:00:02") > 0;
             var migrationTime = DateTimeOffset.Now;
 
             for (var index = 0; index < devices.Count; index++)
@@ -368,26 +367,6 @@ public sealed class DeviceRepository
         {
             return [];
         }
-    }
-
-    private static List<SavedDevice> CreateDefaultDevices()
-    {
-        var now = DateTimeOffset.Now;
-        return
-        [
-            new(
-                "客厅主灯",
-                "02:00:00:00:00:01",
-                now.AddDays(-7),
-                FirmwareVersion: "1.0.0",
-                IsDemo: true),
-            new(
-                "卧室氛围灯",
-                "02:00:00:00:00:02",
-                now.AddDays(-2),
-                FirmwareVersion: "1.0.0",
-                IsDemo: true)
-        ];
     }
 
     private static void SaveDevicesUnsafe(IEnumerable<SavedDevice> devices) =>

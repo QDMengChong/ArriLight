@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.arriopto.arrilight" android:versionName="0.1.13">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.arriopto.arrilight" android:versionName="0.1.14">
 	<application android:allowBackup="true" android:icon="@mipmap/appicon" android:supportsRtl="true" android:label="ArriLight"></application>
 	<queries>
 		<package android:name="com.tencent.mm" />

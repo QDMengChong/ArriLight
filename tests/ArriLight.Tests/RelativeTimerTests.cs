@@ -10,6 +10,8 @@ public sealed class RelativeTimerTests
     {
         Preferences.Default.Clear();
         var repository = new DeviceRepository();
+        Assert.True(repository.TryAdd("First device", "02:00:00:00:00:01"));
+        Assert.True(repository.TryAdd("Second device", "02:00:00:00:00:02"));
         Assert.Equal(60, repository.GetTimerSeconds("02:00:00:00:00:01"));
 
         Assert.True(repository.SetTimerSeconds("02:00:00:00:00:01", 135));
@@ -42,6 +44,7 @@ public sealed class RelativeTimerTests
         Preferences.Default.Clear();
         var repository = new DeviceRepository();
         const string address = "02:00:00:00:00:01";
+        Assert.True(repository.TryAdd("Device", address));
         Assert.True(repository.SetTimerSeconds(address, 135));
 
         Assert.False(repository.SetTimerSeconds(address, seconds));

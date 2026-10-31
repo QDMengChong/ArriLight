@@ -64,7 +64,7 @@ iOS Bundle ID 只通过构建参数覆盖，Android 包名仍使用项目配置�
 
 ### 版本、产物与测试者
 
-`version` 留空时使用项目的 `ApplicationDisplayVersion`（当前 `0.1.3`）。
+`version` 留空时使用项目的 `ApplicationDisplayVersion`（当前 `0.1.14`）。
 `build_number` 留空时使用 `(GitHub run number + 4).run attempt`，例如第一次运行是 `5.1`，
 重新运行是 `5.2`，下一次是 `6.1`。此值只覆盖 iOS 的 `CFBundleVersion`，不修改源文件。
 如果苹果后台已经有更高的构建号，填写更高的 `build_number`，或相应调整脚本中的起始偏移。

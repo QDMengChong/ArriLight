@@ -12,6 +12,8 @@ public sealed class TurnOnDelayTests
         var repository = new DeviceRepository();
         const string first = "02:00:00:00:00:01";
         const string second = "02:00:00:00:00:02";
+        Assert.True(repository.TryAdd("First device", first));
+        Assert.True(repository.TryAdd("Second device", second));
         Assert.False(repository.GetTurnOnDelayEnabled(first));
         Assert.Equal(60, repository.GetTurnOnDelaySeconds(first));
         repository.SetTurnOnDelayEnabled(first, true);
