@@ -809,6 +809,45 @@
     <value>请输入新的设备名称</value>
     <comment>DeviceMorePage.xaml.cs:103</comment>
   </data>
+  <data name="Device_Reset" xml:space="preserve">
+    <value>重置</value>
+  </data>
+  <data name="Device_Resetting" xml:space="preserve">
+    <value>重置中…</value>
+  </data>
+  <data name="Device_ResetConfirmation" xml:space="preserve">
+    <value>确定将“{0}”恢复出厂设置？所有 APP 的旧绑定将失效，设备模式恢复默认并重启，之后需要重新配对。</value>
+  </data>
+  <data name="Device_ResetAccepted" xml:space="preserve">
+    <value>重置请求已受理</value>
+  </data>
+  <data name="Device_ResetAcceptedMessage" xml:space="preserve">
+    <value>设备将恢复出厂设置并重启。继续使用前请重新配对。</value>
+  </data>
+  <data name="Device_ResetUnconfirmed" xml:space="preserve">
+    <value>重置结果待确认</value>
+  </data>
+  <data name="Device_ResetUnconfirmedMessage" xml:space="preserve">
+    <value>暂时无法确认设备是否已接受重置，请检查设备状态。若已重启，请重新配对。</value>
+  </data>
+  <data name="Device_ResetFailed" xml:space="preserve">
+    <value>重置未完成</value>
+  </data>
+  <data name="Device_ResetUnsupported" xml:space="preserve">
+    <value>此设备不支持恢复出厂设置。</value>
+  </data>
+  <data name="Device_ResetPreparationFailed" xml:space="preserve">
+    <value>设备未能准备恢复出厂。请检查设备状态后重试。</value>
+  </data>
+  <data name="Device_ResetLocked" xml:space="preserve">
+    <value>设备已锁定，请在设备上解除锁定后重试。</value>
+  </data>
+  <data name="Device_ResetBusy" xml:space="preserve">
+    <value>设备正忙，重置请求未受理，请稍后重试。</value>
+  </data>
+  <data name="Device_ResetNotAuthorized" xml:space="preserve">
+    <value>设备未授权或已锁定，请确认配对信息有效并解除设备锁定后重试。</value>
+  </data>
   <data name="Device_Unbind" xml:space="preserve">
     <value>删除</value>
     <comment>DeviceMorePage.xaml.cs:145; DeviceMorePage.xaml.cs:147; DeviceMorePage.xaml:Text</comment>

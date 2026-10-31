@@ -4,7 +4,7 @@ public sealed partial class AgpClient
 {
     /// <summary>
     /// 顺序执行整组命令，期间其他 Control Point 请求等待。业务失败返回进度；
-    /// 只对 Busy 使用新 TID 重试当前步骤。已成功步骤不回滚。
+    /// 只对允许重试的命令在 Busy 时使用新 TID 重试；恢复出厂不重试。已成功步骤不回滚。
     /// </summary>
     public async Task<AgpBatchResult> ExecuteBatchAsync(
         IReadOnlyList<AgpCommand> commands,
@@ -53,7 +53,8 @@ public sealed partial class AgpClient
                         .ConfigureAwait(false);
                     var decoded = command.Decode(message);
                     attempts[^1] = new(transactionId, decoded.Result, decoded.Response);
-                    if (decoded.Result != AgpResultCode.Busy || attempts.Count > settings.MaxBusyRetries)
+                    if (decoded.Result != AgpResultCode.Busy || !command.RetryOnBusy ||
+                        attempts.Count > settings.MaxBusyRetries)
                     {
                         steps.Add(new(index, command, attempts));
                         attempts.Clear();

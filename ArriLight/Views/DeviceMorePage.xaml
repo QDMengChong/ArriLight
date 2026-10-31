@@ -121,15 +121,37 @@
             BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource DarkCardBackground}}"
             Stroke="{AppThemeBinding Light={StaticResource CardStroke}, Dark={StaticResource DarkCardStroke}}"
             StrokeThickness="1">
-            <Button
-                BackgroundColor="Transparent"
-                BorderColor="#E65B65"
-                BorderWidth="1"
-                Command="{Binding UnbindCommand}"
-                CornerRadius="24"
-                HeightRequest="50"
-                Text="{Binding RemovalText}"
-                TextColor="#E65B65" />
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <Button
+                    Grid.Column="0"
+                    IsVisible="{Binding ShowResetButton}"
+                    BackgroundColor="Transparent"
+                    BorderColor="#E65B65"
+                    BorderWidth="1"
+                    Command="{Binding ResetCommand}"
+                    CornerRadius="24"
+                    HeightRequest="50"
+                    Text="{Binding ResetButtonText}"
+                    TextColor="#E65B65" />
+                <Button
+                    Grid.Column="0"
+                    Grid.ColumnSpan="2"
+                    BackgroundColor="Transparent"
+                    BorderColor="#E65B65"
+                    BorderWidth="1"
+                    Command="{Binding UnbindCommand}"
+                    CornerRadius="24"
+                    HeightRequest="50"
+                    Text="{Binding RemovalText}"
+                    TextColor="#E65B65">
+                    <Button.Triggers>
+                        <DataTrigger TargetType="Button" Binding="{Binding ShowResetButton}" Value="True">
+                            <Setter Property="Grid.Column" Value="1" />
+                            <Setter Property="Grid.ColumnSpan" Value="1" />
+                        </DataTrigger>
+                    </Button.Triggers>
+                </Button>
+            </Grid>
         </Border>
     </Grid>
 </ContentPage>

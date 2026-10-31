@@ -105,6 +105,12 @@ public sealed record AgpProvisionTokenResponse(
 public sealed record AgpAuthenticationResponse(
     AgpResultCode Result);
 
+/// <summary>恢复出厂请求的受理结果，不代表设备已经完成恢复或重启。</summary>
+public sealed record AgpFactoryResetResponse(AgpResultCode Result)
+{
+    public bool IsAccepted => Result == AgpResultCode.Success;
+}
+
 /// <summary>Light State 的业务状态位，独立于 AGP 帧头 flags。</summary>
 [Flags]
 public enum AgpLightStateFlags : byte
@@ -410,6 +416,13 @@ public static class AgpModelCodec
         }
 
         return new AgpAuthenticationResponse(DecodeResult(message.Payload.Span[0]));
+    }
+
+    /// <summary>解析 FACTORY_RESET 的单字节结果响应，不包含 Light State revision。</summary>
+    public static AgpFactoryResetResponse DecodeFactoryResetResponse(AgpMessage message)
+    {
+        RequireMessage(message, AgpMessageType.Response, AgpOpcode.FactoryReset, 1);
+        return new AgpFactoryResetResponse(DecodeResult(message.Payload.Span[0]));
     }
 
     public static byte[] EncodeLightness(

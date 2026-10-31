@@ -11,6 +11,12 @@ dotnet test tests\ArriLight.Discovery.Tests\ArriLight.Discovery.Tests.csproj
 
 AGP OnOff 翻转回归对照 PW01 `fd92673`：`AgpOnOffTests` 校验 `onoff=2` 精确向量、0/1 兼容、可选 TLV、20 字节边界及非法值；客户端和批量测试验证结果码、新 TID、取消、Busy 重试、成功步骤不重放以及翻转超时后不自动重发。GATT 使用 fake，实际设备的渐变、灯效暗相位和事务缓存仍需硬件验证。
 
+恢复出厂回归 `AgpFactoryResetTests` 对照 PW01 第 19 节和六条 `pw01_factory_reset_*` 向量，覆盖 bit23 能力、9 字节空请求、10 字节单结果响应、畸形响应、opcode/TID/type 匹配、取消和传输错误，以及类型化批次受理和 Busy 不自动重试。两处库各 29 项专项测试通过；使用内存 GATT，不执行实体设备恢复。
+
+设备信息页重置回归 `DeviceFactoryResetTests` 使用真实 ViewModel、认证、GATT 适配器和运行时独占队列，以及内存无线边界。覆盖按钮显隐、确认取消与迟到返回、双按钮互斥、最新锁定状态、单次命令、受理后保留条目并清理凭据、明确拒绝与结果待确认、目标连接清理失败、其他设备可控、取消发送等待及重新配对后控制。包含本地化、运行时独占和分组的 116 项定向测试通过；不执行真机恢复。
+
+本轮应用回归 821 项通过，单独排除了既有 `RestoredTransitiveDependenciesAreAllListed` 许可证覆盖校验：本机还原的 `Microsoft.NET.ILLink.Tasks/10.0.14` 尚未列入现有清单。Android 完整 Debug 构建通过，0 警告、0 错误；未执行真机恢复或 iOS 构建。
+
 ## 规则
 
 - 编解码测试必须断言精确十六进制字节，不能只进行编码后再解码的自洽测试。

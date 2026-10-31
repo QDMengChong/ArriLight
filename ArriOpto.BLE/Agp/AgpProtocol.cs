@@ -86,6 +86,7 @@ public enum AgpOpcode : ushort
     EffectGet = 0x0502,
     BatteryGet = 0x0701,
     BatteryStatus = 0x0702,
+    FactoryReset = 0x0703,
     Lightness16Set = 0x0901,
     Lightness16Get = 0x0902,
     HslSet = 0x0911,
@@ -133,7 +134,9 @@ public enum AgpCapabilities : ulong
     CtlDeltaUv = 1UL << 20,
     ColorTransition = 1UL << 21,
     /// <summary>支持独立的本地硬件延时模式配置；与灯效和一次性延时无关。</summary>
-    LocalMode = 1UL << 22
+    LocalMode = 1UL << 22,
+    /// <summary>支持远程恢复出厂；成功响应仅表示请求已持久化受理。</summary>
+    FactoryReset = 1UL << 23
 }
 
 /// <summary>一条已经通过 AGP 公共帧校验的消息。</summary>

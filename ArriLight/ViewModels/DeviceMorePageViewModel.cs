@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using ArriOpto.BLE.Agp;
 
 namespace ArriLight.ViewModels;
 
@@ -16,6 +17,10 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     public string NameFieldText => IsGroup ? AppResources.Group_Name : AppResources.Device_Name;
     public string IdFieldText => IsGroup ? AppResources.Group_Id : AppResources.Device_Id;
     public string RemovalText => IsGroup ? AppResources.Group_Delete : AppResources.Device_Unbind;
+    public bool ShowResetButton => !IsGroup && _repository.GetByAddress(DeviceId) is
+        { IsDemo: false, EffectiveProtocol: BluetoothDeviceProtocol.Agp, Capabilities: { } capabilities } &&
+        capabilities.HasFlag(AgpCapabilities.FactoryReset);
+    public string ResetButtonText => IsResetting ? AppResources.Device_Resetting : AppResources.Device_Reset;
     public string PinDescriptionText => IsGroup ? AppResources.Group_PinDescription : AppResources.Device_PinDescription;
     private bool _isVisible;
     private CancellationTokenSource? _runtimeWait;
@@ -30,7 +35,13 @@ public partial class DeviceMorePageViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isPinned;
     private bool _isLoading;
-    private bool _isUnbinding;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ResetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(UnbindCommand))]
+    private bool _isDeviceActionBusy;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ResetButtonText))]
+    private bool _isResetting;
 
     public string FirmwareVersion
     {
@@ -58,6 +69,8 @@ public partial class DeviceMorePageViewModel : ViewModelBase
         OnPropertyChanged(nameof(PageTitle)); OnPropertyChanged(nameof(RemovalText));
         OnPropertyChanged(nameof(NameFieldText)); OnPropertyChanged(nameof(IdFieldText));
         OnPropertyChanged(nameof(PinDescriptionText));
+        OnPropertyChanged(nameof(ShowResetButton));
+        ResetCommand.NotifyCanExecuteChanged();
         if (IsGroup) { DeviceId = _groupId; return; }
         if (query.TryGetValue("address", out var value) && value is not null)
             DeviceId = Uri.UnescapeDataString(value.ToString()!);
@@ -127,6 +140,8 @@ public partial class DeviceMorePageViewModel : ViewModelBase
 
     private void ReloadDevice()
     {
+        OnPropertyChanged(nameof(ShowResetButton));
+        ResetCommand.NotifyCanExecuteChanged();
         if (IsGroup)
         {
             if (_groups?.Get(_groupId) is { } group)
@@ -194,13 +209,69 @@ public partial class DeviceMorePageViewModel : ViewModelBase
             IsPinned = value;
     }
 
-    [RelayCommand]
+    private bool CanReset() => !IsDeviceActionBusy && ShowResetButton && _repository.GetTokenBytes(DeviceId) is not null;
+    private bool CanRemove() => !IsDeviceActionBusy;
+
+    [RelayCommand(CanExecute = nameof(CanReset))]
+    private async Task ResetAsync()
+    {
+        if (!CanReset()) return;
+        IsDeviceActionBusy = true;
+        var address = DeviceId;
+        try
+        {
+            var confirmed = await _interaction.ConfirmAsync(
+                AppResources.Device_Reset,
+                Localization.Format(nameof(AppResources.Device_ResetConfirmation), DeviceName),
+                AppResources.Device_Reset, AppResources.Common_Cancel);
+            if (!confirmed || !_isVisible || address != DeviceId) return;
+
+            IsResetting = true;
+            await _agpLight.FactoryResetAsync(address);
+            if (_isVisible)
+                await _interaction.AlertAsync(AppResources.Device_ResetAccepted,
+                    AppResources.Device_ResetAcceptedMessage, AppResources.Common_Ok);
+            else
+                _interaction.ShowToastForDuration(AppResources.Device_ResetAcceptedMessage, TimeSpan.FromSeconds(3));
+        }
+        catch (AgpFactoryResetUnconfirmedException)
+        {
+            await ShowResetErrorAsync(AppResources.Device_ResetUnconfirmed, AppResources.Device_ResetUnconfirmedMessage);
+        }
+        catch (Exception exception)
+        {
+            var message = exception.Data["AgpResult"] switch
+            {
+                AgpResultCode.Busy => AppResources.Device_ResetBusy,
+                AgpResultCode.NotAuthorized => AppResources.Device_ResetNotAuthorized,
+                AgpResultCode.InternalError => AppResources.Device_ResetPreparationFailed,
+                AgpResultCode.UnknownOpcode or AgpResultCode.UnsupportedFeature => AppResources.Device_ResetUnsupported,
+                _ => exception.Message
+            };
+            await ShowResetErrorAsync(AppResources.Device_ResetFailed, message);
+        }
+        finally
+        {
+            IsResetting = false;
+            IsDeviceActionBusy = false;
+            if (_isVisible) ReloadDevice();
+        }
+    }
+
+    private Task ShowResetErrorAsync(string title, string message)
+    {
+        if (_isVisible) return _interaction.AlertAsync(title, message, AppResources.Common_Ok);
+        _interaction.ShowToastForDuration(message, TimeSpan.FromSeconds(3));
+        return Task.CompletedTask;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanRemove))]
     private async Task UnbindAsync()
     {
-        if (_isUnbinding)
+        if (IsDeviceActionBusy)
             return;
 
-        _isUnbinding = true;
+        IsDeviceActionBusy = true;
         try
         {
             if (IsGroup)
@@ -238,7 +309,7 @@ public partial class DeviceMorePageViewModel : ViewModelBase
         }
         finally
         {
-            _isUnbinding = false;
+            IsDeviceActionBusy = false;
         }
     }
 }

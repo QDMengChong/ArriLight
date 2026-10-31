@@ -34,6 +34,7 @@
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Schedules.cs" Link="Services\AgpLightControlService.Schedules.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Runtime.cs" Link="Services\AgpLightControlService.Runtime.cs" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.RuntimeExclusive.cs" Link="Services\AgpLightControlService.RuntimeExclusive.cs" />
+    <Compile Include="..\..\ArriLight\Services\AgpLightControlService.FactoryReset.cs" Link="Services\AgpLightControlService.FactoryReset.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceRuntimeState.cs" Link="Services\DeviceRuntimeState.cs" />
     <Compile Include="..\..\ArriLight\Services\DeviceGroup*.cs" Link="Services\%(Filename)%(Extension)" />
     <Compile Include="..\..\ArriLight\Services\AgpLightControlService.Groups.cs" Link="Services\AgpLightControlService.Groups.cs" />

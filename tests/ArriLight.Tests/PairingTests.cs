@@ -313,6 +313,7 @@ internal sealed class FakeBle
     public bool FailDisconnect { get; set; }
     public AgpCapabilities Capabilities { get; set; } = AgpCapabilities.SecureControl | AgpCapabilities.RtcTime;
     public AgpResultCode AuthenticationResult { get; set; } = AgpResultCode.Success;
+    public AgpResultCode FactoryResetResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode TimerResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode EffectResult { get; set; } = AgpResultCode.Success;
     public AgpResultCode OnOffResult { get; set; } = AgpResultCode.Success;
@@ -562,6 +563,7 @@ internal sealed class FakeBle
         {
             AgpOpcode.AuthGetToken => ProvisionPayload,
             AgpOpcode.AuthToken => [(byte)AuthenticationResult],
+            AgpOpcode.FactoryReset => [(byte)FactoryResetResult],
             AgpOpcode.OnOffSet => [(byte)(OnOffResults.TryDequeue(out var result) ? result : OnOffResult),
                 (byte)OnOffStateRevision, (byte)(OnOffStateRevision >> 8),
                 (byte)(OnOffStateRevision >> 16), (byte)(OnOffStateRevision >> 24)],

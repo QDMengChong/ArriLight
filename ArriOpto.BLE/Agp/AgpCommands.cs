@@ -3,7 +3,8 @@ namespace ArriOpto.BLE.Agp;
 /// <summary>由 AgpCommands 创建的不可变请求；负载在创建时校验并复制。</summary>
 public abstract class AgpCommand
 {
-    private protected AgpCommand(AgpOpcode opcode, byte[] payload, AgpOpcode[] responses, TimeSpan? timeout)
+    private protected AgpCommand(AgpOpcode opcode, byte[] payload, AgpOpcode[] responses, TimeSpan? timeout,
+        bool retryOnBusy = true)
     {
         // Validate the complete frame before any batch can start writing.
         _ = AgpCodec.EncodeRequest(opcode, 1, payload);
@@ -13,12 +14,14 @@ public abstract class AgpCommand
         Payload = payload.ToArray();
         ExpectedResponseOpcodes = responses.ToArray();
         Timeout = timeout;
+        RetryOnBusy = retryOnBusy;
     }
 
     public AgpOpcode Opcode { get; }
     internal ReadOnlyMemory<byte> Payload { get; }
     internal IReadOnlyCollection<AgpOpcode> ExpectedResponseOpcodes { get; }
     internal TimeSpan? Timeout { get; }
+    internal bool RetryOnBusy { get; }
     internal abstract (object Response, AgpResultCode Result) Decode(AgpMessage message);
 }
 
@@ -29,8 +32,9 @@ public sealed class AgpCommand<TResponse> : AgpCommand where TResponse : class
     private readonly Func<TResponse, AgpResultCode> _result;
 
     internal AgpCommand(AgpOpcode opcode, byte[] payload, AgpOpcode[] responses,
-        Func<AgpMessage, TResponse> decode, Func<TResponse, AgpResultCode> result, TimeSpan? timeout = null)
-        : base(opcode, payload, responses, timeout)
+        Func<AgpMessage, TResponse> decode, Func<TResponse, AgpResultCode> result, TimeSpan? timeout = null,
+        bool retryOnBusy = true)
+        : base(opcode, payload, responses, timeout, retryOnBusy)
     {
         _decode = decode;
         _result = result;
@@ -46,6 +50,11 @@ public sealed class AgpCommand<TResponse> : AgpCommand where TResponse : class
 /// <summary>类型化 AGP Control Point 命令工厂；不发送报文。</summary>
 public static class AgpCommands
 {
+    /// <summary>创建恢复出厂请求；即使批次允许 Busy 重试，此命令也只发送一次。</summary>
+    public static AgpCommand<AgpFactoryResetResponse> FactoryReset() =>
+        new(AgpOpcode.FactoryReset, [], [AgpOpcode.FactoryReset],
+            AgpModelCodec.DecodeFactoryResetResponse, response => response.Result, retryOnBusy: false);
+
     public static AgpCommand<AgpProvisionTokenResponse> GetProvisionToken(TimeSpan? timeout = null) =>
         Create(AgpOpcode.AuthGetToken, [], AgpModelCodec.DecodeProvisionTokenResponse,
             response => response.Result, timeout ?? AgpClient.DefaultAuthenticationTimeout);

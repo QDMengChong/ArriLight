@@ -1,6 +1,6 @@
 namespace ArriOpto.BLE.Agp;
 
-/// <summary>批次只重试明确的 Busy；次数不包含首次发送。</summary>
+/// <summary>仅重试可重试命令的 Busy 响应；恢复出厂不重试。次数不包含首次发送。</summary>
 public sealed record AgpBatchOptions
 {
     public int MaxBusyRetries { get; init; } = 3;

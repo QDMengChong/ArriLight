@@ -809,6 +809,45 @@ Logs will be appended to:
     <value>Enter a new device name</value>
     <comment>DeviceMorePage.xaml.cs:103</comment>
   </data>
+  <data name="Device_Reset" xml:space="preserve">
+    <value>Reset</value>
+  </data>
+  <data name="Device_Resetting" xml:space="preserve">
+    <value>Resetting…</value>
+  </data>
+  <data name="Device_ResetConfirmation" xml:space="preserve">
+    <value>Restore “{0}” to factory settings? All existing app bindings will become invalid, the device mode will return to its default, and the device will restart. You will need to pair it again.</value>
+  </data>
+  <data name="Device_ResetAccepted" xml:space="preserve">
+    <value>Reset request accepted</value>
+  </data>
+  <data name="Device_ResetAcceptedMessage" xml:space="preserve">
+    <value>The device will restore its factory settings and restart. Pair it again before continuing to use it.</value>
+  </data>
+  <data name="Device_ResetUnconfirmed" xml:space="preserve">
+    <value>Reset outcome unconfirmed</value>
+  </data>
+  <data name="Device_ResetUnconfirmedMessage" xml:space="preserve">
+    <value>The reset request could not be confirmed. Check the device's state. If it has restarted, pair it again.</value>
+  </data>
+  <data name="Device_ResetFailed" xml:space="preserve">
+    <value>Reset not completed</value>
+  </data>
+  <data name="Device_ResetUnsupported" xml:space="preserve">
+    <value>This device does not support factory reset.</value>
+  </data>
+  <data name="Device_ResetPreparationFailed" xml:space="preserve">
+    <value>The device could not prepare for a factory reset. Check its state before trying again.</value>
+  </data>
+  <data name="Device_ResetLocked" xml:space="preserve">
+    <value>The device is locked. Unlock it on the device before trying again.</value>
+  </data>
+  <data name="Device_ResetBusy" xml:space="preserve">
+    <value>The device is busy and did not accept the reset request. Try again later.</value>
+  </data>
+  <data name="Device_ResetNotAuthorized" xml:space="preserve">
+    <value>The device is not authorized or is locked. Check its pairing information and unlock it before trying again.</value>
+  </data>
   <data name="Device_Unbind" xml:space="preserve">
     <value>Delete</value>
     <comment>DeviceMorePage.xaml.cs:145; DeviceMorePage.xaml.cs:147; DeviceMorePage.xaml:Text</comment>

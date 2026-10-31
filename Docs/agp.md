@@ -2,6 +2,32 @@
 
 `ArriOpto.BLE.Agp` 提供 ArriOpto GATT Protocol（AGP）v1 的 .NET binding。它只负责协议和 GATT 连接适配，不包含 MAUI 页面、设备仓库、时区转换、连接重试或配对 UI。
 
+## 恢复出厂（FACTORY_RESET）
+
+按 PW01 `docs/AGP/SPEC.md` 第 19 节和 `src/AGP/agp_device_model.c/.h`，新增 `AgpOpcode.FactoryReset = 0x0703`、`AgpCapabilities.FactoryReset = 1UL << 23`。旧固件不声明此能力，宿主应隐藏入口；PW01 当前能力值为 `0x0000000000C02A87`。
+
+宿主负责检查能力、使用已保存 Token 认证并取得用户明确确认，再调用 `FactoryResetAsync`。库不隐式读取能力、不自动认证、不删除本地设备条目。PW01 还要求未锁定、非耗尽关机、OTA 空闲以及 Indicate 通道可用。
+
+```csharp
+// 已完成能力检查、Token 认证和用户确认。
+AgpFactoryResetResponse response = await client.FactoryResetAsync(cancellationToken);
+if (response.IsAccepted)
+{
+    // 只能显示“恢复请求已受理”，不能显示“恢复已完成”。
+}
+```
+
+请求是空负载、非零 TID；响应通过 Control Point Indicate 回显 opcode/TID，严格只有 `result u8`，没有 Light State revision，整包 10 字节。`AgpModelCodec.DecodeFactoryResetResponse` 拒绝错误类型、opcode、长度及未登记结果码。PW01 的精确向量（TID=`0x0901`）：
+
+```text
+Request:  01 00 00 00 03 07 01 09 00
+Response: 01 00 01 00 03 07 01 09 01 00
+```
+
+`Success` / `IsAccepted=true` 只表示恢复标记已持久化受理，设备随后才执行恢复及重启。PW01 会更换 Token、恢复 MODE 默认值并重启，保留 MAC、校准和固件；继续使用须重新物理配对。其他结果码原样保留，包括 `NotAuthorized`、`Busy`、`InternalError` 和旧端可能返回的 `UnknownOpcode` / `UnsupportedFeature`。
+
+`FactoryResetAsync` 不自动重试；超时、取消等待和普通断连沿用现有异常，不能据此认定成功或失败，也不能撤销设备已经受理的恢复。`AgpCommands.FactoryReset()` 支持类型化批量调用，但即使批次设置了 Busy 重试，此命令仍只发送一次。将它放在批次末尾，避免受理后继续向即将重启的设备发送命令。其他命令保留原有 Busy 重试策略。
+
 ## 分层与入口
 
 ```text
@@ -66,6 +92,7 @@ client.LightStateChanged += (_, latest) => UpdateLockIndicator(latest.IsLocked);
 | --- | --- | --- |
 | Capabilities / Light State | `ReadCapabilitiesAsync`、`ReadLightStateAsync`、`LightStateChanged` | 状态 TID 为 0，revision 由设备维护 |
 | 基础灯控 | `SetOnOffAsync`、`ToggleOnOffAsync`、`SetLightnessAsync` | OnOff 支持关/开/翻转；亮度为线性协议百分比 0..100；APP 不做 Gamma |
+| 设备管理 | `FactoryResetAsync` | bit23 `FactoryReset`；须先认证和用户确认，成功仅表示持久化受理 |
 | 本地硬件模式 | `SetModeAsync`、`GetModeAsync` | 能力 bit22 `LocalMode`；各启用方向为独立的 1..2,592,000 秒 |
 | Battery | `GetBatteryAsync`、`ReadBatteryStateAsync`、`BatteryStateChanged` | bit11 判断 GET；`HasBatteryStateCharacteristic` 判断 Read/Notify；电量未知为 null |
 | UTC Time | `SetTimeAsync`、`GetTimeAsync` | 仅 UTC；2024-01-01 至 2099-12-31；时区/DST 属于 APP |
@@ -170,7 +197,7 @@ else
 
 同一个 `AgpClient` 的普通 Control Point 请求和批次共用执行门。批次从开始发送到完成或中止持续持有执行门，包括 Busy 退避期间；每步等待匹配 opcode/TID 的响应，解码并检查业务结果后才继续。后续批次和普通请求不能插入当前组，但等待操作的先后次序不承诺 FIFO。状态通知和特征读取不属于批量命令；直接 GATT 写入或另一个客户端实例由宿主统一管理。推荐每条 BLE 连接只有一个客户端和命令入口。
 
-只有明确的 `Busy=7` 重试当前步骤，保持原操作码和冻结的负载，使用新的非零 TID；已成功步骤不会重复。默认 `MaxBusyRetries=3` 不包含首次发送，`InitialBusyRetryDelay=100 ms`、`MaximumBusyRetryDelay=400 ms`，等待 100/200/400 ms。可配置次数、初始延时和延时上限，`MaxBusyRetries=0` 禁用重试；其他业务错误（包括 `AuthBusy`）立即停止并返回 `IsSuccess=false`。
+只有明确的 `Busy=7` 重试当前步骤，保持原操作码和冻结的负载，使用新的非零 TID；已成功步骤不会重复。默认 `MaxBusyRetries=3` 不包含首次发送，`InitialBusyRetryDelay=100 ms`、`MaximumBusyRetryDelay=400 ms`，等待 100/200/400 ms。可配置次数、初始延时和延时上限，`MaxBusyRetries=0` 禁用重试；其他业务错误（包括 `AuthBusy`）立即停止并返回 `IsSuccess=false`。`FactoryReset` 不参与自动重试，收到 Busy 也立即停止批次。
 
 `RequestTimeout` 默认每次尝试 6 秒；`GetProvisionToken(timeout)` 默认使用认证的 60 秒超时。超时、传输失败和协议解析失败不自动重试：抛出 `AgpBatchException`，原错误在 `InnerException`，进度在 `Progress`。排队、等待响应和退避均支持取消；取消抛出派生自 `OperationCanceledException` 的 `AgpBatchCanceledException`，同样附带 `Progress`。需要限制整个批次（含排队）时，调用方可使用带截止时间的 CancellationToken。客户端 Dispose 会中止活动批次和排队请求，并等待发送流程退出后释放同步资源。
 

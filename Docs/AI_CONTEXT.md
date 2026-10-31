@@ -1,5 +1,21 @@
 # AI_CONTEXT
 
+## Device information factory-reset action (2026-10-31)
+
+- UI: `Views/DeviceMorePage.xaml` bottom grid places Reset left/Delete right at equal width; hide Reset for missing FactoryReset bit23, demo/Mesh/group targets and span Delete across both columns. `DeviceMorePageViewModel` owns localized zh/en confirmation/result messages and mutual Reset/Delete busy gating; a confirmation returning after page departure cannot dispatch. Missing Token disables Reset. Accepted response says acceptance, NEVER completion.
+- Service: `Services/AgpLightControlService.FactoryReset.cs`, included explicitly by host test csproj. Target runtime exclusive barrier invalidates queued old work; non-runtime path uses existing operation lock. Authenticate via stored Token, read fresh Light State and reject lock, then issue exactly one FactoryReset. No pairing-window token request, automatic reset retry or deletion of saved device entry.
+- After acceptance: retain record/name/AddedAt, clear Token, status/schedule/delay caches and disconnect target. After dispatch uncertainty: throw `AgpFactoryResetUnconfirmedException`, retain Token, clean up session. Both cases set AuthorizationBlocked/BlockedToken to current persisted Token, suppress automatic recovery until rebind; explicit rejection retains credentials. Cleanup errors do not undo acceptance. Other device sessions remain available. Existing duplicate-add binding resets the block and saves new credentials.
+- Tests: `DeviceFactoryResetTests` covers visibility, cancellation/no late dispatch, typed response path, confirmation, mutual button blocking, fresh lock, explicit rejection, transport uncertainty, cleanup failure, per-target exclusivity, cancellation after dispatch and control after rebind. Focused suite including localization/runtime/group tests116/116; full host suite821/821 excluding existing `RestoredTransitiveDependenciesAreAllListed` failure (restored ILLink10.0.14 missing from unchanged license catalog). Full Android Debug build0warnings/0errors; no physical reset or iOS validation.
+
+## AGP remote factory reset (2026-10-31)
+
+- Validation: app AGP suite127/127; factory-reset subset29/29; no physical reset/radio validation or mobile UI change.
+
+- Baseline: current PW01 working-tree `docs/AGP/SPEC.md` section19, `protocol.yaml` factory_reset_model, six `pw01_factory_reset_*` vectors and `src/AGP/agp_device_model.c/.h`. Opcode0x0703; capability bit23; PW01 mask0x0000000000C02A87. Empty Request/nonzero TID; same-opcode/TID Response with exactly result_u8,10B total, no revision. SUCCESS is durable acceptance, NEVER completion.
+- APIs: `AgpClient.FactoryResetAsync(CancellationToken)`, `AgpCommands.FactoryReset()`, `AgpModelCodec.DecodeFactoryResetResponse`, `AgpFactoryResetResponse(Result)` with `IsAccepted`. Host owns capability gating, Token auth, user confirmation, binding storage and completion verification. No implicit reads/auth, reconnects or local record deletion.
+- Single and batch factory reset both send once, including Busy. Internal `AgpCommand.RetryOnBusy=false` only for this command; other commands retain existing batch retry behavior. Timeout/cancellation/transport errors propagate and leave device outcome unconfirmed; cancelling a client wait does not revoke durable device acceptance. Put factory reset last in a batch.
+- Changes synchronized between standalone `D:/git/ArriOpto.BLE/ArriOpto.BLE` and app-local `D:/git/ArriLight/ArriOpto.BLE`; preserve their other differences. Tests: `tests/ArriLight.Tests/AgpFactoryResetTests.cs`, exact request/responses/capabilities, strict payload/type/opcode/result, response matching, cancellation/transport errors, typed batch acceptance and no Busy retry.
+
 ## Android startup resources (2026-10-29)
 
 - `JavaProxyThrowable` at `MainActivity.OnCreate` wrapped `MissingManifestResourceException`: the app DLL had zero manifest resources, so `AppShell` crashed while loading `Tab_Devices`. The source `.resx` files were present. Running only `-t:Compile` in the normal mobile output directory can leave this incomplete DLL for a later incremental deployment; it is not valid mobile build/startup verification.

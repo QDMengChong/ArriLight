@@ -142,6 +142,20 @@ public sealed partial class AgpClient : IAsyncDisposable
         return AgpModelCodec.DecodeAuthenticationResponse(message);
     }
 
+    /// <summary>请求恢复出厂；Success 只表示已持久化受理，不表示恢复完成。</summary>
+    /// <remarks>
+    /// 调用方先检查 FactoryReset 能力、完成 Token 认证并取得用户确认。
+    /// 不自动重试；超时、取消等待或断连不能解释为成功，也不能撤销已受理的恢复。
+    /// </remarks>
+    public async Task<AgpFactoryResetResponse> FactoryResetAsync(
+        CancellationToken cancellationToken = default) =>
+        AgpModelCodec.DecodeFactoryResetResponse(
+            await SendRequestAsync(
+                    AgpOpcode.FactoryReset,
+                    ReadOnlyMemory<byte>.Empty,
+                    cancellationToken: cancellationToken)
+                .ConfigureAwait(false));
+
     public async Task<AgpColorStatus> ReadColorStateAsync(
         CancellationToken cancellationToken = default)
     {
