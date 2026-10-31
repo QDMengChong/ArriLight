@@ -1,0 +1,242 @@
+name: Android build and Firebase
+run-name: Android ${{ inputs.mode }} · ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build a signed APK, or build and distribute to Firebase
+        type: choice
+        required: true
+        default: apk
+        options:
+          - apk
+          - firebase
+      version:
+        description: Display version (for example 0.1.12); empty uses the project version
+        type: string
+        required: false
+      build_number:
+        description: Integer versionCode; empty uses 1000 + run number (same on reruns)
+        type: string
+        required: false
+      release_notes:
+        description: Tester release notes; empty uses the version and commit
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+# Only one signed Android build/distribution runs at a time.
+concurrency:
+  group: android-firebase
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: '10.0.401'
+  DOTNET_WORKLOAD_VERSION: '10.0.401'
+  FIREBASE_CLI_VERSION: '15.34.2'
+  PROJECT_PATH: ArriLight/ArriLight.csproj
+  LICENSE_ASSETS_TEST: ArriLight.Tests.OpenSourceLicenseTests.RestoredTransitiveDependenciesAreAllListed
+  DOTNET_CLI_TELEMETRY_OPTOUT: '1'
+  DOTNET_NOLOGO: '1'
+
+jobs:
+  tests:
+    name: Tests (${{ matrix.project }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        project:
+          - ArriLight.Tests
+          - ArriLight.Discovery.Tests
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Test Android release helpers
+        if: matrix.project == 'ArriLight.Tests'
+        run: python3 -m unittest discover -s .github/scripts/tests -v
+
+      - uses: actions/setup-dotnet@v5
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Pin the SDK for this CI checkout
+        run: dotnet new globaljson --sdk-version "$DOTNET_VERSION" --roll-forward disable --force
+
+      # Re-run license coverage after the Android project's actual restore below.
+      - name: Run unit tests
+        env:
+          TEST_PROJECT: ${{ matrix.project }}
+        run: >-
+          dotnet test "tests/$TEST_PROJECT/$TEST_PROJECT.csproj"
+          --configuration Release
+          --filter "FullyQualifiedName!=$LICENSE_ASSETS_TEST"
+          --logger "trx;LogFileName=results.trx"
+          --results-directory TestResults
+
+      - name: Save test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-test-results-${{ matrix.project }}-${{ github.run_attempt }}
+          path: TestResults/*.trx
+          if-no-files-found: warn
+          retention-days: 14
+
+  android:
+    name: Android (${{ inputs.mode }})
+    needs: tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
+    env:
+      MODE: ${{ inputs.mode }}
+      ANDROID_APPLICATION_ID: ${{ vars.ANDROID_APPLICATION_ID }}
+      ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS || secrets.ANDROID_KEY_ALIAS }}
+      FIREBASE_APP_ID: ${{ vars.FIREBASE_APP_ID || secrets.FIREBASE_APP_ID }}
+      FIREBASE_GROUPS: ${{ vars.FIREBASE_GROUPS || secrets.FIREBASE_GROUPS }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Validate configuration and resolve release versions
+        env:
+          VERSION_INPUT: ${{ inputs.version }}
+          BUILD_NUMBER_INPUT: ${{ inputs.build_number }}
+          RELEASE_NOTES: ${{ inputs.release_notes }}
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: python3 .github/scripts/android-release.py configure
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - uses: actions/setup-dotnet@v5
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Install the pinned MAUI Android workload
+        run: |
+          set -euo pipefail
+          dotnet new globaljson --sdk-version "$DOTNET_VERSION" --roll-forward disable --force
+          dotnet workload install maui-android --version "$DOTNET_WORKLOAD_VERSION"
+
+      - name: Restore Android dependencies
+        run: |
+          set -euo pipefail
+          dotnet restore "$PROJECT_PATH" -p:TargetFrameworks=net10.0-android
+          dotnet build "$PROJECT_PATH" -t:InstallAndroidDependencies \
+            -f net10.0-android --no-restore \
+            -p:TargetFrameworks=net10.0-android \
+            -p:AndroidSdkDirectory="$ANDROID_HOME" \
+            -p:JavaSdkDirectory="$JAVA_HOME" \
+            -p:AcceptAndroidSdkLicenses=True
+
+      - name: Verify licenses for restored Android dependencies
+        run: >-
+          dotnet test tests/ArriLight.Tests/ArriLight.Tests.csproj
+          --configuration Release
+          --filter "FullyQualifiedName=$LICENSE_ASSETS_TEST"
+          --logger "trx;LogFileName=android-licenses.trx"
+          --results-directory TestResults
+
+      - name: Restore and validate the Android keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+        run: python3 .github/scripts/android-release.py signing
+
+      - name: Publish the signed Release APK
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          dotnet publish "$PROJECT_PATH" \
+            -f net10.0-android -c Release --no-restore \
+            -p:TargetFrameworks=net10.0-android \
+            -p:AndroidSdkDirectory="$ANDROID_HOME" \
+            -p:JavaSdkDirectory="$JAVA_HOME" \
+            -p:AndroidPackageFormats=apk \
+            -p:AndroidManifest="$ANDROID_MANIFEST_PATH" \
+            -p:ApplicationId="$ANDROID_APPLICATION_ID" \
+            -p:ApplicationDisplayVersion="$ANDROID_VERSION" \
+            -p:ApplicationVersion="$ANDROID_BUILD_NUMBER" \
+            -p:AndroidKeyStore=true \
+            -p:AndroidSigningKeyStore="$ANDROID_KEYSTORE_PATH" \
+            -p:AndroidSigningKeyAlias="$ANDROID_KEY_ALIAS" \
+            -p:AndroidSigningStorePass=env:ANDROID_KEYSTORE_PASSWORD \
+            -p:AndroidSigningKeyPass=env:ANDROID_KEY_PASSWORD \
+            --output "$ANDROID_PUBLISH_DIRECTORY"
+
+      - name: Verify the APK signature, package, and version
+        run: python3 .github/scripts/android-release.py verify
+
+      # Keep the verified APK even if Firebase authentication or distribution fails.
+      - name: Save the signed APK and public metadata
+        uses: actions/upload-artifact@v7
+        with:
+          name: ArriLight-android-${{ env.ANDROID_VERSION }}-${{ env.ANDROID_BUILD_NUMBER }}-${{ github.run_attempt }}
+          path: ${{ env.ANDROID_ARTIFACT_DIRECTORY }}/*
+          if-no-files-found: error
+          retention-days: 14
+
+      - uses: actions/setup-node@v7
+        if: env.MODE == 'firebase'
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Install the pinned Firebase CLI
+        if: env.MODE == 'firebase'
+        run: npm install --global "firebase-tools@$FIREBASE_CLI_VERSION"
+
+      - name: Authenticate to Firebase using service-account ADC
+        if: env.MODE == 'firebase'
+        uses: google-github-actions/auth@v3
+        with:
+          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+
+      - name: Distribute to Firebase tester groups
+        if: env.MODE == 'firebase'
+        run: |
+          set -euo pipefail
+          firebase appdistribution:distribute "$ANDROID_APK_PATH" \
+            --app "$FIREBASE_APP_ID" \
+            --groups "$FIREBASE_GROUPS" \
+            --release-notes-file "$ANDROID_RELEASE_NOTES_PATH" \
+            --non-interactive
+          echo "Distributed Android $ANDROID_VERSION ($ANDROID_BUILD_NUMBER) to groups: $FIREBASE_GROUPS." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save Android license test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-license-results-${{ github.run_number }}-${{ github.run_attempt }}
+          path: TestResults/android-licenses.trx
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Remove temporary Android signing material
+        if: always()
+        run: |
+          if [[ -f .github/scripts/android-release.py ]]; then
+            python3 .github/scripts/android-release.py cleanup
+          fi

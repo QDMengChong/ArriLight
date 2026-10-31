@@ -96,7 +96,11 @@ Xcode 版本，不要单独更新到不匹配的 workload。
 
 ## Android 发布
 
-dotnet publish -c Release -p:AndroidKeyStore=true -p:AndroidSigningKeyStore="C:\Users\RLGE\AppData\Local\Xamarin\Mono for Android\Keystore\" -p:AndroidSigningKeyAlias=ArriOpto -p:AndroidSigningStorePass=12345678 -p:AndroidSigningKeyPass=12345678
+GitHub Actions 可自动测试、签名构建 APK，并分发到 Firebase App Distribution。
+使用 **Android build and Firebase** 工作流，支持 `apk` 和 `firebase` 两种模式；配置项与操作步骤见
+[Android Firebase 自动分发](Docs/Firebase-App-Distribution.md)。
+
+本地命令行签名发布可参考 [MAUI Android CLI 发布](https://learn.microsoft.com/en-us/dotnet/maui/android/deployment/publish-cli?view=net-maui-10.0)，签名密码通过环境变量传入。
 ## OTA 在线升级
 
 在线升级通过 Cloudflare Python Workers 访问 R2。部署文件、API 契约、R2 目录和
