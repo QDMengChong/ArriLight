@@ -196,6 +196,65 @@ class AndroidReleaseTests(unittest.TestCase):
         self.assertEqual(hashlib.sha256(b"fixture-apk").hexdigest(), metadata["apkSha256"])
         self.assertEqual("com.arriopto.arrilight", metadata["name"])
 
+    def test_build_tools_37_certificate_format_is_verified_and_saved(self):
+        values, signature, badging = self.apk()
+        tools_dir = Path(os.environ["ANDROID_HOME"]) / "build-tools/37.0.0"
+        tools_dir.mkdir()
+        # Real build-tools 37 output names the signature scheme instead of Signer #1.
+        signature = ("Verifies\nNumber of signers: 1\n"
+                     + signature.replace("Signer #1", "V3.0 Signer:") + "\n"
+                     + "V3.0 Signer: public key SHA-256 digest: " + "cd" * 32 + "\n"
+                     + "Source Stamp Signer certificate SHA-256 digest: " + "ef" * 32 + "\n")
+        with patch.object(release, "run_tool", side_effect=[signature, badging]) as tool:
+            release.verify()
+        self.assertEqual(str(tools_dir / "apksigner"), tool.call_args_list[0].args[0][0])
+        metadata = json.loads((values["ANDROID_ARTIFACT_DIRECTORY"] / "apk-metadata.json").read_text())
+        self.assertEqual("ab" * 32, metadata["certificateSha256"])
+
+    def test_supported_apksigner_labels_case_and_line_endings(self):
+        _, _, badging = self.apk()
+        labels = ["Signer #1", "Signer #2", "V1 Signer:", "V2 Signer:", "V3.0 Signer:",
+                  "V3.1 Signer:", "V3.2 Signer:",
+                  "Signer (minSdkVersion=28, maxSdkVersion=2147483647)"]
+        for label in labels:
+            with self.subTest(label=label):
+                signature = f"{label} certificate SHA-256 digest: " + "AB" * 32 + "\r\n"
+                self.assertEqual("ab" * 32,
+                                 release.validate_apk_metadata(signature, badging)["certificateSha256"])
+
+    def test_unreadable_certificate_is_reported_as_parsing_failure(self):
+        _, _, badging = self.apk()
+        signatures = ["Verifies\nNumber of signers: 1\n",
+                      "Signer #1 public key SHA-256 digest: " + "ab" * 32,
+                      "Source Stamp Signer certificate SHA-256 digest: " + "ab" * 32,
+                      "V3.0 Signer: certificate SHA-256 digest: " + "ab" * 31,
+                      "V3.0 Signer: certificate SHA-256 digest: " + "ab" * 33]
+        for signature in signatures:
+            with self.subTest(signature=signature):
+                with self.assertRaisesRegex(ValueError, "parsing failure"):
+                    release.validate_apk_metadata(signature, badging)
+
+    def test_certificate_mismatch_reports_expected_and_actual_public_fingerprints(self):
+        _, signature, badging = self.apk()
+        signature = signature.replace("Signer #1", "V3.0 Signer:").replace("ab" * 32, "cd" * 32)
+        with self.assertRaisesRegex(ValueError, "does not match") as failure:
+            release.validate_apk_metadata(signature, badging)
+        self.assertIn("Expected SHA-256: " + "ab" * 32, str(failure.exception))
+        self.assertIn("APK signer SHA-256: " + "cd" * 32, str(failure.exception))
+
+    def test_every_reported_apk_signer_must_match_the_configured_certificate(self):
+        _, signature, badging = self.apk()
+        cases = [signature + "\nSigner #2 certificate SHA-256 digest: " + "cd" * 32,
+                 signature.replace("Signer #1", "V3.1 Signer:")
+                 + "\nV3.0 Signer: certificate SHA-256 digest: " + "cd" * 32]
+        for actual in cases:
+            with self.subTest(signature=actual):
+                with self.assertRaisesRegex(ValueError, "does not match"):
+                    release.validate_apk_metadata(actual, badging)
+        matching = (signature.replace("Signer #1", "V3.1 Signer:")
+                    + "\nV3.0 Signer: certificate SHA-256 digest: " + "ab" * 32)
+        self.assertEqual("ab" * 32, release.validate_apk_metadata(matching, badging)["certificateSha256"])
+
     def test_wrong_certificate_package_version_or_debug_apk_cannot_be_published(self):
         values, signature, badging = self.apk()
         cases = [(signature.replace("ab" * 32, "cd" * 32), badging),

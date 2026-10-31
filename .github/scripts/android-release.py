@@ -171,9 +171,23 @@ def android_tools():
 
 
 def validate_apk_metadata(signature, badging):
-    certificate = re.search(r"Signer #1 certificate SHA-256 digest:\s*([0-9a-fA-F]{64})", signature)
-    if not certificate or certificate.group(1).lower() != os.environ["ANDROID_SIGNING_CERT_SHA256"].lower():
-        raise ValueError("The APK signing certificate does not match the configured keystore.")
+    # Build-tools 37 uses e.g. "V3.0 Signer:" instead of "Signer #1".
+    # Only APK signer certificates count; public-key and source-stamp digests do not.
+    certificates = re.findall(
+        r"^(?:Signer #[1-9][0-9]*|Signer \(minSdkVersion=[^\r\n]+\)|"
+        r"V[1-4](?:\.[0-9]+)? Signer:) certificate SHA-256 digest:[ \t]*([0-9a-fA-F]{64})[ \t]*\r?$",
+        signature, re.MULTILINE)
+    if not certificates:
+        raise ValueError("Could not read an APK signing certificate SHA-256 from apksigner output. "
+                         "Expected a Signer #N or Vn Signer certificate digest; "
+                         "this is a parsing failure, not a confirmed certificate mismatch.")
+    actual_certificates = {certificate.lower() for certificate in certificates}
+    expected_certificate = os.environ["ANDROID_SIGNING_CERT_SHA256"].lower()
+    if actual_certificates != {expected_certificate}:
+        raise ValueError("The APK signing certificate does not match the configured keystore. "
+                         f"Expected SHA-256: {expected_certificate}; "
+                         f"APK signer SHA-256: {', '.join(sorted(actual_certificates))}. "
+                         "Check the release keystore, alias, and publish signing properties.")
     package_line = next((line for line in badging.splitlines() if line.startswith("package:")), "")
     metadata = dict(re.findall(r"([A-Za-z]+)='([^']*)'", package_line))
     expected = {
@@ -185,7 +199,7 @@ def validate_apk_metadata(signature, badging):
         raise ValueError("APK package/version metadata does not match the resolved release settings.")
     if any(line.strip() == "application-debuggable" for line in badging.splitlines()):
         raise ValueError("The release APK is debuggable.")
-    return {**expected, "certificateSha256": certificate.group(1).lower()}
+    return {**expected, "certificateSha256": expected_certificate}
 
 
 def verify():
@@ -195,6 +209,7 @@ def verify():
         raise ValueError("Expected exactly one *-Signed.apk in the publish directory.")
     apk = candidates[0]
     apksigner, aapt = android_tools()
+    print("APK verification build-tools: " + apksigner.parent.name, flush=True)
     signature = run_tool([str(apksigner), "verify", "--verbose", "--print-certs", str(apk)],
                          "APK signature verification failed.")
     badging = run_tool([str(aapt), "dump", "badging", str(apk)], "Could not read the APK package metadata.")

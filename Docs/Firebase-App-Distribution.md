@@ -68,7 +68,9 @@
 | Configure | Secret/Variable 名称、Base64、Firebase App ID、测试组别名、整数构建号 |
 | Keystore | 是否为发布 keystore、store password、Key Alias；Key password 在发布时校验 |
 | License test | 还原的 NuGet 依赖与 `OpenSourceLicenses/catalog.json` 是否同步；不要直接关闭校验 |
-| APK verify | 签名证书、生成包名、版本号、是否意外生成 Debug 包 |
+| APK verify：证书解析失败 | Build Tools 37 的指纹标签改为 `V3.0 Signer:` 等格式；旧脚本只识别 `Signer #1`，会误报证书不匹配。推送新版脚本后从对应分支新建 Run workflow |
+| APK verify：证书不匹配 | 新版日志会分别输出 keystore 预期指纹与 APK 实际指纹（均为公开 SHA-256）。检查发布 keystore、alias 和 publish 签名参数；不要跳过校验或仅为通过校验重新生成发布密钥 |
+| APK verify：包元数据 | 生成包名、版本号、是否意外生成 Debug 包 |
 | XA1018 / 清单路径重复 | 发布参数是否使用 `ANDROID_MANIFEST_RELATIVE_PATH`；推送修复后从包含修复的分支新建一次 Run workflow |
 | Firebase 403 | 服务账号是否拥有目标项目的 App Distribution Admin 权限 |
 | Firebase app/group | App ID 是否误填为包名、测试组是否已创建、组别名是否正确 |
