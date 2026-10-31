@@ -47,6 +47,8 @@
 
 版本、包名只通过构建参数和 Runner 临时 AndroidManifest 同步，不改写仓库内的项目文件或 AndroidManifest，因此原清单中的固定 versionName 不会覆盖本轮输入。
 
+临时清单有两个路径：`ANDROID_MANIFEST_PATH` 是绝对文件路径，`ANDROID_MANIFEST_RELATIVE_PATH` 是相对 `.csproj` 所在目录的路径。发布时 `-p:AndroidManifest` 必须使用后者，因为当前 Android SDK 会直接拼接 `$(ProjectDir)$(AndroidManifest)`；传入绝对路径会导致 XA1018 和重复的目录前缀。
+
 ## 工作流执行与产物
 
 - 两个 .NET 测试项目先在 Linux 运行；许可证覆盖测试在移动项目还原后单独执行，未静默跳过。
@@ -67,6 +69,7 @@
 | Keystore | 是否为发布 keystore、store password、Key Alias；Key password 在发布时校验 |
 | License test | 还原的 NuGet 依赖与 `OpenSourceLicenses/catalog.json` 是否同步；不要直接关闭校验 |
 | APK verify | 签名证书、生成包名、版本号、是否意外生成 Debug 包 |
+| XA1018 / 清单路径重复 | 发布参数是否使用 `ANDROID_MANIFEST_RELATIVE_PATH`；推送修复后从包含修复的分支新建一次 Run workflow |
 | Firebase 403 | 服务账号是否拥有目标项目的 App Distribution Admin 权限 |
 | Firebase app/group | App ID 是否误填为包名、测试组是否已创建、组别名是否正确 |
 

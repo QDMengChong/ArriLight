@@ -99,6 +99,29 @@ class AndroidReleaseTests(unittest.TestCase):
         self.assertIsNotNone(manifest.find("uses-permission"))
         self.assertEqual(self.original_manifest, self.manifest.read_bytes())
 
+    def test_manifest_argument_resolves_with_android_sdk_project_directory_prefix(self):
+        values = self.configure()
+        argument = values["ANDROID_MANIFEST_RELATIVE_PATH"]
+        self.assertFalse(Path(argument).is_absolute())
+        # Xamarin.Android.Common.targets uses the literal $(ProjectDir)$(AndroidManifest).
+        resolved_by_sdk = Path(str(self.project.parent) + os.sep + argument).resolve()
+        self.assertEqual(values["ANDROID_MANIFEST_PATH"], resolved_by_sdk)
+        self.assertTrue(resolved_by_sdk.is_file())
+        self.assertEqual(self.original_manifest, self.manifest.read_bytes())
+
+    def test_relative_project_path_uses_project_directory_instead_of_checkout_root(self):
+        previous_directory = Path.cwd()
+        try:
+            os.chdir(self.root)
+            os.environ["PROJECT_PATH"] = "app/ArriLight.csproj"
+            values = self.configure()
+        finally:
+            os.chdir(previous_directory)
+        resolved_by_sdk = Path(
+            str(self.project.parent) + os.sep + values["ANDROID_MANIFEST_RELATIVE_PATH"]).resolve()
+        self.assertEqual(values["ANDROID_MANIFEST_PATH"], resolved_by_sdk)
+        self.assertTrue(resolved_by_sdk.is_file())
+
     def test_rerun_preserves_default_version_code(self):
         first = self.configure()["ANDROID_BUILD_NUMBER"]
         os.environ["GITHUB_RUN_ATTEMPT"] = "2"

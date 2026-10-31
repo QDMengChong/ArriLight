@@ -169,13 +169,14 @@ jobs:
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
           set -euo pipefail
+          # AndroidManifest is resolved relative to the .csproj directory by the Android SDK.
           dotnet publish "$PROJECT_PATH" \
             -f net10.0-android -c Release --no-restore \
             -p:TargetFrameworks=net10.0-android \
             -p:AndroidSdkDirectory="$ANDROID_HOME" \
             -p:JavaSdkDirectory="$JAVA_HOME" \
             -p:AndroidPackageFormats=apk \
-            -p:AndroidManifest="$ANDROID_MANIFEST_PATH" \
+            -p:AndroidManifest="$ANDROID_MANIFEST_RELATIVE_PATH" \
             -p:ApplicationId="$ANDROID_APPLICATION_ID" \
             -p:ApplicationDisplayVersion="$ANDROID_VERSION" \
             -p:ApplicationVersion="$ANDROID_BUILD_NUMBER" \

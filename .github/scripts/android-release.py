@@ -96,6 +96,9 @@ def configure():
     ET.register_namespace("android", ANDROID_NS)
     manifest_path = build_dir / "AndroidManifest.xml"
     manifest.write(manifest_path, encoding="utf-8", xml_declaration=True)
+    # .NET for Android prefixes ProjectDir even when AndroidManifest is absolute.
+    # File operations keep the absolute path; MSBuild receives a project-relative path.
+    manifest_relative_path = Path(os.path.relpath(manifest_path, project_path.resolve().parent)).as_posix()
 
     notes = os.environ.get("RELEASE_NOTES", "").strip()
     if not notes:
@@ -108,6 +111,7 @@ def configure():
         "ANDROID_VERSION": version,
         "ANDROID_BUILD_NUMBER": build_number,
         "ANDROID_MANIFEST_PATH": manifest_path,
+        "ANDROID_MANIFEST_RELATIVE_PATH": manifest_relative_path,
         "ANDROID_SIGNING_DIRECTORY": build_dir / "signing",
         "ANDROID_KEYSTORE_PATH": build_dir / "signing/ArriLight.keystore",
         "ANDROID_PUBLISH_DIRECTORY": build_dir / "publish",
