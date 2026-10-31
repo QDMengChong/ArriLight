@@ -52,12 +52,16 @@
 ## 工作流执行与产物
 
 - 两个 .NET 测试项目先在 Linux 运行；许可证覆盖测试在移动项目还原后单独执行，未静默跳过。
-- 固定 .NET SDK/workload set `10.0.401`、JDK 21、Firebase CLI `15.34.2`；Node.js 22 仅在 Firebase 模式安装。
+- 固定 .NET SDK/workload set `10.0.401`、JDK 21、Firebase CLI `15.34.2`；Node.js 22 用于诊断脚本测试和 Firebase 分发。
 - 所有移动还原和发布仅针对 `net10.0-android`，不要求 Apple 工作负载。
 - 使用完整 Release publish 生成 APK，并核验 APK 签名证书与 keystore 一致、包名/versionName/versionCode 正确，拒绝 debuggable 包。
 - 上传 Firebase 前先保存签名 APK 和 `apk-metadata.json` 到 Actions Artifacts，保留 14 天。即使云端认证或分发失败，已经保存的安装包仍可下载。
 - `apk-metadata.json` 只含包名、版本、APK SHA-256 和公开证书 SHA-256；不会上传 keystore、密码或服务账号 JSON。
 - 工作流只提供手动入口，不在 PR 或每次 push 时分发；同一时间只执行一个 Android 发布任务。
+
+Firebase 上传前的 `Diagnose Firebase identity and target access` 步骤会记录 ADC 中实际使用的服务账号邮箱、凭据项目 ID、App ID 中的目标项目编号，以及从 Firebase 查到的目标项目 ID、Android 包名、发布读写权限和 App Distribution 读取结果。邮箱和项目标识为公开标识；不输出密钥、访问令牌或发布下载链接。附加 API 的诊断失败不会阻止 CLI 上传，也不能单独证明缺少上传权限。
+
+上传失败时，工作流从 CLI 调试文件中仅提取 App Distribution 错误的 HTTP 状态、Google 状态码及 `ErrorInfo` 中的 reason/service/consumer/permission/resource。原始日志和命令输出仅临时保存于 RUNNER_TEMP，并在该步骤退出时删除，不上传到 Artifacts。诊断也会写入 Actions Summary；成功读取发布列表只验证读权限，最终是否能上传以实际 CLI 结果为准。
 
 首次云端运行验证的是 Linux Android 工具链、签名凭据及 Firebase IAM/测试组的实际配置。本机脚本检查不代表已完成云端构建、Firebase 上传或真机验证。
 
@@ -73,12 +77,15 @@
 | APK verify：包元数据 | 生成包名、版本号、是否意外生成 Debug 包 |
 | XA1018 / 清单路径重复 | 发布参数是否使用 `ANDROID_MANIFEST_RELATIVE_PATH`；推送修复后从包含修复的分支新建一次 Run workflow |
 | Firebase 403 | 服务账号是否拥有目标项目的 App Distribution Admin 权限 |
+| 启用 API 后仍然 403 | 查看 `Diagnose Firebase identity and target access` 和上传步骤中的过滤诊断。`SERVICE_DISABLED` 按 metadata 中的 service/consumer 检查实际未启用 API 的项目；`release-permissions.missing` 检查是否包含 `firebaseappdistro.releases.update`；`android-package.matches=false` 检查 App ID。若诊断 API 本身失败，权限状态应视为未知，不为诊断额外授予管理员权限 |
+| App Distribution 读取 404 | 在 Firebase 控制台确认应用属于目标项目，并打开 App Distribution 页面；若出现 Get started/开始使用，完成控制台初始化后再试。不要仅凭 403 认定尚未初始化 |
 | Firebase app/group | App ID 是否误填为包名、测试组是否已创建、组别名是否正确 |
 
 本地辅助脚本测试命令：
 
 ```powershell
 python -m unittest discover -s .github/scripts/tests -v
+node --test .github/scripts/tests/firebase-diagnostics.test.cjs
 ```
 
 参考：[Firebase CLI 分发](https://firebase.google.com/docs/app-distribution/android/distribute-cli)、[服务账号认证](https://firebase.google.com/docs/app-distribution/authenticate-service-account?platform=android)、[Google GitHub 认证 Action](https://github.com/google-github-actions/auth)、[MAUI APK 发布](https://learn.microsoft.com/en-us/dotnet/maui/android/deployment/publish-cli?view=net-maui-10.0)、[Android 依赖安装](https://learn.microsoft.com/en-us/dotnet/android/getting-started/installation/dependencies)。

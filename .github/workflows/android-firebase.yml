@@ -62,6 +62,16 @@ jobs:
         if: matrix.project == 'ArriLight.Tests'
         run: python3 -m unittest discover -s .github/scripts/tests -v
 
+      - uses: actions/setup-node@v7
+        if: matrix.project == 'ArriLight.Tests'
+        with:
+          node-version: '22'
+          package-manager-cache: false
+
+      - name: Test Firebase diagnostics
+        if: matrix.project == 'ArriLight.Tests'
+        run: node --test .github/scripts/tests/firebase-diagnostics.test.cjs
+
       - uses: actions/setup-dotnet@v5
         env:
           DOTNET_INSTALL_DIR: ${{ runner.temp }}/dotnet
@@ -215,15 +225,33 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
 
+      - name: Diagnose Firebase identity and target access
+        if: env.MODE == 'firebase'
+        run: |
+          set -euo pipefail
+          export NODE_PATH="$(npm root --global)/firebase-tools/node_modules"
+          node .github/scripts/firebase-diagnostics.cjs check
+
       - name: Distribute to Firebase tester groups
         if: env.MODE == 'firebase'
         run: |
           set -euo pipefail
-          firebase appdistribution:distribute "$ANDROID_APK_PATH" \
+          export FIREBASE_DEBUG_PATH="$RUNNER_TEMP/arrilight-android/firebase-debug.log"
+          result_path="$RUNNER_TEMP/arrilight-android/firebase-result.json"
+          trap 'rm -f -- "$FIREBASE_DEBUG_PATH" "$result_path"' EXIT
+          echo "Uploading the verified APK to Firebase App Distribution..."
+          if firebase appdistribution:distribute "$ANDROID_APK_PATH" \
             --app "$FIREBASE_APP_ID" \
             --groups "$FIREBASE_GROUPS" \
             --release-notes-file "$ANDROID_RELEASE_NOTES_PATH" \
-            --non-interactive
+            --non-interactive --debug --json > "$result_path" 2>&1; then
+            echo "Firebase distribution completed."
+          else
+            firebase_exit_code=$?
+            node .github/scripts/firebase-diagnostics.cjs report || echo "::warning::Could not summarize the Firebase error."
+            echo "::error::Firebase distribution failed (exit $firebase_exit_code). See the filtered Firebase diagnostics above."
+            exit "$firebase_exit_code"
+          fi
           echo "Distributed Android $ANDROID_VERSION ($ANDROID_BUILD_NUMBER) to groups: $FIREBASE_GROUPS." >> "$GITHUB_STEP_SUMMARY"
 
       - name: Save Android license test results
